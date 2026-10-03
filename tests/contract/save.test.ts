@@ -145,3 +145,33 @@ test("the last choices survive a save and a load", () => {
   writeSave(save);
   assert.deepEqual(loadSave().save.settings.lastSetup, choice);
 });
+
+test("a hosted game keeps its host code, and a joined game keeps its join code, never both", () => {
+  const net: GameConfig = { ...classic, mode: "network" } as GameConfig;
+  const hosted = savedGameFrom(net, [place(0)], 1, undefined, "BCD234");
+  assert.equal(hosted.hostCode, "BCD234");
+  assert.equal(hosted.joinCode, undefined);
+  const joined = savedGameFrom(net, [place(0)], 1, undefined, undefined, "bcd234");
+  assert.equal(joined.joinCode, "bcd234");
+  assert.equal(joined.hostCode, undefined);
+  assert.equal(savedGameFrom(net, [], 1, undefined, "BCD234", "XYZ789").joinCode, undefined);
+
+  writeSave({ ...defaultSave(), game: joined });
+  assert.equal(loadSave().save.game?.joinCode, "BCD234"); // read back in its normal form
+  writeSave({ ...defaultSave(), game: hosted });
+  assert.equal(loadSave().save.game?.hostCode, "BCD234");
+  assert.equal(loadSave().save.game?.joinCode, undefined);
+});
+
+test("a join code that is not a code is dropped, and a game saved without one has none", () => {
+  const net: GameConfig = { ...classic, mode: "network" } as GameConfig;
+  const raw = (extra: object) => JSON.stringify({ schema: 1, settings: {}, game: { config: net, moves: "", startedAt: 1, ...extra } });
+  for (const bad of ["", "abc", "ABC 23", 5, null]) {
+    const result = parseSave(raw({ joinCode: bad }));
+    assert.ok(result.ok);
+    if (result.ok) assert.equal(result.save.game?.joinCode, undefined, JSON.stringify(bad));
+  }
+  const none = parseSave(raw({}));
+  assert.ok(none.ok);
+  if (none.ok) assert.equal(none.save.game?.joinCode, undefined);
+});

@@ -92,6 +92,12 @@ async function openOwnGame(): Promise<void> {
           hostGame(main(), save.game.config, () => showSetup(), { code: save.game.hostCode, moves: restored.state.moves });
           return;
         }
+        if (save.game.joinCode && !over) {
+          // A game this device joined as a guest: join it again with the same code, unless it was finished.
+          const { joinGame } = await import("./multiplayer.ts");
+          joinGame(main(), save.game.joinCode, () => showSetup());
+          return;
+        }
         saveGame(null);
       } else if (restored) {
         gameScreen.mount(main(), save.game.config, () => showSetup(), { state: restored.state, resigned: restored.resigned, startedAt: save.game.startedAt });

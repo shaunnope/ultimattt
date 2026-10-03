@@ -85,7 +85,7 @@ test("marks can be placed on the front face and, after turning the view, on the 
 
 test("scoring blocks placement until a layer is turned; turning can break the line", async ({ page }) => {
   await startCube(page);
-  for (const [face, cell] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await sticker(page, face, cell).dispatchEvent("click");
+  for (const [face, cell] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]] as [number, number][]) await sticker(page, face, cell).dispatchEvent("click");
   await expect(score(page)).toContainText("X: 1");
   const picker = page.getByRole("group", { name: "Turn a layer" });
   await expect(picker).toBeVisible();

@@ -1,13 +1,20 @@
-// A stand-in for PeerJS that pairs pages of one browser through a BroadcastChannel, so two-device play can be
-// tested with no internet. It offers the small part of the PeerJS API that src/adapters/net.ts uses:
+// A stand-in for PeerJS that pairs pages of different browser contexts through a relay in the test process
+// (tests/e2e/relay.ts), so two-device play can be tested with no internet and with each device having its own
+// storage. It offers the small part of the PeerJS API that src/adapters/net.ts uses:
 //   new Peer(id?, options), peer.on/once("open" | "connection" | "disconnected" | "error"), peer.connect(id),
 //   peer.reconnect(), peer.destroy(), and connections with on("open" | "data" | "close" | "error"), send(), close().
-// window.__fakePeer.drop() drops every connection on every page, as a lost network would.
+// window.__fakePeer.drop() drops every connection on every device, as a lost network would.
+//
+// The page sends with the function the relay exposes (window.__relaySend) and receives through
+// window.__relayReceive, which the relay calls for every message from another device.
 (() => {
-  const channel = new BroadcastChannel("fake-peerjs");
   const peers = new Map();
   const registry = new Set();
   let counter = 0;
+
+  const post = (message) => {
+    if (typeof window.__relaySend === "function") window.__relaySend(message);
+  };
 
   class Emitter {
     constructor() {
@@ -43,12 +50,12 @@
     }
     send(data) {
       if (!this.open) throw new Error("connection is not open");
-      channel.postMessage({ kind: "data", to: this.peer, conn: this.connectionId, data: JSON.parse(JSON.stringify(data)) });
+      post({ kind: "data", to: this.peer, conn: this.connectionId, data: JSON.parse(JSON.stringify(data)) });
     }
     close() {
       if (!this.open) return;
       this.open = false;
-      channel.postMessage({ kind: "close", conn: this.connectionId });
+      post({ kind: "close", conn: this.connectionId });
       setTimeout(() => this.emit("close"), 0);
     }
     remoteClosed() {
@@ -72,14 +79,14 @@
         }
         peers.set(this.id, this);
         registry.add(this.id);
-        channel.postMessage({ kind: "register", id: this.id });
+        post({ kind: "register", id: this.id });
         this.emit("open", this.id);
       }, 10);
     }
     connect(remote) {
       const conn = new DataConnection(this, remote, "c" + ++counter + Math.random().toString(36).slice(2, 6));
       this.conns.set(conn.connectionId, conn);
-      channel.postMessage({ kind: "connect", to: remote, from: this.id, conn: conn.connectionId });
+      post({ kind: "connect", to: remote, from: this.id, conn: conn.connectionId });
       setTimeout(() => {
         if (!conn.answered && !this.destroyed) this.emit("error", { type: "peer-unavailable" });
       }, 400);
@@ -91,11 +98,11 @@
       for (const conn of this.conns.values()) conn.close();
       peers.delete(this.id);
       registry.delete(this.id);
-      channel.postMessage({ kind: "unregister", id: this.id });
+      post({ kind: "unregister", id: this.id });
     }
   }
 
-  channel.onmessage = ({ data: m }) => {
+  function receive(m) {
     switch (m.kind) {
       case "register":
         registry.add(m.id);
@@ -112,7 +119,7 @@
         host.emit("connection", conn);
         conn.open = true;
         setTimeout(() => conn.emit("open"), 0);
-        channel.postMessage({ kind: "ack", conn: m.conn });
+        post({ kind: "ack", conn: m.conn });
         break;
       }
       case "ack":
@@ -137,13 +144,14 @@
         for (const peer of peers.values()) for (const conn of peer.conns.values()) conn.remoteClosed();
         break;
     }
-  };
+  }
 
+  window.__relayReceive = receive;
   window.Peer = Peer;
   window.__fakePeer = {
     drop() {
       for (const peer of peers.values()) for (const conn of peer.conns.values()) conn.remoteClosed();
-      channel.postMessage({ kind: "dropAll" });
+      post({ kind: "dropAll" });
     },
   };
 })();
