@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+  <meta charset="utf-8">
+  <title>Tic Tac Toe: Classic, Ultimate and Cube</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Classic tic tac toe, Ultimate tic tac toe and a 3D Cube variant. Play the computer or a friend. Works offline.">
+  <meta name="theme-color" content="#ccffcc">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Pre-paint theme: keep in step with resolveMode in src/ui/theme.ts (scripts/check-theme.mjs checks it). -->
+  <script>
+    (function () {
+      try {
+        var pref = localStorage.getItem("ttt.theme") || "auto";
+        if (pref !== "light" && pref !== "dark") pref = "auto";
+        var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var mode = pref === "auto" ? (dark ? "dark" : "light") : pref;
+        document.documentElement.setAttribute("data-mode", mode);
+        document.documentElement.setAttribute("data-theme-pref", pref);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- The modules the start screen needs, fetched in parallel. Written by scripts/gen-preload.mjs at build time. -->
+  <!-- modulepreload:start -->
+  <link rel="modulepreload" href="js/adapters/storage.js">
+  <link rel="modulepreload" href="js/adapters/store.js">
+  <link rel="modulepreload" href="js/core/config.js">
+  <link rel="modulepreload" href="js/core/icons.js">
+  <link rel="modulepreload" href="js/core/pairing.js">
+  <link rel="modulepreload" href="js/core/seed.js">
+  <link rel="modulepreload" href="js/core/settings.js">
+  <link rel="modulepreload" href="js/core/tokens.js">
+  <link rel="modulepreload" href="js/ui/app.js">
+  <link rel="modulepreload" href="js/ui/glyph.js">
+  <link rel="modulepreload" href="js/ui/icons.js">
+  <link rel="modulepreload" href="js/ui/messages.js">
+  <link rel="modulepreload" href="js/ui/settings.js">
+  <link rel="modulepreload" href="js/ui/setup.js">
+  <link rel="modulepreload" href="js/ui/theme.js">
+  <link rel="modulepreload" href="js/ui/ui.js">
+  <link rel="modulepreload" href="js/ui/update-bar.js">
+  <!-- modulepreload:end -->
+
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/cube.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the game</a>
+  <div id="update-bar" hidden></div>
+  <header class="app-header">
+    <h1 class="app-title">Tic Tac Toe</h1>
+    <div id="header-actions" class="header-actions"></div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <div id="status" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <noscript><p class="noscript">This game needs JavaScript.</p></noscript>
+  <script type="module" src="js/ui/app.js"></script>
+</body>
+</html>

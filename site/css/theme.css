@@ -1,0 +1,57 @@
+/* Design tokens. Light, dark and auto. State is never carried by colour alone:
+   marks differ by shape and boards add outlines and patterns. */
+
+:root,
+:root[data-mode="light"] {
+  color-scheme: light;
+  --brand: #ccffcc;
+  --bg: #eef4f0;
+  --surface: #ffffff;
+  --surface-2: #f3f7f4;
+  --line: #b9c7bf;
+  --ink: #121815;
+  --muted: #4d5a53;
+  --brand-ink: #1f6b3d;
+  --on-brand: #121815;
+  --x-ink: #1f6b3d;
+  --o-ink: #8a3b00;
+  --focus: #0b57d0;
+  --ok: #0f7234;
+  --warn: #8a4b00;
+  --error: #b91c1c;
+  --claim-x: rgba(31, 107, 61, 0.16);
+  --claim-o: rgba(138, 59, 0, 0.16);
+  --playable: rgba(11, 87, 208, 0.14);
+  --shadow: 0 6px 22px rgba(20, 40, 30, 0.12);
+  --radius: 14px;
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --bg: #0c100e;
+  --surface: #161d19;
+  --surface-2: #1d2621;
+  --line: #44534b;
+  --ink: #eef2ef;
+  --muted: #a6b3ac;
+  --brand-ink: #bff5cf;
+  --x-ink: #7be3a0;
+  --o-ink: #ffb27a;
+  --focus: #8ab4ff;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --error: #fca5a5;
+  --claim-x: rgba(123, 227, 160, 0.2);
+  --claim-o: rgba(255, 178, 122, 0.2);
+  --playable: rgba(138, 180, 255, 0.2);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

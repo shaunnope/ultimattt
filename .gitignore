@@ -1,1 +1,13 @@
 .claude/skills
+node_modules/
+site/js/
+site/sw.js
+site/precache.json
+test-results/
+playwright-report/
+*.log
+.env*
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
