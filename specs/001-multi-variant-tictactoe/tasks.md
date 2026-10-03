@@ -347,3 +347,15 @@ After Phase 2: one person US1, one US2 core, one US3 core+geometry; converge on 
 - [X] T088 [P] Write failing unit tests that the start screen remembers its last choices (variant, size, opponent, level, mark) after a reload and after New game, and falls back to defaults for anything invalid, in `tests/unit/setup.test.ts` and `tests/contract/save.test.ts` per data-model: Settings `lastConfig` (partial)
 - [X] T089 Store the last start-screen choices as `lastConfig` in `src/core/settings.ts` and `src/adapters/store.ts` and pre-select them in `src/ui/setup.ts` until T088 passes per data-model: Settings `lastConfig` (partial)
 - [X] T090 Bring `specs/001-multi-variant-tictactoe/plan.md` Project Structure in line with the code: add `src/core/tokens.ts`, `src/core/config.ts`, `src/core/pairing.ts`, `src/adapters/restore.ts`, `scripts/gen-preload.mjs`, `scripts/lib/serve.mjs` and `playwright.perf.config.ts`, correct `src/multiplayer.ts` to `src/ui/multiplayer.ts`, and give a one-line reason for each per plan: Project Structure (unrequested)
+
+---
+
+## Phase 12: Convergence
+
+**Purpose**: Remaining work found by a second `/speckit-converge` run on 2026-10-03, ordered by severity. Test tasks come before the code they cover.
+
+- [X] T091 Add `tests/e2e/**` and the `playwright*.config.ts` files to the strict type check in `tsconfig.tests.json` (keeping `tests/fixtures/**` out) so `npm run typecheck` fails on the current error at `tests/e2e/cube.spec.ts:88`, and correct the quickstart's step 0 wording to say what is covered per plan R1 and quickstart step 0 (partial)
+- [X] T092 Fix the type error at `tests/e2e/cube.spec.ts:88` (an indexed value that may be undefined) and any other error T091 surfaces, until `npm run typecheck` passes per plan R1 (partial)
+- [X] T093 [P] Write failing e2e tests in `tests/e2e/network.spec.ts` that a guest who reloads the page, or applies an update, rejoins the same game by itself with the moves intact, and that a guest who chose Leave or whose game finished is not rejoined per US4/AC3 (partial)
+- [X] T094 Save the guest's join code with the game in `src/adapters/store.ts` and `src/ui/game.ts`, and on boot rejoin it in `src/ui/multiplayer.ts` and `src/ui/app.ts`, until T093 passes; the host's code and the guest's code are never saved together per US4/AC3 (partial)
+- [X] T095 [P] Rework `tests/e2e/fake-peerjs.js` so separate browser contexts pair through a Node-side relay (the page calls an exposed function; the relay delivers to the other context), move every two-device test in `tests/e2e/network.spec.ts` onto one context per device so each has its own storage, and drop the `joinByLink` workaround per plan: Technical Context (partial)

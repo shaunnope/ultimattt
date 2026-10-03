@@ -18,7 +18,7 @@ npm run build && npx http-server site -p 8080   # or any static server; open htt
 
 ## Validate
 
-0. **Types**: `npm run typecheck` (`tsc --noEmit`, strict) passes with no errors.
+0. **Types**: `npm run typecheck` (`tsc --noEmit`, strict) passes with no errors. It covers the source, the unit, contract and browser tests, the Playwright configs and the service worker.
 1. **Pure logic (Constitution I, V)**: `npm run test:unit` — rules for all variants, cube turn tables, AI determinism and Master-never-loses on 3×3, seed and link round-trips. Expect all green; every new rule test must have been committed red first.
 2. **Contracts**: `npm run test:contract` — golden games and cube fixtures (derived from the original 1D game) replay to expected states; net messages validate.
 3. **Classic (US1)**: e2e plays 3×3, 4×4, 5×5; Master on 3×3 never loses across a scripted set; undo removes move + reply.
@@ -38,7 +38,7 @@ Every step above was run from a clean build (`site/js`, `site/sw.js` and `site/p
 
 | Step | Result |
 | --- | --- |
-| 0. Types | `npm run typecheck`: no errors (source, tests and service worker) |
+| 0. Types | `npm run typecheck`: no errors (source, unit, contract and browser tests, Playwright configs, service worker) |
 | 1–2. Pure logic and contracts | `npm test`: 186 unit and 47 contract tests pass, including Master never losing on 3×3 against every line of play, the 408 golden cube positions from the original game, an independent QR decoder, and the two-device protocol |
 | 3. Classic | e2e: 3×3, 4×4, 5×5, undo, resign, computer first move |
 | 4. Ultimate | e2e: forced boards, free choice, claims, a whole game replayed from the computer's moves |

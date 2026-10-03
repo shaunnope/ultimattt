@@ -22,6 +22,8 @@ export interface SavedGame {
   resigned?: Mark;
   /** Set for a game this device is hosting for a friend: the code to host it under again after a reload */
   hostCode?: string;
+  /** Set for a game this device joined as a guest: the code to join again after a reload (never set together with hostCode) */
+  joinCode?: string;
 }
 
 export interface SaveFile {
@@ -36,10 +38,11 @@ export function defaultSave(): SaveFile {
   return { schema: 1, settings: { ...DEFAULT_SETTINGS, icons: { ...DEFAULT_SETTINGS.icons } }, game: null };
 }
 
-export function savedGameFrom(config: GameConfig, moves: readonly Move[], startedAt: number, resigned?: Mark, hostCode?: string): SavedGame {
+export function savedGameFrom(config: GameConfig, moves: readonly Move[], startedAt: number, resigned?: Mark, hostCode?: string, joinCode?: string): SavedGame {
   const saved: SavedGame = { config, moves: encodeMoves(config.variant, moves), startedAt };
   if (resigned) saved.resigned = resigned;
   if (hostCode) saved.hostCode = hostCode;
+  else if (joinCode) saved.joinCode = joinCode;
   return saved;
 }
 
@@ -57,6 +60,7 @@ function readGame(raw: unknown): SavedGame | null {
   const game: SavedGame = { config, moves: g.moves, startedAt: g.startedAt };
   if (isMark(g.resigned)) game.resigned = g.resigned;
   if (typeof g.hostCode === "string" && isValidCode(g.hostCode)) game.hostCode = normaliseCode(g.hostCode);
+  if (!game.hostCode && typeof g.joinCode === "string" && isValidCode(g.joinCode)) game.joinCode = normaliseCode(g.joinCode);
   return game;
 }
 

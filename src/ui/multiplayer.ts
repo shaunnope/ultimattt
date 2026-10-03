@@ -36,7 +36,7 @@ class NetRun {
   private finished = false;
   readonly hooks: NetHooks;
 
-  constructor(session: NetSession, container: HTMLElement, exit: () => void, hostCode: string | null = null) {
+  constructor(session: NetSession, container: HTMLElement, exit: () => void, hostCode: string | null = null, joinCode: string | null = null) {
     this.session = session;
     this.container = container;
     this.exit = exit;
@@ -45,6 +45,7 @@ class NetRun {
         return session.myMark;
       },
       hostCode,
+      joinCode,
       state: () => session.state!,
       resigned: () => session.resigned,
       move: (move: Move) => this.run(session.move(move)),
@@ -222,7 +223,7 @@ export interface ResumeHost {
   moves: Move[];
 }
 
-/** Forget a hosted game that was saved (but never a local one the player might still want). */
+/** Forget a hosted or joined game that was saved (but never a local one the player might still want). */
 function forgetHostedGame(): void {
   if (loadSave().save.game?.config.mode === "network") saveGame(null);
 }
@@ -255,7 +256,7 @@ export function hostGame(container: HTMLElement, config: GameConfig, exit: () =>
 /** Join a friend's game by code. */
 export function joinGame(container: HTMLElement, code: string, exit: () => void): void {
   const session = NetSession.guest();
-  const run = new NetRun(session, container, exit);
+  const run = new NetRun(session, container, exit, null, code);
   let inGame = false;
   /** The host turned us away: that is the answer, so the connection closing after it must not replace it. */
   let rejected = false;
@@ -296,6 +297,7 @@ export function joinGame(container: HTMLElement, code: string, exit: () => void)
       if (typeof raw === "object" && raw !== null && (raw as Message).type === "reject") {
         const reason = (raw as { reason?: string }).reason;
         rejected = true;
+        forgetHostedGame(); // the answer is no: a reload must not ask again
         show(reason === "full" ? "This game already has two players." : "This game was made with a different version of the app. Reload the page to update it.", true);
         return;
       }
@@ -309,6 +311,9 @@ export function joinGame(container: HTMLElement, code: string, exit: () => void)
     reconnect: () => void guest.connect(code),
   });
   retry.addEventListener("click", () => void guest.connect(code));
-  back.addEventListener("click", () => run.finish(true));
+  back.addEventListener("click", () => {
+    forgetHostedGame();
+    run.finish(true);
+  });
   void guest.connect(code);
 }

@@ -38,6 +38,8 @@ export interface NetHooks {
   resign(): string | null;
   /** The code this device is hosting under (null for a guest) */
   readonly hostCode: string | null;
+  /** The code a guest joined with, so a reload can join again */
+  readonly joinCode: string | null;
   /** Leave the game and drop the connection */
   leave(): void;
   reconnect(): void;
@@ -202,7 +204,7 @@ class GameController implements NetGameHandle {
     this.replay?.destroy();
     if (active === this) active = null;
     this.net?.leave();
-    if (!this.net || this.net.hostCode) saveGame(null); // leaving on purpose: nothing to come back to
+    if (!this.net || this.net.hostCode || this.net.joinCode) saveGame(null); // leaving on purpose: nothing to come back to
     this.exit();
   }
 
@@ -229,11 +231,12 @@ class GameController implements NetGameHandle {
   /** The game in progress is saved after every change, so a reload or a closed tab loses nothing. */
   private persist(): void {
     if (this.net) {
-      // A host keeps the game and the code, so a reload can carry on and the guest can come back.
-      // A guest keeps nothing, and a finished game is not worth resuming.
-      if (!this.net.hostCode) return;
+      // A host keeps the game and the code, so a reload can carry on and the guest can come back;
+      // a guest keeps the code it joined with, so a reload joins again. A finished game is not worth resuming.
+      const { hostCode, joinCode } = this.net;
+      if (!hostCode && !joinCode) return;
       if (this.over) saveGame(null);
-      else saveGame(savedGameFrom(this.config, this.state.moves, this.startedAt, undefined, this.net.hostCode));
+      else saveGame(savedGameFrom(this.config, this.state.moves, this.startedAt, undefined, hostCode ?? undefined, joinCode ?? undefined));
       return;
     }
     saveGame(savedGameFrom(this.config, this.state.moves, this.startedAt, this.resigned ?? undefined));
