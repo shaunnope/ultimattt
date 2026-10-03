@@ -1,0 +1,77 @@
+/* The Cube: a 3D cube made of CSS-transformed stickers, a flat net as the alternative, and the layer picker. */
+
+.cube-board { display: grid; gap: 12px; }
+.cube-score { font-weight: 700; text-align: center; font-size: 1.15rem; }
+.cube-viewbar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.btn-small { min-height: 44px; padding: 4px 12px; font-size: 0.9rem; }
+.btn[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand-ink); }
+
+.cube-stage { --u: min(20vw, 84px); display: grid; place-items: center; perspective: 1100px; height: calc(var(--u) * 4.6); overflow: visible; }
+.cube-stage[data-mode="flat"] { perspective: none; height: auto; }
+
+/* ---- 3D ---- */
+.cube-scene {
+  position: relative; width: calc(var(--u) * 3); height: calc(var(--u) * 3);
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, -25deg)) rotateY(var(--ry, -30deg));
+  touch-action: none; cursor: grab;
+}
+.cube-scene.snap { transition: transform 0.4s ease; }
+.cube-scene.dragging { cursor: grabbing; }
+.cube-scene .sticker {
+  position: absolute; left: 50%; top: 50%; width: var(--u); height: var(--u);
+  margin: calc(var(--u) / -2) 0 0 calc(var(--u) / -2);
+  transform:
+    var(--turn, rotateX(0deg)) var(--face)
+    translate3d(calc(var(--u) * var(--dx)), calc(var(--u) * var(--dy)), calc(var(--u) * 1.5));
+  transition: transform 0.34s ease;
+  backface-visibility: hidden;
+}
+.cube-scene.no-anim .sticker { transition: none; }
+
+/* ---- stickers, in both views ---- */
+.sticker {
+  display: grid; place-items: center; line-height: 1; font-weight: 800; color: var(--ink);
+  font-size: calc(var(--u, 70px) * 0.6);
+  border: 3px solid var(--ink); border-radius: 10px;
+  background: color-mix(in srgb, var(--tint, #e6ece8) 45%, var(--surface));
+}
+.sticker[data-face="0"] { --tint: #dbe7ff; }
+.sticker[data-face="1"] { --tint: #fff2b8; }
+.sticker[data-face="2"] { --tint: #d3f5d8; }
+.sticker[data-face="3"] { --tint: #ffd9d0; }
+.sticker[data-face="4"] { --tint: #f1dcff; }
+.sticker[data-face="5"] { --tint: #ffe3bd; }
+/* A sticker in a line is hatched and ringed, not only coloured. */
+.sticker[data-line] {
+  background-image: repeating-linear-gradient(45deg, transparent 0 7px, rgba(0, 0, 0, 0.14) 7px 9px);
+}
+.sticker[data-line="X"] { box-shadow: inset 0 0 0 4px var(--x-ink); }
+.sticker[data-line="O"] { box-shadow: inset 0 0 0 4px var(--o-ink); }
+.sticker[data-preview="true"] { outline: 5px solid var(--focus); outline-offset: -5px; }
+.sticker.flash { animation: sticker-flash 0.22s ease; }
+@keyframes sticker-flash { 50% { filter: brightness(1.6); } }
+.cube-board[data-phase="rotate"] .sticker { cursor: not-allowed; }
+
+/* ---- flat net ---- */
+.cube-flat {
+  display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(9, 1fr);
+  gap: 3px; width: min(100%, 720px); margin: 0 auto;
+}
+.cube-flat-face { display: contents; }
+.cube-flat .sticker {
+  grid-column: var(--fc); grid-row: var(--fr); aspect-ratio: 1; width: auto; height: auto;
+  font-size: clamp(14px, 4.2vw, 30px); border-width: 2px; border-radius: 6px;
+}
+
+/* ---- layer picker ---- */
+.rotate-picker {
+  display: grid; gap: 12px; padding: 12px; border: 2px solid var(--brand-ink); border-radius: var(--radius); background: var(--surface);
+}
+.rotate-picker[hidden] { display: none; }
+.rotate-section h3 { font-size: 0.95rem; margin-bottom: 6px; }
+.rotate-row { display: grid; grid-template-columns: 1fr repeat(3, auto); gap: 6px; align-items: center; margin-bottom: 4px; }
+.rotate-name { text-transform: capitalize; font-size: 0.9rem; }
+@media (min-width: 720px) {
+  .rotate-picker { grid-template-columns: repeat(3, 1fr); }
+}
