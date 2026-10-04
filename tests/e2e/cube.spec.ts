@@ -582,18 +582,21 @@ test("the Twist score row names what it counts, shows each player's mark, and up
   await expect(page.locator("#game-status")).toHaveText("X scored! Turn a layer of the cube.");
 });
 
-test("at 320 px the status, score and board do not clip or overlap", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 640 });
-  await startCube(page);
-  const box = async (selector: string) => (await page.locator(selector).first().boundingBox())!;
-  const status = await box("#game-status");
-  const scoreBox = await box("#cube-score");
-  const board = await box(".cube-stage");
-  for (const b of [status, scoreBox, board]) {
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(320);
-  }
-  expect(status.y + status.height).toBeLessThanOrEqual(scoreBox.y + 1);
-  expect(scoreBox.y + scoreBox.height).toBeLessThanOrEqual(board.y + 1);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-});
+for (const scheme of ["light", "dark"] as const) {
+  test(`at 320 px the status, score and board do not clip or overlap in ${scheme} appearance`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 320, height: 640 });
+    await startCube(page);
+    const box = async (selector: string) => (await page.locator(selector).first().boundingBox())!;
+    const status = await box("#game-status");
+    const scoreBox = await box("#cube-score");
+    const board = await box(".cube-stage");
+    for (const b of [status, scoreBox, board]) {
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(320);
+    }
+    expect(status.y + status.height).toBeLessThanOrEqual(scoreBox.y + 1);
+    expect(scoreBox.y + scoreBox.height).toBeLessThanOrEqual(board.y + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}

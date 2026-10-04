@@ -213,3 +213,14 @@ description: "Task list for Twist-Tac-Toe Rename and UI Polish"
 **Incremental**: add US2 (replay turn), then US3 (notation), US4 (status/score), US5 (Classic help), US6 (layout); validate each with its Independent Test and re-run `npm test` before moving on.
 
 **Total**: 51 tasks (Setup 2, Foundational 4, US1 13, US2 8, US3 4, US4 7, US5 4, US6 4, Polish 5).
+
+---
+
+## Phase 10: Convergence
+
+**Purpose**: Remaining gaps found by `/speckit-converge` after the implement pass. T050 (manual walk-through) is still open from Phase 9 and is not repeated here.
+
+- [X] T052 CRITICAL Show red-then-green for `tests/unit/status-text.test.ts`: it was written in the same step as `src/ui/status-text.ts`, so no failing run exists. Temporarily break each phrase in `statusText` (one at a time), confirm the matching test fails for the expected reason, then restore the code and re-run `npm run test:unit` per Constitution I (contradicts)
+- [X] T053 [P] Extend the 320 px status/score/board test in `tests/e2e/cube.spec.ts` to run in both light and dark appearance (`page.emulateMedia({ colorScheme })`) and assert no clipping or overlap in each, per SC-006 (partial)
+- [X] T054 [P] Add a 320 px run of the help page in light and dark to `tests/e2e/a11y.spec.ts` (axe clean, no horizontal scroll, controls reachable) per SC-007 and US6/AC1 (partial)
+- [X] T055 [P] Remove `cubeStatus` from `src/ui/cube-labels.ts` (no production code calls it any more since `game.ts` uses `statusText`) and move its assertions in `tests/unit/cube-labels.test.ts` to `tests/unit/status-text.test.ts`, or record why it is kept, per plan: status wording has one source (unrequested)
