@@ -8,7 +8,7 @@
 // Kept a plain script (no import or export): the worker is registered as a classic script.
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const VERSION = "1";
+const VERSION = "2";
 const CACHE = `ttt-${VERSION}`;
 
 /** A URL inside the site, resolved against where this worker lives so it works under any subpath. */

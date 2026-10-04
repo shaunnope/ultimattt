@@ -1,29 +1,30 @@
-// Game seeds. A seed decides which mark a "let the game decide" player takes and
-// every roll of the dice the computer makes, so the same seed and the same moves
-// are always the same game.
+// Game seeds. A seed exists only for a game with a computer player. It decides which mark a
+// "let the game decide" player takes and every roll of the dice the computer makes, so the same
+// seed and the same moves are always the same game.
 //
-// Written as "3X3-BXK4-M9TR". The prefix names the variant and size; the eight
-// characters after it are the seed proper.
+// Written as "C53-BXK4-M9TR". The prefix is the rules code (variant letter, board size, win length);
+// the eight characters after it are the seed proper. 001 prefixes (3X3, 4X4, 5X5, ULT, CUB) still read.
 //
 // Integer arithmetic only. Math.random differs between browsers and would make
 // a replayed game differ. Only newSeed reads crypto, once, at game creation.
 
 import type { Mark, Variant } from "./types.ts";
+import { legacyWinLength, parseRulesCode, rulesCode } from "./rules.ts";
 
 // No vowels and no 0 O 1 I, so a seed read aloud cannot be misheard or spell a word.
 export const SEED_ALPHABET = "BCDFGHJKLMNPQRSTVWXYZ23456789";
 const BODY_LENGTH = 8;
 
-const PREFIXES = {
+const LEGACY_PREFIXES = {
   "3X3": { variant: "classic", size: 3 },
   "4X4": { variant: "classic", size: 4 },
   "5X5": { variant: "classic", size: 5 },
-  ULT: { variant: "ultimate", size: undefined },
-  CUB: { variant: "cube", size: undefined },
+  ULT: { variant: "ultimate", size: 3 },
+  CUB: { variant: "cube", size: 3 },
 } as const;
 
 export type ParsedSeed =
-  | { variant: Variant; size: 3 | 4 | 5 | undefined; body: string }
+  | { variant: Variant; size: 3 | 4 | 5; winLength: number; body: string }
   | { error: string };
 
 // 32 bit string hash (cyrb53's mixing, folded to 32 bits).
@@ -68,32 +69,33 @@ function randomBody(): string {
   return body;
 }
 
-function prefixFor(variant: Variant, size: 3 | 4 | 5 | undefined): string {
-  if (variant === "ultimate") return "ULT";
-  if (variant === "cube") return "CUB";
-  return `${size ?? 3}X${size ?? 3}`;
-}
-
-export function newSeed(variant: Variant, size?: 3 | 4 | 5): string {
+export function newSeed(variant: Variant, size: 3 | 4 | 5, winLength: number): string {
   const body = randomBody();
-  return `${prefixFor(variant, size)}-${body.slice(0, 4)}-${body.slice(4)}`;
+  return `${rulesCode(variant, size, winLength)}-${body.slice(0, 4)}-${body.slice(4)}`;
 }
 
 export function parseSeed(text: string): ParsedSeed {
   const clean = String(text ?? "").trim().toUpperCase();
   const match = /^([0-9A-Z]{3})-([0-9A-Z]{4})-([0-9A-Z]{4})$/.exec(clean);
-  if (!match) return { error: "A seed looks like 3X3-BXK4-M9TR." };
+  if (!match) return { error: "A seed looks like C53-BXK4-M9TR." };
   const [, prefix, a, b] = match as unknown as [string, string, string, string];
-  const info = PREFIXES[prefix as keyof typeof PREFIXES];
-  if (!info) return { error: `Unknown game type "${prefix}" in the seed.` };
+  const legacy = LEGACY_PREFIXES[prefix as keyof typeof LEGACY_PREFIXES];
+  const rules = legacy ? { ...legacy, winLength: legacyWinLength(legacy.variant, legacy.size) } : parseRulesCode(prefix);
+  if ("error" in rules) return { error: `Unknown game type "${prefix}" in the seed.` };
   const body = a + b;
   for (const ch of body) {
     if (!SEED_ALPHABET.includes(ch)) return { error: `The seed contains "${ch}", which is never used in seeds.` };
   }
-  return { variant: info.variant, size: info.size, body };
+  return { variant: rules.variant, size: rules.size as 3 | 4 | 5, winLength: rules.winLength, body };
 }
 
 /** The mark a player takes when they let the game decide. Fixed by the seed. */
 export function pickMark(seed: string): Mark {
   return rngFor(seed, -1)() % 2 === 0 ? "X" : "O";
+}
+
+/** A mark drawn once at game setup for a game with no seed (two devices, "let the game decide"). */
+export function randomMark(): Mark {
+  const [byte] = globalThis.crypto.getRandomValues(new Uint8Array(1)) as Uint8Array & [number];
+  return byte % 2 === 0 ? "X" : "O";
 }

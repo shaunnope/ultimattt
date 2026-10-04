@@ -73,3 +73,35 @@ for (const scheme of ["light", "dark"] as const) {
     });
   });
 }
+
+for (const scheme of ["light", "dark"] as const) {
+  test.describe(`${scheme} appearance, help and larger boards`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+    });
+
+    test("help page", async ({ page }) => {
+      await page.goto("./#/help");
+      await expect(page.locator("#help-view h2").first()).toBeVisible();
+      await clean(page, "help page");
+    });
+
+    test("Ultimate 4×4 game", async ({ page }) => {
+      await startGame(page, { variant: "Ultimate", opponent: "A friend on this device", size: "4×4", winLength: 3 });
+      await page.locator('button[data-board="5"][data-cell="9"]').click();
+      await clean(page, "ultimate 4x4");
+    });
+
+    test("Cube 4×4 with the picker, in notation mode", async ({ page }) => {
+      await startGame(page, { variant: "Cube", opponent: "A friend on this device", size: "4×4", winLength: 3 });
+      for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
+      await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
+      await clean(page, "cube 4x4 with picker");
+      await page.getByRole("button", { name: "Settings" }).click();
+      await page.getByRole("dialog", { name: "Settings" }).getByLabel("Cube turn names").selectOption("cube");
+      await clean(page, "settings with palette picker");
+      await page.getByRole("dialog", { name: "Settings" }).getByRole("button", { name: "Done" }).click();
+      await clean(page, "cube 4x4 notation picker");
+    });
+  });
+}

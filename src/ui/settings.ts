@@ -1,19 +1,18 @@
-// Settings: hints, automatic replay, appearance and the icons for X and O. Changes apply at once
-// and are remembered on this device.
+// Settings: hints, automatic replay, appearance, mark colours and how Cube turns are named. Changes apply at once
+// and are remembered on this device. Colours and turn names are display preferences: they never reach a game, a
+// seed, a link or the network.
 
-import type { Settings, Theme } from "../core/settings.ts";
-import { validateIcons } from "../core/icons.ts";
+import type { CubeNotation, Settings, Theme } from "../core/settings.ts";
 import { loadSave, updateSettings } from "../adapters/store.ts";
-import { setGlyphs } from "./glyph.ts";
-import { iconMessage } from "./messages.ts";
-import { applyTheme } from "./theme.ts";
+import { createPalettePicker } from "./palette-picker.ts";
+import { applyMarkPalette, applyTheme } from "./theme.ts";
 import { h, openDialog } from "./ui.ts";
 
 export const SETTINGS_EVENT = "ttt:settings";
 
-/** Put settings into effect: icons and appearance now, and tell the screen to redraw. */
+/** Put settings into effect: colours and appearance now, and tell the screen to redraw. */
 export function applySettings(settings: Settings): void {
-  setGlyphs(settings.icons);
+  applyMarkPalette(settings.markPalette);
   applyTheme(settings.theme);
   if (typeof window !== "undefined") window.dispatchEvent(new Event(SETTINGS_EVENT));
 }
@@ -37,25 +36,10 @@ export async function openSettings(): Promise<void> {
     h("option", { value: "dark", selected: settings.theme === "dark" }, "Dark"));
   themeSelect.addEventListener("change", () => change({ theme: themeSelect.value as Theme }));
 
-  const iconX = h("input", { id: "icon-x", type: "text", value: settings.icons.X, maxlength: 16, autocomplete: "off", spellcheck: "false" });
-  const iconO = h("input", { id: "icon-o", type: "text", value: settings.icons.O, maxlength: 16, autocomplete: "off", spellcheck: "false" });
-  const iconError = h("p", { class: "field-error", role: "alert" });
-  iconError.hidden = true;
-  const onIcons = () => {
-    const icons = { X: iconX.value, O: iconO.value };
-    const check = validateIcons(icons);
-    iconError.textContent = iconMessage(check);
-    iconError.hidden = check.ok;
-    if (check.ok) change({ icons });
-  };
-  iconX.addEventListener("input", onIcons);
-  iconO.addEventListener("input", onIcons);
-  const reset = h("button", { class: "btn btn-small", type: "button" }, "Use X and O");
-  reset.addEventListener("click", () => {
-    iconX.value = "X";
-    iconO.value = "O";
-    onIcons();
-  });
+  const notationSelect = h("select", { id: "notation-select" },
+    h("option", { value: "words", selected: settings.cubeNotation === "words" }, "Arrows and words"),
+    h("option", { value: "cube", selected: settings.cubeNotation === "cube" }, "Cube notation (R, U', F2, 2L)"));
+  notationSelect.addEventListener("change", () => change({ cubeNotation: notationSelect.value as CubeNotation }));
 
   await openDialog({
     title: "Settings",
@@ -64,12 +48,8 @@ export async function openSettings(): Promise<void> {
       h("p", { class: "hint-text" }, "Marks the cells that win for you (a dot) and the cells you must block (a dashed ring) on your turn."),
       checkbox("Replay a finished game automatically", settings.autoReplay, (autoReplay) => change({ autoReplay })),
       h("label", { class: "field" }, "Appearance", themeSelect),
-      h("fieldset", { class: "icon-fields" },
-        h("legend", null, "Icons (on this device only)"),
-        h("label", { class: "field" }, "Icon for X", iconX),
-        h("label", { class: "field" }, "Icon for O", iconO),
-        iconError,
-        reset),
+      createPalettePicker(settings.markPalette, (markPalette) => change({ markPalette })),
+      h("label", { class: "field" }, "Cube turn names", notationSelect),
     ],
     actions: [{ label: "Done", value: "done", primary: true }],
   });

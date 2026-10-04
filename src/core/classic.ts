@@ -1,4 +1,4 @@
-// Classic tic tac toe: 3×3 (three in a row), 4×4 and 5×5 (four in a row). X moves first.
+// Classic tic tac toe on an N×N board (3 to 5) where K in a row wins (3 up to N). X moves first.
 // Pure: no DOM, storage, network or clock.
 
 import type { Cell, ClassicHint, ClassicMove, GameConfig, HintSet, Legality, Mark, Move, StateBase, Status } from "./types.ts";
@@ -7,8 +7,8 @@ import { hashString } from "./seed.ts";
 
 export interface ClassicState extends StateBase {
   size: 3 | 4 | 5;
-  /** 3 on 3×3; 4 on 4×4 and 5×5 */
-  winLength: 3 | 4;
+  /** K: cells in a row that win */
+  winLength: number;
   /** size*size cells; 0 empty, 1 X, 2 O */
   cells: Cell[];
   /** The cells of the winning line, in order, once somebody has won */
@@ -18,15 +18,15 @@ export interface ClassicState extends StateBase {
 /** Every reason isLegal can refuse a move with. */
 export const REASONS = ["not-a-placement", "game-over", "out-of-range", "occupied"] as const;
 
-const lineCache = new Map<number, number[][]>();
+const lineCache = new Map<string, number[][]>();
 
-export const winLengthFor = (size: number): 3 | 4 => (size === 3 ? 3 : 4);
-
-/** Every line that wins on a board of this size: runs of winLength in rows, columns and diagonals. */
-export function lines(size: number): number[][] {
-  const cached = lineCache.get(size);
+/** Every line that wins on a board of this size: every window of exactly winLength cells in rows, columns and diagonals.
+ *  A longer run contains a window, so it wins too. Cached by the pair. */
+export function lines(size: number, winLength: number): number[][] {
+  const key = `${size}/${winLength}`;
+  const cached = lineCache.get(key);
   if (cached) return cached;
-  const k = winLengthFor(size);
+  const k = winLength;
   const out: number[][] = [];
   const dirs: [number, number][] = [[0, 1], [1, 0], [1, 1], [1, -1]];
   for (let r = 0; r < size; r++) {
@@ -39,7 +39,7 @@ export function lines(size: number): number[][] {
       }
     }
   }
-  lineCache.set(size, out);
+  lineCache.set(key, out);
   return out;
 }
 
@@ -52,7 +52,7 @@ export function newGame(config: GameConfig): ClassicState {
     status: "playing",
     winner: null,
     size,
-    winLength: winLengthFor(size),
+    winLength: config.winLength,
     cells: Array<Cell>(size * size).fill(0),
     winLine: null,
   };
@@ -89,7 +89,7 @@ export function apply(state: ClassicState, move: Move): ClassicState {
   const cells = state.cells.slice();
   const mark = cellOf(state.toMove);
   cells[cell] = mark;
-  const winLine = lines(state.size).find((line) => line.includes(cell) && line.every((i) => cells[i] === mark)) ?? null;
+  const winLine = lines(state.size, state.winLength).find((line) => line.includes(cell) && line.every((i) => cells[i] === mark)) ?? null;
   const full = cells.every((c) => c !== 0);
   return {
     ...state,
@@ -123,7 +123,7 @@ export function hints(state: ClassicState, mark: Mark): HintSet<ClassicHint> {
   if (state.status !== "playing") return out;
   const mine = cellOf(mark);
   const theirs = cellOf(other(mark));
-  const all = lines(state.size);
+  const all = lines(state.size, state.winLength);
   const completes = (cell: number, who: Cell) =>
     all.some((line) => line.includes(cell) && line.every((i) => i === cell || state.cells[i] === who));
   state.cells.forEach((value, cell) => {

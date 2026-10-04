@@ -1,17 +1,15 @@
 // The Classic board: a grid of buttons. Arrow keys move between cells (one tab stop),
 // Enter or Space places a mark, marks animate in, and a winning line is outlined and struck through.
 
-import type { Cell, ClassicHint, HintSet, Mark } from "../core/types.ts";
+import type { Cell, ClassicHint, HintSet } from "../core/types.ts";
 import { markOf } from "../core/types.ts";
 import type { ClassicState } from "../core/classic.ts";
-import { markGlyph } from "./glyph.ts";
+import { createMark, markName } from "./mark.ts";
 import { h } from "./ui.ts";
 
 export interface BoardOptions {
   size: number;
   onCell(cell: number): void;
-  /** What to draw for a mark. Defaults to the letter. */
-  glyph?: (mark: Mark) => string;
 }
 
 export interface ClassicBoardView {
@@ -26,16 +24,17 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export function createClassicBoard(opts: BoardOptions): ClassicBoardView {
   const { size } = opts;
-  const glyph = opts.glyph ?? markGlyph;
   const buttons: HTMLButtonElement[] = [];
   let tabCell = 0;
   let previous: Cell[] = Array<Cell>(size * size).fill(0);
+  /** The first position drawn (a game picked up again) shows its marks in place; only a mark placed after that draws itself in. */
+  let drawn = false;
 
   const grid = h("div", { class: "board", role: "grid", "aria-label": `Tic tac toe board, ${size} by ${size}`, style: `--n:${size}` });
 
   function describe(cell: number, value: Cell): string {
     const where = `Row ${Math.floor(cell / size) + 1}, column ${(cell % size) + 1}`;
-    return `${where}, ${value === 0 ? "empty" : glyph(markOf(value))}`;
+    return `${where}, ${value === 0 ? "empty" : markName(markOf(value))}`;
   }
 
   function setTab(cell: number): void {
@@ -93,11 +92,11 @@ export function createClassicBoard(opts: BoardOptions): ClassicBoardView {
       const last = state.moves.length ? (state.moves[state.moves.length - 1] as { cell: number }).cell : -1;
       state.cells.forEach((value, i) => {
         const button = buttons[i]!;
-        const fresh = value !== 0 && previous[i] === 0;
+        const fresh = drawn && value !== 0 && previous[i] === 0;
         if (value === 0) {
           button.replaceChildren();
         } else if (previous[i] !== value) {
-          button.replaceChildren(h("span", { class: `mark mark-${markOf(value).toLowerCase()}${fresh ? " mark-new" : ""}`, "aria-hidden": "true" }, glyph(markOf(value))));
+          button.replaceChildren(createMark(markOf(value), { fresh }));
         }
         button.setAttribute("aria-label", describe(i, value));
         button.dataset.mark = value === 0 ? "" : markOf(value);
@@ -106,6 +105,7 @@ export function createClassicBoard(opts: BoardOptions): ClassicBoardView {
         else delete button.dataset.win;
       });
       previous = state.cells.slice();
+      drawn = true;
       const first = state.winLine?.[0];
       const lastWin = state.winLine?.[state.winLine.length - 1];
       if (first !== undefined && lastWin !== undefined) {

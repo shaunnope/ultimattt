@@ -121,7 +121,7 @@ export class Host {
       if (this.link) {
         // One guest only. A newcomer is told the game is full and dropped.
         incoming.on("open", () => {
-          incoming.send({ v: 1, type: "reject", reason: "full" });
+          incoming.send({ v: 2, type: "reject", reason: "full" });
           incoming.close({ flush: true });
         });
         return;
@@ -162,7 +162,7 @@ export class Host {
   }
 
   close(): void {
-    this.send({ v: 1, type: "bye" });
+    this.send({ v: 2, type: "bye" });
     const link = this.link;
     const peer = this.peer;
     this.closed = true;
@@ -250,7 +250,7 @@ export class Guest {
 
   /** Leaving on purpose: tell the host first, and flush so it arrives. */
   leave(): void {
-    this.send({ v: 1, type: "bye" });
+    this.send({ v: 2, type: "bye" });
     const link = this.link;
     const peer = this.peer;
     if (this.timer) clearTimeout(this.timer);

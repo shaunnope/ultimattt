@@ -33,7 +33,7 @@ test("a move in the wrong board is refused with an explanation", async ({ page }
   await cell(page, 4, 2).click();
   await cell(page, 5, 5).click();
   await expect(page.locator("#game-status")).toContainText(/highlighted|board/i);
-  await expect(cell(page, 5, 5)).toHaveText("");
+  await expect(cell(page, 5, 5)).toHaveAttribute("data-mark", "");
 });
 
 test("a claimed board shows its owner, and being sent there frees the choice", async ({ page }) => {
@@ -43,13 +43,13 @@ test("a claimed board shows its owner, and being sent there frees the choice", a
   await expect(page.locator(".sub-board[data-playable='true']")).toHaveCount(8);
   await expect(page.locator("#game-status")).toContainText(/any open board/i);
   await cell(page, 0, 8).click();
-  await expect(cell(page, 0, 8)).toHaveText("");
+  await expect(cell(page, 0, 8)).toHaveAttribute("data-mark", "");
 });
 
 test("a full game played from the computer's own moves ends with the same result as the rules", async ({ page }) => {
   // Build a whole game in the test (Master as X against Beginner as O), replay the clicks, and compare.
   const seed = "ULT-BXK4-M9TR";
-  const config: GameConfig = { variant: "ultimate", size: 3, mode: "computer", seed };
+  const config: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "computer", seed };
   let s = newGame(config);
   const moves: [number, number][] = [];
   while (status(s).status === "playing") {

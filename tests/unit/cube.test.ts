@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, rotateTable, rotations, countLines, REASONS } from "../../src/core/cube.ts";
+import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, rotateTable, rotations, countLines, hints, REASONS } from "../../src/core/cube.ts";
 import type { CubeState } from "../../src/core/cube.ts";
 import type { Cell, CubeMove, GameConfig } from "../../src/core/types.ts";
 
-const config: GameConfig = { variant: "cube", size: 3, mode: "local", seed: "CUB-BXK4-M9TR" };
+const config: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
 const place = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
-const rotate = (axis: "x" | "y" | "z", layer: 0 | 1 | 2, dir: 1 | -1 | 2): CubeMove => ({ t: "rotate", axis, layer, dir });
+const rotate = (axis: "x" | "y" | "z", layer: number, dir: 1 | -1 | 2): CubeMove => ({ t: "rotate", axis, layer, dir });
 const F = 2; // faces: U0 D1 F2 B3 L4 R5
 const idx = (face: number, cell: number) => face * 9 + cell;
 
@@ -17,7 +17,7 @@ function literal(patch: Partial<CubeState> & { stickers: Cell[] }): CubeState {
   const base = newGame(config);
   const merged = { ...base, ...patch };
   // keep the derived fields honest for hand-built positions
-  return { ...merged, lines: patch.lines ?? countLines(patch.stickers), empty: merged.stickers.filter((c) => c === 0).length };
+  return { ...merged, lines: patch.lines ?? countLines(patch.stickers, 3, 3), empty: merged.stickers.filter((c) => c === 0).length };
 }
 const fullNoLines = (): Cell[] => Array.from({ length: 6 }, () => NO_LINES).flat();
 
@@ -92,7 +92,7 @@ test("a rotation can break a line, lowering the total", () => {
 
 test("a rotation that creates a line gives no extra rotation", () => {
   // X has front-face cells 0 and 1; turning the right layer carries a third X into cell 2.
-  const table = rotateTable("x", 2, 1);
+  const table = rotateTable(3, "x", 2, 1);
   const source = table[idx(F, 2)]!;
   const stickers = Array<Cell>(54).fill(0);
   for (const i of [idx(F, 0), idx(F, 1), source]) stickers[i] = 1;
@@ -105,7 +105,7 @@ test("a rotation that creates a line gives no extra rotation", () => {
 
 test("a rotation that completes lines for both players counts each for its owner", () => {
   const stickers = Array<Cell>(54).fill(0);
-  const t = rotateTable("x", 2, 1);
+  const t = rotateTable(3, "x", 2, 1);
   for (const i of [idx(F, 0), idx(F, 1), t[idx(F, 2)]!]) stickers[i] = 1; // X line appears
   for (const i of [idx(0, 0), idx(0, 3), t[idx(0, 6)]!]) if (stickers[i] === 0) stickers[i] = 2; // O line appears
   const s = literal({ stickers, toMove: "X", phase: "rotate", pendingRotateFor: "X" });
@@ -204,6 +204,116 @@ test("hash is stable and differs between positions", () => {
   assert.notEqual(hash(fromMoves(config, [place(F, 0)])), hash(fromMoves(config, [place(F, 1)])));
 });
 
-test("rotations() lists the 27 turns", () => {
-  assert.equal(rotations().length, 27);
+test("rotations(size) lists the 9N turns", () => {
+  assert.equal(rotations(3).length, 27);
+  assert.equal(rotations(4).length, 36);
+  assert.equal(rotations(5).length, 45);
+});
+
+test("a turn on a layer beyond the cube is refused", () => {
+  let s = newGame(config);
+  for (const [face, cell] of [[F, 0], [0, 0], [F, 1], [0, 1], [F, 2]] as const) s = apply(s, place(face, cell));
+  assert.deepEqual(isLegal(s, rotate("x", 3, 1)), { ok: false, reason: "out-of-range" });
+  assert.deepEqual(isLegal(s, rotate("x", -1, 1)), { ok: false, reason: "out-of-range" });
+  assert.deepEqual(isLegal(s, rotate("x", 2, 1)), { ok: true });
+});
+
+// ---- N = 4 and 5, and win lengths below N ----
+
+const sized = (size: 3 | 4 | 5, winLength: number): GameConfig => ({ variant: "cube", size, winLength, mode: "local" });
+const at = (size: number, face: number, row: number, col: number) => face * size * size + row * size + col;
+const blank = (size: number): Cell[] => Array<Cell>(6 * size * size).fill(0);
+
+test("a new cube has 6·N² stickers, and 9N legal turns once a turn is due", () => {
+  for (const size of [3, 4, 5] as const) {
+    const s = newGame(sized(size, 3));
+    assert.equal(s.stickers.length, 6 * size * size);
+    assert.equal(s.empty, 6 * size * size);
+    assert.equal(legalMoves(s).length, 6 * size * size);
+    const due = { ...s, phase: "rotate" as const, pendingRotateFor: "X" as const };
+    assert.equal(legalMoves(due).length, 9 * size);
+  }
+});
+
+test("a run longer than K scores one line per window of exactly K (L - K + 1)", () => {
+  // a row of four on a 5x5 face: K=3 gives two windows, K=4 one, K=5 none
+  const stickers = blank(5);
+  for (let c = 0; c < 4; c++) stickers[at(5, 2, 0, c)] = 1;
+  assert.deepEqual(countLines(stickers, 5, 3), { X: 2, O: 0 });
+  assert.deepEqual(countLines(stickers, 5, 4), { X: 1, O: 0 });
+  assert.deepEqual(countLines(stickers, 5, 5), { X: 0, O: 0 });
+  stickers[at(5, 2, 0, 4)] = 1;
+  assert.deepEqual(countLines(stickers, 5, 3), { X: 3, O: 0 });
+  assert.deepEqual(countLines(stickers, 5, 5), { X: 1, O: 0 });
+});
+
+test("lines count in rows, columns and both diagonals of every face, and never wrap or cross faces", () => {
+  const stickers = blank(4);
+  for (const i of [0, 5, 10, 15]) stickers[at(4, 3, 0, 0) + i] = 2; // main diagonal of the back face
+  assert.deepEqual(countLines(stickers, 4, 4), { X: 0, O: 1 });
+  assert.deepEqual(countLines(stickers, 4, 3), { X: 0, O: 2 });
+  // the last cells of one face and the first of the next do not make a line
+  const wrap = blank(4);
+  for (const i of [14, 15, 16]) wrap[i] = 1;
+  assert.deepEqual(countLines(wrap, 4, 3), { X: 0, O: 0 });
+});
+
+test("scoring on a 4x4 cube then forces a turn of any of the four layers on any axis", () => {
+  const cfg = sized(4, 3);
+  let s = newGame(cfg);
+  for (const [face, cell] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]] as const) s = apply(s, place(face, cell));
+  assert.equal(s.phase, "rotate");
+  assert.deepEqual(s.lines, { X: 1, O: 0 });
+  assert.equal(legalMoves(s).length, 36);
+  for (const layer of [0, 1, 2, 3]) assert.deepEqual(isLegal(s, rotate("z", layer, 1)), { ok: true });
+  assert.deepEqual(isLegal(s, rotate("z", 4, 1)), { ok: false, reason: "out-of-range" });
+  const after = apply(s, rotate("x", 2, 1)); // an inner layer
+  assert.equal(after.phase, "place");
+  assert.equal(after.toMove, "O");
+});
+
+test("one placement that finishes a run of four on 5x5 with K=3 scores two lines and needs one turn", () => {
+  const cfg = sized(5, 3);
+  const stickers = blank(5);
+  for (const c of [0, 1, 3]) stickers[at(5, 2, 0, c)] = 1;
+  const s: CubeState = { ...newGame(cfg), stickers, empty: 6 * 25 - 3, toMove: "X" };
+  const after = apply(s, place(2, 2));
+  assert.equal(after.lines.X, 2); // cells 0-3 are held: windows 0-2 and 1-3
+});
+
+test("the count is recomputed from the stickers after a turn on a larger cube", () => {
+  const cfg = sized(4, 3);
+  const stickers = blank(4);
+  for (const c of [0, 1, 2]) stickers[at(4, 2, 0, c)] = 1; // top row of the front face
+  const s: CubeState = { ...newGame(cfg), stickers, empty: 6 * 16 - 3, lines: { X: 1, O: 0 }, phase: "rotate", pendingRotateFor: "X", toMove: "X" };
+  // turning the top layer about y keeps that row on the ring; turning the second layer about y leaves it alone
+  assert.deepEqual(apply(s, rotate("y", 1, 1)).lines, { X: 1, O: 0 });
+  // turning the left layer carries one of the three away
+  assert.deepEqual(apply(s, rotate("x", 0, 1)).lines, { X: 0, O: 0 });
+});
+
+test("hints work with the win length and the size", () => {
+  const cfg = sized(5, 3);
+  const stickers = blank(5);
+  stickers[at(5, 1, 2, 2)] = 1;
+  stickers[at(5, 1, 2, 3)] = 1;
+  const s: CubeState = { ...newGame(cfg), stickers, empty: 6 * 25 - 2 };
+  const h = hints(s, "X");
+  assert.ok(h.win.some((x) => x.face === 1 && x.cell === 2 * 5 + 1));
+  assert.ok(h.win.some((x) => x.face === 1 && x.cell === 2 * 5 + 4));
+  assert.ok(!h.win.some((x) => x.face === 1 && x.cell === 0));
+});
+
+test("undo, fromMoves and a full 4x4 game work: every cell filled and no turn pending ends it", () => {
+  const cfg = sized(4, 4);
+  let s = newGame(cfg);
+  let n = 0;
+  while (s.status === "playing" && n++ < 2000) {
+    const moves = legalMoves(s);
+    s = apply(s, moves[(n * 7) % moves.length]!);
+  }
+  assert.notEqual(s.status, "playing");
+  assert.equal(s.empty, 0);
+  assert.deepEqual(fromMoves(cfg, s.moves), s);
+  assert.deepEqual(undo(newGame(cfg)), newGame(cfg));
 });

@@ -1,10 +1,11 @@
 // The save file: settings and the game in progress, in localStorage (or memory when that is
 // unavailable). The game is stored as its config and its moves; the position is always rebuilt by
 // playing the moves through the rules, so a save can never disagree with them.
-// Schema 1. An unknown or corrupt save is never overwritten: it is copied aside first.
+// Schema 2 (schema 1 saves are migrated on read). An unknown or corrupt save is never overwritten: it is copied aside first.
 
 import type { GameConfig, Mark, Move } from "../core/types.ts";
 import { parseConfig } from "../core/config.ts";
+import { legacyWinLength } from "../core/rules.ts";
 import { isValidCode, normaliseCode } from "../core/pairing.ts";
 import type { Settings } from "../core/settings.ts";
 import { DEFAULT_SETTINGS, normalizeSettings } from "../core/settings.ts";
@@ -27,7 +28,7 @@ export interface SavedGame {
 }
 
 export interface SaveFile {
-  schema: 1;
+  schema: 2;
   settings: Settings;
   game: SavedGame | null;
 }
@@ -35,7 +36,7 @@ export interface SaveFile {
 export type ParseResult = { ok: true; save: SaveFile } | { ok: false; reason: "unknown-schema" | "corrupt" };
 
 export function defaultSave(): SaveFile {
-  return { schema: 1, settings: { ...DEFAULT_SETTINGS, icons: { ...DEFAULT_SETTINGS.icons } }, game: null };
+  return { schema: 2, settings: { ...DEFAULT_SETTINGS }, game: null };
 }
 
 export function savedGameFrom(config: GameConfig, moves: readonly Move[], startedAt: number, resigned?: Mark, hostCode?: string, joinCode?: string): SavedGame {
@@ -48,6 +49,34 @@ export function savedGameFrom(config: GameConfig, moves: readonly Move[], starte
 
 export function serializeSave(save: SaveFile): string {
   return JSON.stringify(save);
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Schema 1 to 2 (contracts/record-format.md): drop the custom icons, add the palette and notation, give saved
+ *  games and the remembered setup the win length 001 implied, and drop the seed from games without a computer.
+ *  Pure. It throws only on a shape it cannot read, and the caller treats that like an unknown schema. */
+export function migrate1to2(save: Record<string, unknown>): Record<string, unknown> {
+  const withLength = (raw: unknown): unknown => {
+    if (!isObject(raw)) return raw;
+    const out: Record<string, unknown> = { ...raw };
+    if (out.winLength === undefined && typeof out.variant === "string" && typeof out.size === "number") {
+      out.winLength = legacyWinLength(out.variant as GameConfig["variant"], out.size);
+    }
+    return out;
+  };
+  const settings: Record<string, unknown> = isObject(save.settings) ? { ...save.settings } : {};
+  delete settings.icons;
+  settings.markPalette = "default";
+  settings.cubeNotation = "words";
+  if (settings.lastSetup !== undefined && settings.lastSetup !== null) settings.lastSetup = withLength(settings.lastSetup);
+  let game: unknown = save.game ?? null;
+  if (isObject(game)) {
+    const config = withLength(game.config);
+    if (isObject(config) && config.mode !== "computer") delete config.seed;
+    game = { ...game, config };
+  }
+  return { ...save, schema: 2, settings, game };
 }
 
 const isMark = (v: unknown): v is Mark => v === "X" || v === "O";
@@ -75,8 +104,16 @@ export function parseSave(text: string | null): ParseResult {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return { ok: false, reason: "corrupt" };
   const obj = raw as Record<string, unknown>;
   if (typeof obj.schema !== "number") return { ok: false, reason: "corrupt" };
-  if (obj.schema !== 1) return { ok: false, reason: "unknown-schema" };
-  return { ok: true, save: { schema: 1, settings: normalizeSettings(obj.settings), game: readGame(obj.game) } };
+  let current: Record<string, unknown> = obj;
+  if (obj.schema === 1) {
+    try {
+      current = migrate1to2(obj);
+    } catch {
+      return { ok: false, reason: "unknown-schema" };
+    }
+  }
+  if (current.schema !== 2) return { ok: false, reason: "unknown-schema" };
+  return { ok: true, save: { schema: 2, settings: normalizeSettings(current.settings), game: readGame(current.game) } };
 }
 
 const NOTICE = "Your saved game could not be read, so a new one was started. The old save was kept aside.";

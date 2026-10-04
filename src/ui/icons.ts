@@ -1,5 +1,4 @@
-// Inline SVG icons for controls. Marks on boards are text glyphs (see markGlyph),
-// so players can swap in their own characters.
+// Inline SVG icons for controls, including the Cube's turn buttons. The X and O marks on boards are in mark.ts.
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -15,6 +14,15 @@ const PATHS = {
   back: "M15 18l-6-6 6-6",
   forward: "M9 18l6-6-6-6",
   home: "M3 11l9-8 9 8v10H3z",
+  help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01",
+  // The Cube's turn buttons: up and down (x axis), left and right (y axis), curved arrows (z axis), and a half turn
+  "turn-up": "M12 19V5M5 12l7-7 7 7",
+  "turn-down": "M12 5v14M19 12l-7 7-7-7",
+  "turn-left": "M19 12H5M12 5l-7 7 7 7",
+  "turn-right": "M5 12h14M12 5l7 7-7 7",
+  "turn-clockwise": "M21 12a9 9 0 1 1-3-6.7M21 4v5h-5",
+  "turn-anticlockwise": "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
+  "turn-half": "M20 8a8 8 0 0 0-14-3M4 4v5h5M4 16a8 8 0 0 0 14 3M20 20v-5h-5",
 } as const;
 
 export type IconName = keyof typeof PATHS;

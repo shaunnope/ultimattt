@@ -69,3 +69,50 @@ test("check-sw: fails when activate does not delete stale caches", () => {
   const problems = checkSw(fixture("sw-bad-nocleanup.ts"));
   assert.ok(problems.some((p: string) => /activate/.test(p)));
 });
+
+// ---- check-theme-tokens and check-names ----
+
+// @ts-expect-error plain .mjs scripts, no types
+import { checkThemeTokens, checkCssText } from "../../scripts/check-theme-tokens.mjs";
+// @ts-expect-error plain .mjs scripts, no types
+import { checkNames, stripComments, checkNamesText } from "../../scripts/check-names.mjs";
+
+const fixtureDir = (name: string) => join(import.meta.dirname, "..", "fixtures", "check", name);
+
+test("check-theme-tokens: a colour literal outside theme.css fails, and theme.css may hold them", () => {
+  assert.deepEqual(checkThemeTokens(fixtureDir("tokens-good")), []);
+  const problems: string[] = checkThemeTokens(fixtureDir("tokens-bad"));
+  assert.equal(problems.length, 3);
+  assert.ok(problems.some((p) => /style\.css:1:.*hex colour/.test(p)));
+  assert.ok(problems.some((p) => /style\.css:2:.*colour function/.test(p)));
+  assert.ok(problems.some((p) => /style\.css:3:.*colour name/.test(p)));
+  assert.ok(problems.every((p) => !p.includes("theme.css:")));
+});
+
+test("check-theme-tokens: comments, var(), transparent, currentColor and words inside strings pass", () => {
+  assert.deepEqual(checkCssText("/* #fff */ a { color: var(--x); background: transparent; border-color: currentColor; content: \"white\"; }", "x.css"), []);
+  assert.equal(checkCssText("a { color: #123456; }", "x.css").length, 1);
+  assert.equal(checkCssText("a { color: #fff; background: #000; }", "x.css").length, 2);
+});
+
+test("check-names: a project name in a comment passes, anywhere else fails", () => {
+  assert.deepEqual(checkNames(fixtureDir("names-good")), []);
+  const problems: string[] = checkNames(fixtureDir("names-bad"));
+  assert.equal(problems.length, 3);
+  assert.ok(problems.some((p) => p.includes("src/a.ts")));
+  assert.ok(problems.some((p) => p.includes("site/index.html")));
+  assert.ok(problems.some((p) => p.includes("site/manifest.json")));
+});
+
+test("check-names: a // inside a string is not a comment, and block comments hide the name", () => {
+  assert.deepEqual(checkNamesText('const a = "http://x"; /* flagrant */ // tictactoe-game', "ts", "a.ts"), []);
+  assert.equal(checkNamesText('const a = "http://flagrant.example";', "ts", "a.ts").length, 1);
+  assert.equal(stripComments("a // b\nc", "ts"), "a \nc");
+  assert.deepEqual(checkNamesText("<p>flagrant</p>", "html", "a.html").length, 1);
+  assert.deepEqual(checkNamesText("<!-- flagrant --><p>ok</p>", "html", "a.html"), []);
+});
+
+test("check-names and check-theme-tokens pass on this project's own files", () => {
+  const root = join(import.meta.dirname, "..", "..");
+  assert.deepEqual(checkNames(root), []);
+});

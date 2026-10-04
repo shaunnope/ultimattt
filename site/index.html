@@ -5,7 +5,7 @@
   <title>Tic Tac Toe: Classic, Ultimate and Cube</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Classic tic tac toe, Ultimate tic tac toe and a 3D Cube variant. Play the computer or a friend. Works offline.">
-  <meta name="theme-color" content="#ccffcc">
+  <meta name="theme-color" content="#faf8f3">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -29,15 +29,16 @@
   <link rel="modulepreload" href="js/adapters/storage.js">
   <link rel="modulepreload" href="js/adapters/store.js">
   <link rel="modulepreload" href="js/core/config.js">
-  <link rel="modulepreload" href="js/core/icons.js">
   <link rel="modulepreload" href="js/core/pairing.js">
+  <link rel="modulepreload" href="js/core/palette.js">
+  <link rel="modulepreload" href="js/core/rules.js">
   <link rel="modulepreload" href="js/core/seed.js">
   <link rel="modulepreload" href="js/core/settings.js">
   <link rel="modulepreload" href="js/core/tokens.js">
   <link rel="modulepreload" href="js/ui/app.js">
-  <link rel="modulepreload" href="js/ui/glyph.js">
   <link rel="modulepreload" href="js/ui/icons.js">
-  <link rel="modulepreload" href="js/ui/messages.js">
+  <link rel="modulepreload" href="js/ui/mark.js">
+  <link rel="modulepreload" href="js/ui/palette-picker.js">
   <link rel="modulepreload" href="js/ui/settings.js">
   <link rel="modulepreload" href="js/ui/setup.js">
   <link rel="modulepreload" href="js/ui/theme.js">
@@ -57,6 +58,7 @@
     <div id="header-actions" class="header-actions"></div>
   </header>
   <main id="main" tabindex="-1"></main>
+  <section id="help-view" tabindex="-1" aria-label="Help" hidden></section>
   <div id="status" class="sr-only" role="status" aria-live="polite"></div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <noscript><p class="noscript">This game needs JavaScript.</p></noscript>

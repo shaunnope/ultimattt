@@ -2,12 +2,25 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rotationLabel, layerName, FACE_NAMES, faceViewAngles, frontFace, cubeStatus } from "../../src/ui/cube-labels.ts";
 import { rotations, newGame, apply } from "../../src/core/cube.ts";
+import { turnName } from "../../src/core/notation.ts";
 import type { CubeMove, GameConfig } from "../../src/core/types.ts";
 
-test("every one of the 27 rotations has its own, readable label", () => {
-  const labels = rotations().map(rotationLabel);
-  assert.equal(new Set(labels).size, 27);
-  for (const label of labels) assert.match(label, /^(Turn|Half turn) the .+ layer/);
+test("every one of the 9N rotations has its own, readable label", () => {
+  for (const size of [3, 4, 5]) {
+    const labels = rotations(size).map((r) => rotationLabel(r, size));
+    assert.equal(new Set(labels).size, 9 * size, `size ${size}`);
+    for (const label of labels) assert.match(label, /^(Turn|Half turn) the .+ layer/);
+  }
+});
+
+test("accessible names match the wording style of the notation module one to one, and each notation name maps to the same turn", () => {
+  for (const size of [3, 4, 5]) {
+    const all = rotations(size);
+    const words = all.map((r) => rotationLabel(r, size));
+    assert.deepEqual(words, all.map((r) => turnName(r, size, "words")));
+    const notation = all.map((r) => turnName(r, size, "cube"));
+    assert.equal(new Set(notation).size, new Set(words).size, "one name in each style for every turn");
+  }
 });
 
 test("labels name the layer and the way it turns", () => {
@@ -18,12 +31,13 @@ test("labels name the layer and the way it turns", () => {
   assert.equal(rotationLabel({ t: "rotate", axis: "x", layer: 2, dir: 1 }), "Turn the right layer down");
   assert.equal(rotationLabel({ t: "rotate", axis: "z", layer: 2, dir: -1 }), "Turn the front layer clockwise");
   assert.equal(rotationLabel({ t: "rotate", axis: "z", layer: 2, dir: 1 }), "Turn the front layer anticlockwise");
+  assert.equal(rotationLabel({ t: "rotate", axis: "x", layer: 1, dir: -1 }, 4), "Turn the second layer from the left up");
 });
 
 test("layer names cover all nine layers", () => {
-  assert.deepEqual([0, 1, 2].map((l) => layerName("x", l as 0 | 1 | 2)), ["left", "vertical middle", "right"]);
-  assert.deepEqual([0, 1, 2].map((l) => layerName("y", l as 0 | 1 | 2)), ["bottom", "horizontal middle", "top"]);
-  assert.deepEqual([0, 1, 2].map((l) => layerName("z", l as 0 | 1 | 2)), ["back", "front-to-back middle", "front"]);
+  assert.deepEqual([0, 1, 2].map((l) => layerName("x", l)), ["left", "vertical middle", "right"]);
+  assert.deepEqual([0, 1, 2].map((l) => layerName("y", l)), ["bottom", "horizontal middle", "top"]);
+  assert.deepEqual([0, 1, 2].map((l) => layerName("z", l)), ["back", "front-to-back middle", "front"]);
 });
 
 test("each face has a name and a view that brings it to the front", () => {
@@ -36,7 +50,7 @@ test("each face has a name and a view that brings it to the front", () => {
   assert.deepEqual(faceViewAngles(1), { rx: 90, ry: 0 });
 });
 
-const config: GameConfig = { variant: "cube", size: 3, mode: "local", seed: "CUB-BXK4-M9TR" };
+const config: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
 const place = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const play = (moves: CubeMove[]) => moves.reduce((s, m) => apply(s, m), newGame(config));
 

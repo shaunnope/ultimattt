@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "test:perf": "playwright test -c playwright.perf.config.ts",
     "test": "npm run typecheck && npm run test:unit && npm run test:contract",
-    "check": "node scripts/check-sw.mjs && node scripts/check-precache.mjs && node scripts/check-version.mjs && node scripts/check-theme.mjs && node scripts/gen-preload.mjs --check",
+    "check": "node scripts/check-sw.mjs && node scripts/check-precache.mjs && node scripts/check-version.mjs && node scripts/check-theme.mjs && node scripts/check-theme-tokens.mjs && node scripts/check-names.mjs && node scripts/gen-preload.mjs --check",
     "audit": "node scripts/audit.mjs"
   },
   "devDependencies": {

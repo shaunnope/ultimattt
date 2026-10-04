@@ -8,7 +8,7 @@ import type { CubeState } from "../../src/core/cube.ts";
 import { countLines } from "../../src/core/cube.ts";
 import type { Cell, ClassicMove, CubeMove, GameConfig } from "../../src/core/types.ts";
 
-const classicConfig = (size: 3 | 4 | 5): GameConfig => ({ variant: "classic", size, mode: "local", seed: `${size}X${size}-BXK4-M9TR` });
+const classicConfig = (size: 3 | 4 | 5): GameConfig => ({ variant: "classic", size, winLength: size === 3 ? 3 : 4, mode: "local" });
 const place = (cell: number): ClassicMove => ({ t: "place", cell });
 const play = (size: 3 | 4 | 5, cells: number[]) => cells.reduce((s, c) => classicApply(s, place(c)), classicGame(classicConfig(size)));
 
@@ -38,7 +38,7 @@ test("Classic: nothing to show on an empty board or once the game is over", () =
   assert.deepEqual(classicHints(over, "O"), { win: [], block: [] });
 });
 
-const ultimateConfig: GameConfig = { variant: "ultimate", size: 3, mode: "local", seed: "ULT-BXK4-M9TR" };
+const ultimateConfig: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "local" };
 
 function ultimateWith(boards: Record<number, Cell[]>, patch: Partial<UltimateState> = {}): UltimateState {
   const base = ultimateGame(ultimateConfig);
@@ -64,7 +64,7 @@ test("Ultimate: a claimed board shows nothing", () => {
   assert.deepEqual(ultimateHints(s, "O").block, []);
 });
 
-const cubeConfig: GameConfig = { variant: "cube", size: 3, mode: "local", seed: "CUB-BXK4-M9TR" };
+const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
 const cplace = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const cubeFrom = (moves: CubeMove[]) => moves.reduce((s, m) => cubeApply(s, m), cubeGame(cubeConfig));
 
@@ -88,5 +88,5 @@ test("Cube: nothing to show while a layer turn is due, or after the game", () =>
   const scored = cubeFrom([cplace(2, 0), cplace(0, 0), cplace(2, 1), cplace(0, 1), cplace(2, 2)]) as CubeState;
   assert.equal(scored.phase, "rotate");
   assert.deepEqual(cubeHints(scored, "X"), { win: [], block: [] });
-  assert.equal(countLines(scored.stickers).X, 1);
+  assert.equal(countLines(scored.stickers, 3, 3).X, 1);
 });

@@ -1,17 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
-import { startGame, choose } from "./helpers.ts";
+import { startGame, choose, turnLayer } from "./helpers.ts";
 
 // UI contract used by these tests:
-//  - the game shows its seed in #game-seed, with a "Copy seed" button
+//  - a game against the computer shows its seed in #game-seed, with a "Copy seed" button; other games have no seed
 //  - when a game ends the result dialog offers "Watch replay"; the controls then offer "Share replay"
 //  - the replay has a group "Replay controls": Play/Pause, "Step back", "Step forward", a slider named
 //    "Replay position", a "Speed" select (0.5×, 1×, 2×, 4×), a list named "Moves", and "Close replay"
-//  - the start screen has #seed-input (with #seed-error) that sets the variant and board size
-//  - a link ?watch=...&seed=...&game=...&moves=... opens the replay without touching the saved game
+//  - the start screen has #seed-input (with #seed-error), only while the opponent is the computer; a seed sets the variant, size and win length
+//  - a link ?watch=...&rules=...&game=...&moves=... (plus &seed=... for a computer game) opens the replay without touching the saved game
 
 const WIN = [0, 3, 1, 4, 2]; // X wins the top row
 const cell = (page: Page, i: number) => page.locator(`[data-cell="${i}"]`);
-const marks = (page: Page, text: string) => page.locator(`button.cell .mark:text-is("${text}")`);
+const marks = (page: Page, text: string) => page.locator(`button.cell[data-mark="${text}"]`);
 const controls = (page: Page) => page.getByRole("group", { name: "Replay controls" });
 const slider = (page: Page) => page.getByRole("slider", { name: "Replay position" });
 
@@ -68,7 +68,7 @@ test("a Cube replay includes its layer turns", async ({ page }) => {
   await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
   const sticker = (f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await sticker(f!, c!).dispatchEvent("click");
-  await page.getByRole("button", { name: "Turn the bottom layer to the right" }).click();
+  await turnLayer(page, "Turn the bottom layer to the right");
   await expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Resign" }).click();
   await page.getByRole("button", { name: /confirm/i }).click();
@@ -86,7 +86,8 @@ test("Share replay copies a link; opened in a fresh browser, even offline, it pl
   await page.getByRole("button", { name: "Close replay" }).click();
   await page.getByRole("button", { name: "Share replay" }).click();
   const link = await page.evaluate(() => navigator.clipboard.readText());
-  expect(link).toMatch(/\?watch=\d+&seed=3X3-[A-Z0-9]{4}-[A-Z0-9]{4}&game=l&moves=03142/);
+  expect(link).toMatch(/\?watch=\d+&rules=C33&game=l&moves=03142/);
+  expect(link).not.toContain("seed=");
 
   const fresh = await browser.newContext();
   const other = await fresh.newPage();
@@ -105,7 +106,7 @@ test("Share replay copies a link; opened in a fresh browser, even offline, it pl
 });
 
 test("a bad link is explained and nothing starts", async ({ page }) => {
-  await page.goto("./?watch=1&seed=NOPE&game=l&moves=0");
+  await page.goto("./?watch=1&rules=C33&seed=NOPE&game=c3x&moves=0");
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
   await expect(page.locator("#toasts")).toContainText(/seed|link|game/i);
 });
@@ -119,29 +120,35 @@ test("watching a link leaves your own game alone, and Close replay brings it bac
   await expect(controls(page)).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("ttt.save"))).toBe(before);
   await page.getByRole("button", { name: "Close replay" }).click();
-  await expect(cell(page, 4).locator(".mark")).toHaveText("X");
-  await expect(cell(page, 0).locator(".mark")).toHaveText("O");
+  await expect(cell(page, 4)).toHaveAttribute("data-mark", "X");
+  await expect(cell(page, 0)).toHaveAttribute("data-mark", "O");
   expect(page.url()).not.toContain("watch=");
 });
 
-test("Play this seed fills in the start screen", async ({ page }) => {
-  await page.goto("./?watch=1&seed=4X4-BXK4-M9TR&game=l&moves=04");
+test("Play this seed is offered only when the game has a seed, and fills in the start screen", async ({ page }) => {
+  await page.goto("./?watch=1&rules=C44&seed=C44-BXK4-M9TR&game=c3x&moves=04");
   await page.getByRole("button", { name: "Play this seed" }).click();
-  await expect(page.locator("#seed-input")).toHaveValue("4X4-BXK4-M9TR");
+  await expect(page.locator("#seed-input")).toHaveValue("C44-BXK4-M9TR");
   await expect(page.locator("input#size-4")).toBeChecked();
+  await expect(page.locator("input#winlength-4")).toBeChecked();
+  // a 001 link with a seed for a two-player game opens, but has no seed to play again
+  await page.goto("./?watch=1&seed=3X3-BXK4-M9TR&game=l&moves=03142");
+  await expect(controls(page)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play this seed" })).toHaveCount(0);
+  await expect(page.locator("#replay-rules")).not.toContainText(/seed/i);
 });
 
-test("a pasted seed sets the variant and board; a bad one is explained", async ({ page }) => {
+test("a pasted seed sets the variant, board and win length; a bad one is explained", async ({ page }) => {
   await page.goto("./");
-  await page.locator("#seed-input").fill("4x4-bxk4-m9tr");
-  await expect(page.locator("input#size-4")).toBeChecked();
-  await choose(page, "A friend on this device");
+  await page.locator("#seed-input").fill("c53-bxk4-m9tr");
+  await expect(page.locator("input#size-5")).toBeChecked();
+  await expect(page.locator("input#winlength-3")).toBeChecked();
   await page.getByRole("button", { name: "Start game" }).click();
-  await expect(page.locator("#game-seed")).toContainText("4X4-BXK4-M9TR");
-  await expect(page.locator(".board")).toHaveAttribute("aria-label", /4 by 4/);
+  await expect(page.locator("#game-seed")).toContainText("C53-BXK4-M9TR");
+  await expect(page.locator(".board")).toHaveAttribute("aria-label", /5 by 5/);
   await page.getByRole("button", { name: "New game" }).click();
 
-  await page.locator("#seed-input").fill("ULT-BXK4-M9TR");
+  await page.locator("#seed-input").fill("U33-BXK4-M9TR");
   await expect(page.locator("input#variant-ultimate")).toBeChecked();
 
   await page.locator("#seed-input").fill("nope");
@@ -150,10 +157,43 @@ test("a pasted seed sets the variant and board; a bad one is explained", async (
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
 });
 
+test("no seed shows anywhere for a game with no computer: setup, game, replay or share", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
+  await page.goto("./");
+  await expect(page.locator("#seed-input")).toBeVisible(); // the computer is the default opponent
+  await choose(page, "A friend on this device");
+  await expect(page.locator("#seed-input")).toBeHidden();
+  await choose(page, "A friend on another device");
+  await expect(page.locator("#seed-input")).toBeHidden();
+  await choose(page, "A friend on this device");
+  await page.getByRole("button", { name: "Start game" }).click();
+  await expect(page.locator("#game-seed")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Copy seed" })).toHaveCount(0);
+  for (const c of WIN) await cell(page, c).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Watch replay" }).click();
+  await expect(controls(page)).toBeVisible();
+  await expect(page.locator("#replay-rules")).not.toContainText(/seed/i);
+  await page.getByRole("button", { name: "Close replay" }).click();
+  await page.getByRole("button", { name: "Share replay" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).not.toContain("seed=");
+});
+
+test("switching the opponent shows and hides the seed field, and discards typed text", async ({ page }) => {
+  await page.goto("./");
+  await page.locator("#seed-input").fill("C33-BXK4-M9TR");
+  await choose(page, "A friend on this device");
+  await expect(page.locator("#seed-input")).toBeHidden();
+  await choose(page, "Computer");
+  await expect(page.locator("#seed-input")).toHaveValue("");
+  // nothing on the screen explains what a seed is
+  await expect(page.locator("#seed-card")).not.toContainText(/exact game|decides|random/i);
+});
+
 test("the same seed makes the computer open the same way", async ({ page }) => {
   const firstMove = async () => {
     await page.goto("./");
-    await page.locator("#seed-input").fill("3X3-BXK4-M9TR");
+    await page.locator("#seed-input").fill("C33-BXK4-M9TR");
     await choose(page, "Computer");
     await page.locator("#level").selectOption({ label: "5. Master" });
     await choose(page, "O");
@@ -167,9 +207,9 @@ test("the same seed makes the computer open the same way", async ({ page }) => {
   expect(a).toBe(b);
 });
 
-test("Copy seed puts the seed on the clipboard", async ({ page, context }) => {
+test("Copy seed puts the seed on the clipboard, for a computer game", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "Computer", level: "1. Beginner", mark: "X" });
   const seed = (await page.locator("#game-seed").innerText()).replace(/^Seed:\s*/, "").trim();
   await page.getByRole("button", { name: "Copy seed" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(seed);

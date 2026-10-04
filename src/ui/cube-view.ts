@@ -1,19 +1,21 @@
-// The cube on screen. One button per sticker (54), shown either as a 3D cube made with CSS 3D
+// The cube on screen. One button per sticker (6·N²), shown either as a 3D cube made with CSS 3D
 // transforms (drag, arrow keys or the face buttons turn the view) or as a flat unfolded net.
-// Layer turns animate in 3D by turning the layer's stickers about the cube's centre.
-// The view knows nothing about rules: it draws what it is told and reports sticker presses.
+// Layer turns animate in 3D by turning the layer's stickers about the cube's centre. A turn can also be previewed:
+// the layer turns and stays turned until the preview is cancelled (it turns back) or committed (the new marks replace
+// it with no replay). In the flat view there is no 3D motion, so a preview shows the marks as they would be after the
+// turn, dashed. The view knows nothing about rules: it draws what it is told and reports sticker presses.
 
-import type { Axis, Cell, CubeRotate, Mark } from "../core/types.ts";
+import type { Axis, Cell, CubeRotate } from "../core/types.ts";
 import { markOf } from "../core/types.ts";
 import type { CubeLine } from "../core/cube.ts";
-import { layerStickers } from "../core/cube.ts";
+import { layerStickers, rotateStickers } from "../core/cube.ts";
 import { FACE_NAMES, faceViewAngles, frontFace } from "./cube-labels.ts";
-import { markGlyph } from "./glyph.ts";
+import { createMark, markName } from "./mark.ts";
 import { h } from "./ui.ts";
 
 export interface CubeViewOptions {
+  size: number;
   onSticker(face: number, cell: number): void;
-  glyph?: (mark: Mark) => string;
 }
 
 export interface CubeView {
@@ -21,23 +23,32 @@ export interface CubeView {
   /** True when the browser can draw the 3D cube */
   supports3D: boolean;
   readonly flat: boolean;
+  /** True while a layer is animating */
   readonly busy: boolean;
+  /** The turn currently shown as a preview, or null */
+  readonly previewing: CubeRotate | null;
   setFlat(flat: boolean): void;
   showFace(face: number): void;
-  /** Redraw the marks. */
-  update(stickers: readonly Cell[], lines: readonly CubeLine[]): void;
+  /** Redraw the marks. `fresh` is the sticker that was just placed, whose mark draws itself in. */
+  update(stickers: readonly Cell[], lines: readonly CubeLine[], fresh?: number): void;
   /** Animate a layer turn, then call `commit` to put the new marks in place. */
   playRotation(rotation: CubeRotate, commit: () => void): Promise<void>;
+  /** Turn a layer to its previewed position and hold it there. Resolves when the animation has ended. */
+  previewTurn(rotation: CubeRotate): Promise<void>;
+  /** Turn the previewed layer back. Resolves when the animation has ended. */
+  cancelPreview(): Promise<void>;
+  /** The preview is confirmed: call `commit` to put the new marks in place, with no animation replayed. */
+  commitPreview(commit: () => void): void;
+  /** Drop a preview at once, with no animation. */
+  discardPreview(): void;
   /** Point out winning stickers (a dot) and stickers to block (a dashed ring). */
   setHints(win: readonly number[], block: readonly number[]): void;
   /** Outline the stickers of a layer (null clears). */
-  preview(axis: Axis, layer: 0 | 1 | 2 | null): void;
+  outline(axis: Axis, layer: number | null): void;
   /** Cancel an animation and settle immediately. */
   settle(): void;
 }
 
-// Each face drawn flat on the net, as 1-based [column, row] of its top-left sticker. Matches the original game's cross.
-const NET: [number, number][] = [[4, 1], [4, 7], [4, 4], [10, 4], [1, 4], [7, 4]]; // U D F B L R
 const FACE_TRANSFORM = ["rotateX(90deg)", "rotateX(-90deg)", "rotateY(0deg)", "rotateY(180deg)", "rotateY(-90deg)", "rotateY(90deg)"];
 // A +90° turn of the model, as the CSS rotation that does the same on screen (CSS y points down).
 const TURN_CSS: Record<Axis, (quarters: number) => string> = {
@@ -47,6 +58,11 @@ const TURN_CSS: Record<Axis, (quarters: number) => string> = {
 };
 const ANIMATION_MS = 340;
 const INITIAL_VIEW = { rx: -25, ry: -30 };
+
+/** Each face drawn flat on the net, as 1-based [column, row] of its top-left sticker (U D F B L R): the cross of the original game. */
+export const netOrigin = (n: number): [number, number][] => [[n + 1, 1], [n + 1, 2 * n + 1], [n + 1, n + 1], [3 * n + 1, n + 1], [1, n + 1], [2 * n + 1, n + 1]];
+
+const quartersOf = (rotation: CubeRotate): number => (rotation.dir === 1 ? 1 : rotation.dir === -1 ? -1 : 2);
 
 function supports3D(): boolean {
   try {
@@ -59,32 +75,38 @@ function supports3D(): boolean {
 const reducedMotion = (): boolean => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function createCubeView(opts: CubeViewOptions): CubeView {
-  const glyph = opts.glyph ?? markGlyph;
+  const n = opts.size;
+  const n2 = n * n;
   const can3D = supports3D();
   const buttons: HTMLButtonElement[] = [];
-  const roving = [4, 4, 4, 4, 4, 4]; // the sticker of each face that is the tab stop
+  const centre = Math.floor(n / 2) * n + Math.floor(n / 2);
+  const roving = Array<number>(6).fill(centre); // the sticker of each face that is the tab stop
+  const origin = netOrigin(n);
   let flat = !can3D;
   let view = { ...INITIAL_VIEW };
   let busy = false;
   let finish: (() => void) | null = null;
+  let shown: Cell[] = Array<Cell>(6 * n2).fill(0);
+  let lastStickers: readonly Cell[] = shown;
+  let previewing: CubeRotate | null = null;
 
   const describe = (i: number, value: Cell) => {
-    const face = Math.floor(i / 9);
-    const cell = i % 9;
-    return `${FACE_NAMES[face]} face, row ${Math.floor(cell / 3) + 1}, column ${(cell % 3) + 1}, ${value === 0 ? "empty" : glyph(markOf(value))}`;
+    const face = Math.floor(i / n2);
+    const cell = i % n2;
+    return `${FACE_NAMES[face]} face, row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}, ${value === 0 ? "empty" : markName(markOf(value))}`;
   };
 
-  for (let i = 0; i < 54; i++) {
-    const face = Math.floor(i / 9);
-    const cell = i % 9;
-    const r = Math.floor(cell / 3);
-    const c = cell % 3;
-    const button = h("button", { type: "button", class: "sticker", "data-face": face, "data-cell": cell, "aria-label": describe(i, 0), tabindex: -1 });
+  for (let i = 0; i < 6 * n2; i++) {
+    const face = Math.floor(i / n2);
+    const cell = i % n2;
+    const r = Math.floor(cell / n);
+    const c = cell % n;
+    const button = h("button", { type: "button", class: "sticker", "data-face": face, "data-cell": cell, "data-mark": "", "aria-label": describe(i, 0), tabindex: -1 });
     button.style.setProperty("--face", FACE_TRANSFORM[face]!);
-    button.style.setProperty("--dx", String(c - 1));
-    button.style.setProperty("--dy", String(r - 1));
-    button.style.setProperty("--fc", String(NET[face]![0] + c));
-    button.style.setProperty("--fr", String(NET[face]![1] + r));
+    button.style.setProperty("--dx", String(c - (n - 1) / 2));
+    button.style.setProperty("--dy", String(r - (n - 1) / 2));
+    button.style.setProperty("--fc", String(origin[face]![0] + c));
+    button.style.setProperty("--fr", String(origin[face]![1] + r));
     button.addEventListener("click", () => {
       if (busy) return;
       roving[face] = cell;
@@ -96,11 +118,11 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       if (!d) return;
       e.preventDefault();
       e.stopPropagation();
-      const nr = Math.min(2, Math.max(0, r + d[0]));
-      const nc = Math.min(2, Math.max(0, c + d[1]));
-      roving[face] = nr * 3 + nc;
+      const nr = Math.min(n - 1, Math.max(0, r + d[0]));
+      const nc = Math.min(n - 1, Math.max(0, c + d[1]));
+      roving[face] = nr * n + nc;
       applyTabStops();
-      buttons[face * 9 + nr * 3 + nc]!.focus();
+      buttons[face * n2 + nr * n + nc]!.focus();
     });
     buttons.push(button);
   }
@@ -114,28 +136,46 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
   const flatBoard = h("div", { class: "cube-flat", role: "group", "aria-label": "Cube, flat view" });
   const faceGroups = FACE_NAMES.map((name) => h("div", { class: "cube-flat-face", role: "group", "aria-label": `${name} face` }));
   faceGroups.forEach((g) => flatBoard.append(g));
-  const stage = h("div", { class: "cube-stage" });
+  const stage = h("div", { class: "cube-stage", style: `--n:${n}` });
 
   function applyView(snap = false): void {
-    scene.style.setProperty("--rx", `${view.rx}deg`);
-    scene.style.setProperty("--ry", `${view.ry}deg`);
+    // Set the transform itself: a changed custom property would make the browser restyle all 150 stickers.
+    scene.style.transform = `rotateX(${view.rx}deg) rotateY(${view.ry}deg)`;
     scene.dataset.view = `${view.rx} ${view.ry}`;
     scene.classList.toggle("snap", snap);
     applyTabStops();
   }
 
+  /** The tab stop is one sticker per face (all faces in the flat view, only the front one in 3D). Touching 150 buttons
+   *  on every pointer move would be slow, so this only works when the front face or a roving sticker changed. */
+  let stopsKey = "";
   function applyTabStops(): void {
     const front = flat ? -1 : frontFace(view.rx, view.ry);
+    const key = `${front}|${roving.join(",")}`;
+    if (key === stopsKey) return;
+    stopsKey = key;
     buttons.forEach((b, i) => {
-      const face = Math.floor(i / 9);
-      const stop = (flat || face === front) && i % 9 === roving[face];
+      const face = Math.floor(i / n2);
+      const stop = (flat || face === front) && i % n2 === roving[face];
       b.setAttribute("tabindex", stop ? "0" : "-1");
     });
   }
 
+  /** Pointer moves arrive faster than frames; apply the latest view once per frame. */
+  let framePending = false;
+  function applyViewSoon(): void {
+    if (framePending) return;
+    framePending = true;
+    requestAnimationFrame(() => {
+      framePending = false;
+      applyView();
+    });
+  }
+
   function mount(): void {
+    stopsKey = "";
     if (flat) {
-      buttons.forEach((b, i) => faceGroups[Math.floor(i / 9)]!.append(b));
+      buttons.forEach((b, i) => faceGroups[Math.floor(i / n2)]!.append(b));
       stage.replaceChildren(flatBoard);
     } else {
       scene.replaceChildren(...buttons);
@@ -164,7 +204,7 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     view = { rx: Math.max(-90, Math.min(90, view.rx - dy * 0.5)), ry: view.ry + dx * 0.5 };
     drag.x = e.clientX;
     drag.y = e.clientY;
-    applyView();
+    applyViewSoon();
   });
   const endDrag = (e: PointerEvent) => {
     if (!drag || drag.id !== e.pointerId) return;
@@ -194,6 +234,51 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     applyView(true);
   });
 
+  /** Let the stickers settle with no transition, then allow transitions again two frames later. Reading a layout property
+   *  here would force every sticker to restyle at once, which is slow on a 5×5 cube. */
+  function endNoAnim(): void {
+    requestAnimationFrame(() => requestAnimationFrame(() => scene.classList.remove("no-anim")));
+  }
+
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => {
+      finish = resolve;
+      setTimeout(resolve, ms);
+    });
+  const layerButtons = (axis: Axis, layer: number) => layerStickers(n, axis, layer).map((i) => buttons[i]!);
+  const setBusy = (value: boolean) => {
+    busy = value;
+    if (value) stage.dataset.busy = "true";
+    else delete stage.dataset.busy;
+  };
+
+  /** Draw a sticker's mark; `ghost` marks are a preview and dashed. */
+  function drawSticker(i: number, value: Cell, opts2: { fresh?: boolean; ghost?: boolean } = {}): void {
+    const b = buttons[i]!;
+    if (value === 0) b.replaceChildren();
+    else {
+      const mark = createMark(markOf(value), { fresh: opts2.fresh === true });
+      if (opts2.ghost) mark.classList.add("mark-preview");
+      b.replaceChildren(mark);
+    }
+  }
+
+  /** Flat view: show the layer's stickers as they would be after the turn. */
+  function showGhosts(rotation: CubeRotate): void {
+    const after = rotateStickers(lastStickers, n, rotation.axis, rotation.layer, rotation.dir);
+    for (const i of layerStickers(n, rotation.axis, rotation.layer)) {
+      drawSticker(i, after[i] as Cell, { ghost: true });
+      buttons[i]!.dataset.ghost = "true";
+    }
+  }
+  function clearGhosts(): void {
+    buttons.forEach((b, i) => {
+      if (b.dataset.ghost === undefined) return;
+      delete b.dataset.ghost;
+      drawSticker(i, shown[i]!);
+    });
+  }
+
   const api: CubeView = {
     element: stage,
     supports3D: can3D,
@@ -203,55 +288,61 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     get busy() {
       return busy;
     },
+    get previewing() {
+      return previewing;
+    },
     setFlat(value) {
       if (value === flat || (!value && !can3D)) return;
+      const keep = previewing;
       api.settle();
+      api.discardPreview();
       flat = value;
       mount();
+      if (keep) void api.previewTurn(keep);
     },
     showFace(face) {
       if (flat) {
-        buttons[face * 9 + roving[face]!]?.focus();
+        buttons[face * n2 + roving[face]!]?.focus();
         return;
       }
       view = faceViewAngles(face);
       applyView(true);
     },
-    update(stickers, lines) {
-      const inLine = new Map<number, Mark>();
-      for (const line of lines) for (const c of line.cells) inLine.set(line.face * 9 + c, line.owner);
+    update(stickers, lines, fresh) {
+      lastStickers = stickers;
+      const inLine = new Map<number, string>();
+      for (const line of lines) for (const c of line.cells) inLine.set(line.face * n2 + c, line.owner);
       buttons.forEach((b, i) => {
         const value = stickers[i] as Cell;
-        const text = value === 0 ? "" : glyph(markOf(value));
-        if (b.textContent !== text) b.replaceChildren(...(value === 0 ? [] : [h("span", { class: `mark mark-${markOf(value).toLowerCase()}`, "aria-hidden": "true" }, text)]));
-        b.setAttribute("aria-label", describe(i, value));
-        b.dataset.mark = value === 0 ? "" : markOf(value);
-        const owner = inLine.get(i);
-        if (owner) b.dataset.line = owner;
-        else delete b.dataset.line;
+        if (shown[i] !== value || b.dataset.ghost !== undefined) {
+          drawSticker(i, value, { fresh: i === fresh });
+          delete b.dataset.ghost;
+          b.setAttribute("aria-label", describe(i, value));
+          b.dataset.mark = value === 0 ? "" : markOf(value);
+        }
+        const owner = inLine.get(i) ?? "";
+        if ((b.dataset.line ?? "") !== owner) {
+          if (owner) b.dataset.line = owner;
+          else delete b.dataset.line;
+        }
       });
+      shown = stickers.slice() as Cell[];
     },
     async playRotation(rotation, commit) {
       api.settle();
-      const quarters = rotation.dir === 1 ? 1 : rotation.dir === -1 ? -1 : 2;
-      const layer = layerStickers(rotation.axis, rotation.layer).map((i) => buttons[i]!);
+      api.discardPreview();
+      const layer = layerButtons(rotation.axis, rotation.layer);
       if (!flat && reducedMotion()) {
         commit();
         return;
       }
-      const wait = (ms: number) =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-          setTimeout(resolve, ms);
-        });
-      busy = true;
-      stage.dataset.busy = "true";
+      setBusy(true);
       if (flat) {
         layer.forEach((b) => b.classList.add("flash"));
         await wait(220);
         layer.forEach((b) => b.classList.remove("flash"));
       } else {
-        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quarters)));
+        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
         await wait(ANIMATION_MS + 40);
         // Put the stickers back where they were with no transition, then show the new marks.
         scene.classList.add("no-anim");
@@ -259,22 +350,89 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       }
       commit();
       if (!flat) {
-        void scene.offsetWidth;
-        scene.classList.remove("no-anim");
+        endNoAnim();
       }
-      busy = false;
+      setBusy(false);
       finish = null;
-      delete stage.dataset.busy;
+    },
+    async previewTurn(rotation) {
+      previewing = rotation;
+      const layer = layerButtons(rotation.axis, rotation.layer);
+      if (flat) {
+        showGhosts(rotation);
+        setBusy(true);
+        await wait(reducedMotion() ? 0 : 160);
+      } else if (reducedMotion()) {
+        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
+        scene.classList.add("no-anim");
+        endNoAnim();
+      } else {
+        setBusy(true);
+        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
+        await wait(ANIMATION_MS + 40);
+      }
+      finish = null;
+      setBusy(false);
+    },
+    async cancelPreview() {
+      const turn = previewing;
+      if (!turn) return;
+      const layer = layerButtons(turn.axis, turn.layer);
+      if (flat) {
+        clearGhosts();
+        previewing = null;
+        return;
+      }
+      if (reducedMotion()) {
+        scene.classList.add("no-anim");
+        layer.forEach((b) => b.style.removeProperty("--turn"));
+        endNoAnim();
+        previewing = null;
+        return;
+      }
+      setBusy(true);
+      layer.forEach((b) => b.style.removeProperty("--turn"));
+      await wait(ANIMATION_MS + 40);
+      finish = null;
+      previewing = null;
+      setBusy(false);
+    },
+    commitPreview(commit) {
+      const turn = previewing;
+      previewing = null;
+      if (turn && !flat) {
+        // Hold the turned layer, then swap in the new marks with no transition so nothing plays twice.
+        scene.classList.add("no-anim");
+        layerButtons(turn.axis, turn.layer).forEach((b) => b.style.removeProperty("--turn"));
+        commit();
+        endNoAnim();
+        return;
+      }
+      commit();
+    },
+    discardPreview() {
+      const turn = previewing;
+      previewing = null;
+      if (!turn) return;
+      finish?.();
+      if (flat) {
+        clearGhosts();
+        return;
+      }
+      scene.classList.add("no-anim");
+      layerButtons(turn.axis, turn.layer).forEach((b) => b.style.removeProperty("--turn"));
+      endNoAnim();
+      setBusy(false);
     },
     setHints(win, block) {
       buttons.forEach((b) => b.removeAttribute("data-hint"));
       for (const i of block) buttons[i]?.setAttribute("data-hint", "block");
       for (const i of win) buttons[i]?.setAttribute("data-hint", "win");
     },
-    preview(axis, layer) {
+    outline(axis, layer) {
       buttons.forEach((b) => b.removeAttribute("data-preview"));
       if (layer === null) return;
-      for (const i of layerStickers(axis, layer)) buttons[i]!.setAttribute("data-preview", "true");
+      for (const i of layerStickers(n, axis, layer)) buttons[i]!.setAttribute("data-preview", "true");
     },
     settle() {
       finish?.();

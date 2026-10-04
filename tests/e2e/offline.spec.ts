@@ -16,7 +16,7 @@ async function controlled(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
 }
 
-const mark = (page: Page, text: string) => page.locator(`button.cell .mark:text-is("${text}"), button.sticker .mark:text-is("${text}")`);
+const mark = (page: Page, text: string) => page.locator(`button.cell[data-mark="${text}"], button.sticker[data-mark="${text}"]`);
 
 test("the manifest is linked and a service worker is registered", async ({ page }) => {
   await page.goto("./");
@@ -52,20 +52,20 @@ test("a game in progress comes back after a reload, in every variant", async ({ 
   await page.locator('[data-cell="4"]').click();
   await page.locator('[data-cell="0"]').click();
   await page.reload();
-  await expect(page.locator('[data-cell="4"] .mark')).toHaveText("X");
-  await expect(page.locator('[data-cell="0"] .mark')).toHaveText("O");
+  await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
+  await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
   await expect(page.locator("#game-status")).toContainText("X to move");
 
   await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
   await page.locator('button[data-board="4"][data-cell="2"]').click();
   await page.reload();
-  await expect(page.locator('button[data-board="4"][data-cell="2"] .mark')).toHaveText("X");
+  await expect(page.locator('button[data-board="4"][data-cell="2"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator("#game-status")).toContainText(/top right/i);
 
   await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').dispatchEvent("click");
   await page.reload();
-  await expect(page.locator('button.sticker[data-face="2"][data-cell="4"] .mark')).toHaveText("X");
+  await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator("#game-status")).toContainText("O to move");
 });
 
@@ -129,7 +129,7 @@ test("a new version shows the update bar, and updating keeps the game", async ({
     const bar = page.locator("#update-bar");
     await expect(bar).toBeVisible({ timeout: 10_000 });
     await bar.getByRole("button", { name: "Update" }).click();
-    await expect(page.locator('[data-cell="4"] .mark')).toHaveText("X", { timeout: 10_000 });
+    await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X", { timeout: 10_000 });
     await expect(bar).toBeHidden();
   } finally {
     await site.close();

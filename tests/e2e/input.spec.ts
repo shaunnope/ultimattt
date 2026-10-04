@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { choose } from "./helpers.ts";
+import { choose, turnLayer } from "./helpers.ts";
 import { moduleFor } from "../../src/core/variants.ts";
 import { randomSource } from "../../src/core/seed.ts";
 import { rotationLabel } from "../../src/ui/cube-labels.ts";
@@ -23,7 +23,7 @@ async function fresh(page: Page) {
 
 // A whole game from random legal moves (fixed seed), to replay through the interface.
 function randomGame(variant: Variant, seed: number): { moves: Move[]; config: GameConfig } {
-  const config: GameConfig = { variant, size: 3, mode: "local", seed: variant === "classic" ? "3X3-BXK4-M9TR" : variant === "ultimate" ? "ULT-BXK4-M9TR" : "CUB-BXK4-M9TR" };
+  const config: GameConfig = { variant, size: 3, winLength: 3, mode: "local" };
   const mod = moduleFor(config);
   const rand = randomSource(seed);
   let state = mod.newGame(config);
@@ -158,6 +158,9 @@ test("Cube, start to end, with the keyboard only (flat view, layer turns from th
     if (move.t === "rotate") {
       const label = rotationLabel(move as CubeRotate);
       await tabUntil(page, (f) => f.label === label);
+      await page.keyboard.press("Enter"); // previews the turn
+      await expect(page.getByRole("button", { name: "Confirm turn" })).toBeEnabled();
+      await tabUntil(page, (f) => f.text === "Confirm turn");
       await page.keyboard.press("Enter");
       continue;
     }
@@ -220,7 +223,7 @@ test.describe("touch only", () => {
     for (const move of moves) {
       await expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);
       if (move.t === "rotate") {
-        await page.getByRole("group", { name: "Turn a layer" }).getByRole("button", { name: rotationLabel(move as CubeRotate), exact: true }).tap();
+        await turnLayer(page, rotationLabel(move as CubeRotate), "tap");
       } else {
         const { face, cell } = move as { face: number; cell: number };
         await page.locator(`button.sticker[data-face="${face}"][data-cell="${cell}"]`).tap();
@@ -235,9 +238,9 @@ test.describe("touch only", () => {
     test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available");
     await page.getByRole("button", { name: "Show front face" }).tap();
     await page.locator('button.sticker[data-face="2"][data-cell="4"]').tap();
-    await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toContainText("X");
+    await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toHaveAttribute("data-mark", "X");
     await page.getByRole("button", { name: "Show back face" }).tap();
     await page.locator('button.sticker[data-face="3"][data-cell="4"]').tap();
-    await expect(page.locator('button.sticker[data-face="3"][data-cell="4"]')).toContainText("O");
+    await expect(page.locator('button.sticker[data-face="3"][data-cell="4"]')).toHaveAttribute("data-mark", "O");
   });
 });
