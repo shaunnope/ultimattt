@@ -1,0 +1,4 @@
+[
+  { "name": "cube-b33", "link": "?watch=40862&rules=B33&game=l&moves=24", "variant": "cube", "scoring": "lines", "lockFaces": false },
+  { "name": "cube-b33-faces-lock", "link": "?watch=40862&rules=B33FL&game=l&moves=24", "variant": "cube", "scoring": "faces", "lockFaces": true }
+]

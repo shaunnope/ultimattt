@@ -66,7 +66,7 @@ for (const size of ["3×3", "5×5"] as const) {
 test(`the cube ${size} stays smooth while the view is dragged and a layer turn is previewed and confirmed (4x slower CPU)`, async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "frame timing is measured in Chromium");
   await throttle(page);
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device", size, winLength: size === "3×3" ? undefined : 3 });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device", size, winLength: size === "3×3" ? undefined : 3 });
   test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available");
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
   await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
@@ -116,7 +116,7 @@ test(`the cube ${size} stays smooth while the view is dragged and a layer turn i
 test("the cube 5×5 stays smooth while a previewed layer swings to another direction and back (4x slower CPU)", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "frame timing is measured in Chromium");
   await throttle(page);
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device", size: "5×5", winLength: 3 });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device", size: "5×5", winLength: 3 });
   test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available");
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
   const picker = page.getByRole("group", { name: "Turn a layer" });

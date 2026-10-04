@@ -5,7 +5,7 @@ export async function choose(page: Page, title: string): Promise<void> {
   await page.locator("label", { has: page.locator("strong", { hasText: new RegExp(`^${title}$`) }) }).click();
 }
 
-export type Variant = "Classic" | "Ultimate" | "Cube";
+export type Variant = "Classic" | "Ultimate" | "Twist";
 
 export interface StartOptions {
   variant: Variant;
@@ -25,7 +25,7 @@ export async function startGame(page: Page, opts: StartOptions, url = "./"): Pro
   await expect(start.or(leave)).toBeVisible();
   if (await leave.isVisible()) await leave.click();
   await choose(page, opts.variant);
-  if (opts.opponent === "Computer" || opts.variant !== "Cube") await choose(page, opts.opponent);
+  if (opts.opponent === "Computer" || opts.variant !== "Twist") await choose(page, opts.opponent);
   if (opts.size) await choose(page, opts.size);
   if (opts.winLength) await choose(page, String(opts.winLength));
   if (opts.opponent === "Computer") {

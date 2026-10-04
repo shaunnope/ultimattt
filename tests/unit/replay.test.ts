@@ -34,13 +34,40 @@ test("in the Cube the same player places a scoring mark and then turns a layer",
   assert.deepEqual(frames.map((f) => f.mover), [null, "X", "O", "X", "O", "X", "X"]);
 });
 
-test("moves are described in words, per variant", () => {
-  assert.equal(describeMove(classic, place(5), "X", 3), "3. X: row 2, column 3");
+test("placements read AcB (row, column from 1), Twist ones UAcB, with no mark; the name spells it out", () => {
+  assert.deepEqual(describeMove(classic, place(5), "X", 3), { label: "3. 2c3", name: "Move 3, X, row 2, column 3" });
   const ultimate: GameConfig = { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
-  assert.equal(describeMove(ultimate, { t: "place", board: 4, cell: 2 }, "O", 2), "2. O: centre board, row 1, column 3");
-  assert.equal(describeMove(cube, { t: "place", face: 2, cell: 4 }, "X", 1), "1. X: front face, row 2, column 2");
-  assert.equal(describeMove(cube, { t: "rotate", axis: "y", layer: 2, dir: 1 }, "X", 6), "6. X: turn the top layer to the right");
-  assert.equal(describeMove(cube, { t: "rotate", axis: "x", layer: 0, dir: 2 }, "O", 8), "8. O: half turn the left layer");
+  assert.deepEqual(describeMove(ultimate, { t: "place", board: 4, cell: 2 }, "O", 2), { label: "2. centre board 1c3", name: "Move 2, O, centre board, row 1, column 3" });
+  assert.deepEqual(describeMove(cube, { t: "place", face: 2, cell: 4 }, "X", 1), { label: "1. F2c2", name: "Move 1, X, front face, row 2, column 2" });
+  assert.deepEqual(describeMove(cube, { t: "place", face: 0, cell: 1 }, "O", 2), { label: "2. U1c2", name: "Move 2, O, top face, row 1, column 2" });
+});
+
+test("every face has its own letter in a Twist label", () => {
+  const letters = [0, 1, 2, 3, 4, 5].map((face) => describeMove(cube, { t: "place", face, cell: 0 }, "X", 1).label);
+  assert.deepEqual(letters, ["1. U1c1", "1. D1c1", "1. F1c1", "1. B1c1", "1. L1c1", "1. R1c1"]);
+});
+
+test("rows and columns run to 5 on the larger boards", () => {
+  const classic5: GameConfig = { variant: "classic", size: 5, winLength: 4, scoring: "lines", lockFaces: false, mode: "local" };
+  assert.equal(describeMove(classic5, place(24), "X", 25).label, "25. 5c5");
+  assert.equal(describeMove(classic5, place(8), "O", 4).label, "4. 2c4");
+  const cube5: GameConfig = { variant: "cube", size: 5, winLength: 4, scoring: "lines", lockFaces: false, mode: "local" };
+  assert.equal(describeMove(cube5, { t: "place", face: 5, cell: 23 }, "X", 1).label, "1. R5c4");
+});
+
+test("no label shows the mover's mark: the move number says who moved", () => {
+  const all = [
+    describeMove(classic, place(0), "X", 1),
+    describeMove(cube, { t: "place", face: 2, cell: 4 }, "O", 2),
+    describeMove(cube, { t: "rotate", axis: "x", layer: 0, dir: 2 }, "X", 3),
+  ];
+  for (const { label } of all) assert.doesNotMatch(label, /[XO]/);
+});
+
+test("layer turns keep their wording, in the chosen style, without the mark", () => {
+  assert.deepEqual(describeMove(cube, { t: "rotate", axis: "y", layer: 2, dir: 1 }, "X", 6), { label: "6. turn the top layer to the right", name: "Move 6, X, turn the top layer to the right" });
+  assert.equal(describeMove(cube, { t: "rotate", axis: "x", layer: 0, dir: 2 }, "O", 8).label, "8. half turn the left layer");
+  assert.equal(describeMove(cube, { t: "rotate", axis: "x", layer: 0, dir: 2 }, "O", 8, "cube").name, "Move 8, O, half turn the left layer");
 });
 
 test("a finished game becomes a record and back, for every kind of game", () => {

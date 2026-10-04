@@ -96,3 +96,10 @@ test("the options note names what is on, and says nothing when both are off", ()
   assert.equal(optionsNote({ scoring: "faces", lockFaces: false }), ", faces scoring");
   assert.equal(optionsNote({ scoring: "faces", lockFaces: true }), ", faces scoring, locked faces");
 });
+
+test("FACE_LETTERS name the six faces U, D, F, B, L, R in the same order as FACE_NAMES", async () => {
+  const { FACE_LETTERS } = await import("../../src/ui/cube-labels.ts");
+  assert.deepEqual([...FACE_LETTERS], ["U", "D", "F", "B", "L", "R"]);
+  assert.equal(FACE_LETTERS.length, FACE_NAMES.length);
+  FACE_NAMES.forEach((name, i) => assert.equal(FACE_LETTERS[i], name === "top" ? "U" : name === "bottom" ? "D" : name[0]!.toUpperCase()));
+});

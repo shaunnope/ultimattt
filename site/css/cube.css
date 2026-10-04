@@ -1,7 +1,9 @@
 /* The Cube: a 3D cube made of CSS-transformed stickers, a flat net as the alternative, and the layer picker. */
 
 .cube-board { display: grid; gap: 12px; }
-.cube-score { font-weight: 700; text-align: center; font-size: 1.15rem; }
+.cube-score { font-weight: 700; text-align: center; font-size: 1.15rem; overflow-wrap: anywhere; }
+.cube-score .score-player { display: inline-flex; align-items: center; gap: 0.25em; white-space: nowrap; }
+.cube-score svg { width: 1em; height: 1em; }
 .cube-viewbar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .btn-small { min-height: 44px; padding: 4px 12px; font-size: 0.9rem; }
 .btn[aria-pressed="true"] { background: var(--accent-muted); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }

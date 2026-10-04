@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Tic Tac Toe: Classic, Ultimate and Cube",
+  "name": "Tic Tac Toe: Classic, Ultimate and Twist",
   "short_name": "Tic Tac Toe",
-  "description": "Classic tic tac toe, Ultimate tic tac toe and a 3D Cube variant. Play the computer or a friend. Works offline.",
+  "description": "Classic tic tac toe, Ultimate tic tac toe and Twist-Tac-Toe, a 3D cube variant. Play the computer or a friend. Works offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -41,7 +41,7 @@
       "sizes": "1080x2340",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "A Cube game with one line scored, ready for a layer turn"
+      "label": "A Twist game with one line scored, ready for a layer turn"
     },
     {
       "src": "screenshots/screen-wide.png",

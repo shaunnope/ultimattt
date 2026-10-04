@@ -10,12 +10,34 @@ const section = (id: string): HelpSection => {
 const topics = (s: HelpSection): Set<string> => new Set(s.blocks.flatMap((b) => ("topic" in b && b.topic ? [b.topic] : [])));
 const textOf = (s: HelpSection): string => helpText(s).toLowerCase();
 
-test("the sections come in order: Ultimate, Cube, Setup options", () => {
-  assert.deepEqual(HELP_SECTIONS.map((s) => s.title), ["Ultimate", "Cube", "Setup options"]);
-  assert.deepEqual(HELP_SECTIONS.map((s) => s.id), ["ultimate", "cube", "setup"]);
+test("the sections come in order: Classic rules, Ultimate, Twist-Tac-Toe, Setup options", () => {
+  assert.deepEqual(HELP_SECTIONS.map((s) => s.title), ["Classic rules", "Ultimate", "Twist-Tac-Toe", "Setup options"]);
+  assert.deepEqual(HELP_SECTIONS.map((s) => s.id), ["classic", "ultimate", "cube", "setup"]);
 });
 
-test("Ultimate and Cube each cover goal, turn, special rules, end of game, and the effect of size and win length", () => {
+test("Classic rules covers the goal, turns, a draw, which lines count, and the win length for each board size", () => {
+  const classic = section("classic");
+  const found = topics(classic);
+  for (const topic of ["goal", "turn", "end", "size"]) assert.ok(found.has(topic), `classic covers ${topic}`);
+  const text = textOf(classic);
+  assert.match(text, /x goes first|x moves first/);
+  assert.match(text, /take turns|alternate/);
+  assert.match(text, /rows?, columns? and (both )?diagonals?|row, a column or a diagonal/);
+  assert.match(text, /draw/);
+  assert.match(text, /3×3.{0,80}\b3 in a row/);
+  assert.match(text, /4×4 and 5×5.{0,80}\b4 in a row/);
+  assert.match(text, /win length/);
+});
+
+test("Classic rules has a worked example for a 3×3 line and one for a 4×4 line, each with a text alternative", () => {
+  const examples = section("classic").blocks.filter((b): b is Extract<HelpBlock, { kind: "example" }> => b.kind === "example");
+  assert.ok(examples.length >= 2);
+  const sizes = examples.flatMap((e) => e.boards.map((b) => b.rows.length));
+  assert.ok(sizes.includes(3) && sizes.includes(4));
+  for (const e of examples) assert.ok(e.alt.trim().length > 20);
+});
+
+test("Ultimate and Twist-Tac-Toe each cover goal, turn, special rules, end of game, and the effect of size and win length", () => {
   for (const id of ["ultimate", "cube"]) {
     const found = topics(section(id));
     for (const topic of ["goal", "turn", "special", "end", "size"]) assert.ok(found.has(topic), `${id} covers ${topic}`);

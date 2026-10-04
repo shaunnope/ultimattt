@@ -12,6 +12,7 @@ import { IDLE, step, type TurnEvent, type TurnSelection } from "../core/turn-sel
 import { FACE_NAMES, rotationLabel, scoreLabel } from "./cube-labels.ts";
 import { createCubeView } from "./cube-view.ts";
 import { icon, type IconName } from "./icons.ts";
+import { createMark } from "./mark.ts";
 import { h } from "./ui.ts";
 
 export interface CubeBoardOptions {
@@ -23,6 +24,8 @@ export interface CubeBoardOptions {
   mayMove?: (state: CubeState) => boolean;
   /** How turns are named on the buttons and in captions. Display only. */
   notation?: NotationStyle;
+  /** A replay: how long one step lasts (ms), so turning the view to a played face fits inside it. */
+  stepMs?: () => number;
 }
 
 export interface CubeBoardView {
@@ -58,7 +61,13 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   const size = opts.size;
   let notation: NotationStyle = opts.notation ?? "words";
   const view = createCubeView({ size, onSticker: (face, cell) => opts.onMove({ t: "place", face, cell }) });
-  const score = h("div", { id: "cube-score", class: "cube-score", "aria-live": "polite" }, `${scoreLabel("lines")} · X: 0 · O: 0`);
+  const score = h("div", { id: "cube-score", class: "cube-score", "aria-live": "polite" });
+  /** "Lines · X: 1 · O: 0": what is counted, then each player by mark shape and letter, so colour is never the only cue. */
+  const drawScore = (label: string, x: number, o: number): void => {
+    const player = (mark: "X" | "O", n: number) => h("span", { class: "score-player" }, createMark(mark), `${mark}: ${n}`);
+    score.replaceChildren(label, " · ", player("X", x), " · ", player("O", o));
+  };
+  drawScore(scoreLabel("lines"), 0, 0);
 
   // ---- view bar ----
   const faceButtons = FACE_NAMES.map((name, face) =>
@@ -263,7 +272,7 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   function show(state: CubeState, fresh?: number): void {
     view.update(state.stickers, cubeLines(state.stickers, size, state.config.winLength), fresh);
     view.setLocked(state.config.lockFaces ? lockedFaces(state.stickers, size, state.config.winLength) : []);
-    score.textContent = `${scoreLabel(state.config.scoring)} · X: ${state.scores.X} · O: ${state.scores.O}`;
+    drawScore(scoreLabel(state.config.scoring), state.scores.X, state.scores.O);
     const rotating = state.phase === "rotate" && state.status === "playing" && !opts.readOnly && (opts.mayMove?.(state) ?? true);
     picker.hidden = !rotating;
     element.dataset.phase = rotating ? "rotate" : "place";
@@ -310,6 +319,15 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
       const placed = lastMove as unknown as { t: string; face: number; cell: number } | undefined;
       const fresh = grew && placed?.t === "place" ? placed.face * size * size + placed.cell : undefined;
       const animate = grew && lastMove?.t === "rotate" && !justConfirmed;
+      // A replay shows a mark only once its face is in view: turn the view first, then draw the position.
+      const newPosition = previous === null || previous.moves.length !== state.moves.length;
+      if (opts.readOnly && newPosition && placed?.t === "place" && !view.isInView(placed.face)) {
+        const ms = Math.min(350, 0.6 * (opts.stepMs?.() ?? Infinity));
+        void view.turnToFace(placed.face, ms).then(() => {
+          if (mine === generation) show(state, fresh);
+        });
+        return;
+      }
       if (!animate) {
         show(state, fresh);
         return;

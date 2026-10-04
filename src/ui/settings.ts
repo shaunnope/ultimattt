@@ -49,7 +49,7 @@ export async function openSettings(): Promise<void> {
       checkbox("Replay a finished game automatically", settings.autoReplay, (autoReplay) => change({ autoReplay })),
       h("label", { class: "field" }, "Appearance", themeSelect),
       createPalettePicker(settings.markPalette, (markPalette) => change({ markPalette })),
-      h("label", { class: "field" }, "Cube turn names", notationSelect),
+      h("label", { class: "field" }, "Twist turn names", notationSelect),
     ],
     actions: [{ label: "Done", value: "done", primary: true }],
   });

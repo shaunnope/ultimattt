@@ -238,9 +238,15 @@ dialog .dialog-body { margin-bottom: 14px; display: grid; gap: 8px; }
 .net-error { border-color: var(--error); }
 
 /* ---- help ---- */
-.help { display: flex; flex-direction: column; gap: 0.5rem; max-width: 34rem; margin: 0 auto; }
-.help h2 { margin: 0.75rem 0 0.25rem; font-size: 1.1rem; }
-.help p, .help ol { line-height: 1.5; }
+#help-view { padding-inline: max(16px, env(safe-area-inset-left), env(safe-area-inset-right)); }
+.help { display: flex; flex-direction: column; gap: 0.5rem; max-width: 38rem; margin: 0 auto; }
+/* Each section sits under a rule with room above and below, so the page reads as separate topics. */
+.help-section { display: flex; flex-direction: column; gap: 0.75rem; padding-block: 1.25rem; }
+.help-section + .help-section { border-top: 1px solid var(--border); }
+.help-section:last-of-type { padding-bottom: 0.5rem; }
+.help h2 { margin: 0; font-size: 1.4rem; line-height: 1.25; }
+.help p, .help ol { margin: 0; line-height: 1.55; }
+.help-example, .help-boards { max-width: 100%; min-width: 0; }
 .help-steps { padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .help-top { display: flex; margin: 0.25rem 0; }
 .help-example { display: grid; gap: 8px; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }

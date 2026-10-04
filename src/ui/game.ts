@@ -6,13 +6,14 @@ import { other } from "../core/types.ts";
 import { newSeed } from "../core/seed.ts";
 import { recordFromGame, packLink } from "../core/record.ts";
 import type { AnyGameState, VariantModule } from "../core/variants.ts";
-import { moduleFor } from "../core/variants.ts";
+import { moduleFor, variantName } from "../core/variants.ts";
 import type { UltimateState } from "../core/ultimate.ts";
 import type { CubeState } from "../core/cube.ts";
 import { Computer, defaultWorker } from "./computer.ts";
 import { createBoard, type BoardView } from "./boards.ts";
 import { whereToPlay } from "./board-ultimate.ts";
-import { cubeStatus, lockEndText, optionsNote, scoreLabel } from "./cube-labels.ts";
+import { lockEndText, optionsNote, scoreLabel } from "./cube-labels.ts";
+import { statusText } from "./status-text.ts";
 import { refusalMessage } from "./messages.ts";
 import { mountReplay, type ReplayHandle } from "./replay.ts";
 import { LEVEL_NAMES } from "./setup.ts";
@@ -56,7 +57,6 @@ export interface NetGameHandle {
   promptUndo(by: Mark): Promise<boolean>;
 }
 
-const VARIANT_TITLE = { classic: "Classic", ultimate: "Ultimate", cube: "Cube" } as const;
 
 // Settings changes (hints, turn notation, colours) redraw whichever game is on screen.
 let active: GameController | null = null;
@@ -185,7 +185,7 @@ class GameController implements NetGameHandle {
     this.container.replaceChildren(
       h("section", { class: "screen", "aria-label": "Game" },
         h("div", { class: "game-head" },
-          h("span", { class: "game-title", id: "game-title" }, `${VARIANT_TITLE[this.config.variant]} ${this.config.size}×${this.config.size}, ${this.config.winLength} in a row${optionsNote(this.config)}`),
+          h("span", { class: "game-title", id: "game-title" }, `${variantName(this.config.variant, "short")} ${this.config.size}×${this.config.size}, ${this.config.winLength} in a row${optionsNote(this.config)}`),
           h("span", { class: "game-sub" }, sub)),
         ...(this.config.seed
           ? [h("div", { class: "seed-row" }, h("span", { id: "game-seed", class: "game-sub" }, `Seed: ${this.config.seed}`), h("button", { class: "btn btn-small", type: "button", onclick: () => void this.copySeed() }, "Copy seed"))]
@@ -210,24 +210,21 @@ class GameController implements NetGameHandle {
   }
 
   private statusText(): string {
-    if (this.resigned) return `${this.resigned} resigned. ${other(this.resigned)} wins.`;
     const st = this.mod.status(this.state);
-    const lockNote = this.config.variant === "cube" ? lockEndText(this.state as CubeState) : "";
-    if (st.status === "won") return `${st.winner!} wins!${lockNote ? ` ${lockNote}` : ""}`;
-    if (st.status === "draw") return "It's a draw.";
-    if (st.status === "tie") return `It's a tie.${lockNote ? ` ${lockNote}` : ""}`;
-    if (this.net) {
-      const mine = this.state.toMove === this.net.myMark;
-      if (this.config.variant === "cube" && (this.state as CubeState).phase === "rotate") {
-        return mine ? `${this.state.toMove} scored! Turn a layer of the cube.` : "Waiting for your friend to turn a layer.";
-      }
-      const turn = mine ? `Your move (${this.state.toMove}).` : `Waiting for your friend (${this.state.toMove}).`;
-      return this.config.variant === "ultimate" ? `${turn} ${whereToPlay(this.state as UltimateState)}` : turn;
-    }
-    if (this.computer.thinking || this.computerToMove) return "Computer is thinking…";
-    if (this.config.variant === "cube") return cubeStatus(this.state as CubeState);
-    const turn = this.vsComputer ? `Your move (${this.human}).` : `${this.state.toMove} to move.`;
-    return this.config.variant === "ultimate" ? `${turn} ${whereToPlay(this.state as UltimateState)}` : turn;
+    return statusText({
+      variant: this.config.variant,
+      status: st.status,
+      winner: st.winner,
+      toMove: this.state.toMove,
+      ...(this.config.variant === "cube" ? { phase: (this.state as CubeState).phase } : {}),
+      mode: this.net ? "two-device" : this.vsComputer ? "computer" : "one-device",
+      ...(this.net ? { myMark: this.net.myMark } : {}),
+      ...(this.vsComputer ? { humanMark: this.human } : {}),
+      resigned: this.resigned,
+      thinking: !this.net && (this.computer.thinking || this.computerToMove),
+      lockNote: this.config.variant === "cube" ? lockEndText(this.state as CubeState) : "",
+      where: this.config.variant === "ultimate" && st.status === "playing" ? whereToPlay(this.state as UltimateState) : "",
+    });
   }
 
   /** The game in progress is saved after every change, so a reload or a closed tab loses nothing. */

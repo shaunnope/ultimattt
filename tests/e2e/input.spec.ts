@@ -9,7 +9,7 @@ import type { CubeRotate, GameConfig, Move } from "../../src/core/types.ts";
 // SC-009: every game can be played start to end with the keyboard only, and with touch only.
 
 type Variant = "classic" | "ultimate" | "cube";
-const TITLES: Record<Variant, string> = { classic: "Classic", ultimate: "Ultimate", cube: "Cube" };
+const TITLES: Record<Variant, string> = { classic: "Classic", ultimate: "Ultimate", cube: "Twist" };
 
 async function fresh(page: Page) {
   await page.goto("./");
@@ -105,7 +105,7 @@ async function keyboardStart(page: Page, variant: Variant) {
   if (variant !== "classic") {
     await tabUntil(page, (f) => f.tag === "INPUT" && f.name === "variant");
     await page.keyboard.press("ArrowRight"); // Classic -> Ultimate
-    if (variant === "cube") await page.keyboard.press("ArrowRight"); // -> Cube
+    if (variant === "cube") await page.keyboard.press("ArrowRight"); // -> Twist
   }
   await tabUntil(page, (f) => f.tag === "INPUT" && f.name === "mode");
   if (variant !== "cube") await page.keyboard.press("ArrowRight"); // Computer -> a friend on this device (Cube already is)

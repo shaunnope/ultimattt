@@ -25,7 +25,7 @@ async function startCubeWith(page: Page, options: { lock?: boolean; faces?: bool
   const leave = page.getByRole("button", { name: "New game" });
   await expect(start.or(leave)).toBeVisible();
   if (await leave.isVisible()) await leave.click();
-  await choose(page, "Cube");
+  await choose(page, "Twist");
   await choose(page, "A friend on this device").catch(() => undefined);
   await lock(page).setChecked(options.lock === true);
   await faces(page).setChecked(options.faces === true);
@@ -48,7 +48,7 @@ test("setup offers the two options for Cube only, off by default, and remembers 
   if (await leave.isVisible()) await leave.click();
   await expect(lock(page)).toBeHidden();
   await expect(faces(page)).toBeHidden();
-  await choose(page, "Cube");
+  await choose(page, "Twist");
   await expect(lock(page)).toBeVisible();
   await expect(faces(page)).toBeVisible();
   await expect(lock(page)).not.toBeChecked();
@@ -57,7 +57,7 @@ test("setup offers the two options for Cube only, off by default, and remembers 
   await expect(page.getByLabel("Count faces, not lines")).toBeVisible();
   await choose(page, "Ultimate");
   await expect(lock(page)).toBeHidden();
-  await choose(page, "Cube");
+  await choose(page, "Twist");
   await lock(page).check();
   await faces(page).check();
   await choose(page, "A friend on this device").catch(() => undefined);

@@ -63,6 +63,6 @@ test("no message of a two-device game carries a palette id, a colour or the turn
 test("the move list reads the same text for a Cube turn whatever the setting only in its display style", () => {
   const cube: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
   const turn: Move = { t: "rotate", axis: "x", layer: 2, dir: -1 };
-  assert.equal(describeMove(cube, turn, "X", 6, "cube"), "6. X: R");
-  assert.equal(describeMove(cube, turn, "X", 6, "words"), "6. X: turn the right layer up");
+  assert.equal(describeMove(cube, turn, "X", 6, "cube").label, "6. R");
+  assert.equal(describeMove(cube, turn, "X", 6, "words").label, "6. turn the right layer up");
 });
