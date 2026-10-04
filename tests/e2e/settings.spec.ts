@@ -72,7 +72,7 @@ test("Ultimate hints cover the board you must play", async ({ page }) => {
 });
 
 test("Cube hints mark the cell that completes a line and the one to block", async ({ page }) => {
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
   const dialog = await openSettings(page);
   await dialog.getByLabel("Show hints").check();
   await closeSettings(page);
@@ -156,7 +156,7 @@ async function startScreen(page: Page) {
   if (await leave.isVisible()) await leave.click();
 }
 
-for (const variant of ["Classic", "Ultimate", "Cube"] as const) {
+for (const variant of ["Classic", "Ultimate", "Twist"] as const) {
   test(`${variant}: choosing 4×4 or 5×5 sets the win length to 4, and 3×3 shows it fixed`, async ({ page }) => {
     await startScreen(page);
     await choose(page, variant);

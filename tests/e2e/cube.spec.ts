@@ -18,7 +18,7 @@ const score = (page: Page) => page.locator("#cube-score");
 const idle = (page: Page) => expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);
 
 async function startCube(page: Page) {
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
   await expect(page.locator(".cube-scene, .cube-flat").first()).toBeVisible();
 }
 
@@ -300,7 +300,7 @@ test("turn buttons are icons in word mode and notation in cube mode, with word n
   await expect(turnButton(page, "Turn the left layer up")).toHaveAttribute("title", "Turn the left layer up");
   // switch to cube notation in Settings
   await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("dialog", { name: "Settings" }).getByLabel("Cube turn names").selectOption("cube");
+  await page.getByRole("dialog", { name: "Settings" }).getByLabel("Twist turn names").selectOption("cube");
   await page.getByRole("dialog", { name: "Settings" }).getByRole("button", { name: "Done" }).click();
   await expect(picker(page)).toBeVisible();
   await expect(turnButton(page, "Turn the left layer up")).toHaveText("L'");
@@ -317,7 +317,7 @@ test("turn buttons are icons in word mode and notation in cube mode, with word n
   await page.getByRole("button", { name: "Resign" }).click();
   await page.getByRole("button", { name: /confirm resign/i }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Watch replay" }).click();
-  await expect(page.getByRole("list", { name: "Moves" })).toContainText("X: L'");
+  await expect(page.getByRole("list", { name: "Moves" })).toContainText("6. L'");
 });
 
 test("the notation setting changes only the display: the saved moves are the same", async ({ page }) => {
@@ -327,7 +327,7 @@ test("the notation setting changes only the display: the saved moves are the sam
   const saved = async () => (await page.evaluate(() => JSON.parse(localStorage.getItem("ttt.save")!).game.moves)) as string;
   const words = await saved();
   await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("dialog", { name: "Settings" }).getByLabel("Cube turn names").selectOption("cube");
+  await page.getByRole("dialog", { name: "Settings" }).getByLabel("Twist turn names").selectOption("cube");
   await page.getByRole("dialog", { name: "Settings" }).getByRole("button", { name: "Done" }).click();
   expect(await saved()).toBe(words);
 });
@@ -337,7 +337,7 @@ test("the notation setting changes only the display: the saved moves are the sam
 for (const size of ["4×4", "5×5"] as const) {
   test(`a ${size} cube: scoring with win length 3 offers every layer, and an inner layer turn works`, async ({ page }) => {
     const n = Number(size[0]);
-    await startGame(page, { variant: "Cube", opponent: "A friend on this device", size, winLength: 3 });
+    await startGame(page, { variant: "Twist", opponent: "A friend on this device", size, winLength: 3 });
     await expect(page.locator("button.sticker")).toHaveCount(6 * n * n);
     await expect(page.locator("#game-title")).toContainText(`${size}, 3 in a row`);
     await scoreFront(page);
@@ -568,4 +568,32 @@ test("with reduced motion the new position appears at once", async ({ page }) =>
   const angles = await stopAngles(page);
   // every sampled frame is already at the new position (a quarter turn the other way)
   for (const a of angles.slice(1)) expect(Math.abs(Math.abs(a) - 90) < 2 || Math.abs(Math.abs(a) - 270) < 2, `angle ${a}`).toBe(true);
+});
+
+// ---- status and score display (spec 004, US4) ----
+
+test("the Twist score row names what it counts, shows each player's mark, and updates after a scoring move", async ({ page }) => {
+  await startCube(page);
+  await expect(score(page)).toHaveText("Lines · X: 0 · O: 0");
+  await expect(score(page).locator("svg")).toHaveCount(2);
+  await expect(score(page)).toHaveAttribute("aria-live", "polite");
+  for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await sticker(page, f!, c!).dispatchEvent("click");
+  await expect(score(page)).toHaveText("Lines · X: 1 · O: 0");
+  await expect(page.locator("#game-status")).toHaveText("X scored! Turn a layer of the cube.");
+});
+
+test("at 320 px the status, score and board do not clip or overlap", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await startCube(page);
+  const box = async (selector: string) => (await page.locator(selector).first().boundingBox())!;
+  const status = await box("#game-status");
+  const scoreBox = await box("#cube-score");
+  const board = await box(".cube-stage");
+  for (const b of [status, scoreBox, board]) {
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(320);
+  }
+  expect(status.y + status.height).toBeLessThanOrEqual(scoreBox.y + 1);
+  expect(scoreBox.y + scoreBox.height).toBeLessThanOrEqual(board.y + 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

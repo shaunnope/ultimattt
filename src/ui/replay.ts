@@ -7,6 +7,7 @@ import { other } from "../core/types.ts";
 import type { ReplaySpeed } from "../core/settings.ts";
 import type { NotationStyle } from "../core/notation.ts";
 import { replayFrames } from "../core/replay.ts";
+import { variantName } from "../core/variants.ts";
 import type { CubeState } from "../core/cube.ts";
 import { createBoard } from "./boards.ts";
 import { lockEndText, optionsNote } from "./cube-labels.ts";
@@ -47,7 +48,8 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   let playing = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const board = createBoard(config, () => undefined, { readOnly: true, notation: opts.notation ?? "words" });
+  const stepMs = () => Math.max(MIN_STEP_MS, STEP_MS / speed);
+  const board = createBoard(config, () => undefined, { readOnly: true, notation: opts.notation ?? "words", stepMs });
   const statusEl = h("div", { id: "game-status", class: "status-line" });
 
   const playButton = h("button", { type: "button", class: "btn", "aria-label": "Play" }, "Play");
@@ -60,7 +62,8 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
 
   const list = h("ol", { class: "move-list", "aria-label": "Moves" });
   const items = moves.map((move, i) => {
-    const button = h("button", { type: "button", class: "move-item" }, describeMove(config, move, frames[i + 1]!.mover!, i + 1, opts.notation ?? "words"));
+    const text = describeMove(config, move, frames[i + 1]!.mover!, i + 1, opts.notation ?? "words");
+    const button = h("button", { type: "button", class: "move-item", "aria-label": text.name }, text.label);
     button.addEventListener("click", () => {
       pause();
       setIndex(i + 1);
@@ -106,7 +109,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
 
   function schedule(): void {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(tick, Math.max(MIN_STEP_MS, STEP_MS / speed));
+    timer = setTimeout(tick, stepMs());
   }
 
   function tick(): void {
@@ -157,7 +160,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   });
 
   const close = h("button", { type: "button", class: "btn", onclick: () => opts.onClose() }, opts.closeLabel ?? "Close replay");
-  const title = `${config.variant === "classic" ? "Classic" : config.variant === "ultimate" ? "Ultimate" : "Cube"} ${config.size}×${config.size}, ${config.winLength} in a row${optionsNote(config)}`;
+  const title = `${variantName(config.variant, "short")} ${config.size}×${config.size}, ${config.winLength} in a row${optionsNote(config)}`;
   container.replaceChildren(
     h("section", { class: "screen replay", "aria-label": "Replay" },
       h("div", { class: "game-head" }, h("span", { class: "game-title" }, "Replay"), h("span", { class: "game-sub", id: "replay-rules" }, config.seed ? `${title}, seed ${config.seed}` : title)),

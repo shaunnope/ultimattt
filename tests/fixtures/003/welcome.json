@@ -1,0 +1,1 @@
+{ "v": 3, "type": "welcome", "config": { "variant": "cube", "size": 3, "winLength": 3, "scoring": "lines", "lockFaces": false, "mode": "network", "humanMark": "X" }, "moves": "" }

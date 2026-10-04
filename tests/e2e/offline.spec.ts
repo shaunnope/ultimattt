@@ -42,7 +42,7 @@ test("every variant is playable offline after one visit", async ({ page, context
   await page.locator('button[data-board="4"][data-cell="4"]').click();
   await expect(mark(page, "X")).toHaveCount(1);
 
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').click();
   await expect(mark(page, "X")).toHaveCount(1);
 });
@@ -62,7 +62,7 @@ test("a game in progress comes back after a reload, in every variant", async ({ 
   await expect(page.locator('button[data-board="4"][data-cell="2"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator("#game-status")).toContainText(/top right/i);
 
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').dispatchEvent("click");
   await page.reload();
   await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toHaveAttribute("data-mark", "X");

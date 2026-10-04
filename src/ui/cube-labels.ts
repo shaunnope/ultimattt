@@ -3,11 +3,15 @@
 import type { CubeRotate, Scoring } from "../core/types.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerName, turnName } from "../core/notation.ts";
+import { statusText } from "./status-text.ts";
 
 export { layerName };
 
 /** Names for faces 0..5 (U, D, F, B, L, R). */
 export const FACE_NAMES = ["top", "bottom", "front", "back", "left", "right"] as const;
+
+/** One-letter names for the faces, in the same order, used in replay move labels. */
+export const FACE_LETTERS = ["U", "D", "F", "B", "L", "R"] as const;
 
 /** The accessible name of a turn: always in words, whichever style the player reads turns in. */
 export const rotationLabel = (rotation: CubeRotate, size = 3): string => turnName(rotation, size, "words");
@@ -58,6 +62,19 @@ export function optionsNote(config: { scoring: Scoring; lockFaces: boolean }): s
 
 export function cubeStatus(state: CubeState): string {
   if (state.status !== "playing") return lockEndText(state);
-  if (state.phase === "rotate") return `${state.toMove} scored! Turn a layer of the cube.`;
-  return `${state.toMove} to move.`;
+  return statusText({ variant: "cube", status: "playing", winner: null, toMove: state.toMove, phase: state.phase, mode: "one-device", resigned: null, thinking: false, lockNote: "", where: "" });
+}
+
+/** A face counts as in view when it turns towards the viewer enough to read: the depth of its outward normal is at least
+ *  this (cos 66°). At the opening angle that keeps the front, top and right faces and turns for the other three. */
+const IN_VIEW_DEPTH = 0.4;
+
+/** Whether a face can be read from the view (CSS rotateX(rx) rotateY(ry)). Same maths as `frontFace`. */
+export function faceInView(rx: number, ry: number, face: number): boolean {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const normals: [number, number, number][] = [[0, -1, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1], [-1, 0, 0], [1, 0, 0]];
+  const [x, y, z] = normals[face]!;
+  const z1 = -x * Math.sin(rad(ry)) + z * Math.cos(rad(ry));
+  const depth = y * Math.sin(rad(rx)) + z1 * Math.cos(rad(rx));
+  return depth >= IN_VIEW_DEPTH - 1e-9;
 }

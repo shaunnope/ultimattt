@@ -25,7 +25,7 @@ export const DEFAULT_SETUP: SetupState = { variant: "classic", size: 3, winLengt
 const VARIANTS: { value: Variant; title: string; blurb: string }[] = [
   { value: "classic", title: "Classic", blurb: "One board; get a line in a row" },
   { value: "ultimate", title: "Ultimate", blurb: "Boards within boards; your move picks their board" },
-  { value: "cube", title: "Cube", blurb: "Six faces in 3D; score, then turn a layer" },
+  { value: "cube", title: "Twist", blurb: "Six faces in 3D; score, then turn a layer" },
 ];
 
 /** Opponents a variant offers. Every variant can be played on one device or on two; the Cube has no computer opponent. */
@@ -183,7 +183,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
   facesInput.addEventListener("change", () => { state.scoring = facesInput.checked ? "faces" : "lines"; });
   const cubeOptions = h("div", { class: "card", id: "cube-options" },
     h("fieldset", { "data-group": "cube-options" },
-      h("legend", null, "Cube rules"),
+      h("legend", null, "Twist rules"),
       h("label", { class: "check", for: "opt-lock" }, lockInput, h("span", null, "Lock scored faces")),
       h("p", { class: "hint-text", id: "opt-lock-hint" }, "A face holding a line takes no more marks, until a turn breaks the line."),
       h("label", { class: "check", for: "opt-faces" }, facesInput, h("span", null, "Count faces, not lines")),
@@ -241,7 +241,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
       sync();
     });
     modeHost.replaceChildren(group);
-    if (state.variant === "cube") modeHost.append(h("p", { class: "hint-text" }, "Cube is for two players."));
+    if (state.variant === "cube") modeHost.append(h("p", { class: "hint-text" }, "Twist is for two players."));
     applyOnline();
   }
 
@@ -333,7 +333,6 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
       cubeOptions,
       seedCard,
       h("div", { class: "btn-row" }, start),
-      h("p", { class: "menu-links" }, h("a", { href: "#/help", id: "help-link", class: "help-link" }, "Help")),
       h("div", { class: "card" },
         h("div", { class: "field" }, h("label", { for: "join-code" }, "Game code"), joinInput, joinError,
           h("p", { class: "hint-text" }, "Joining a friend? Type the code from their screen, or scan their QR code."),

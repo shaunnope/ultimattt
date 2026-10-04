@@ -41,3 +41,9 @@ export function moduleFor(config: GameConfig): VariantModule<AnyGameState> {
 export function fromMoves(config: GameConfig, moves: Move[]): AnyGameState {
   return moduleFor(config).fromMoves(config, moves);
 }
+
+/** The name players read for a variant. The stored id stays "cube"; only the display name is Twist-Tac-Toe. */
+export function variantName(variant: GameConfig["variant"], form: "full" | "short"): string {
+  if (variant === "cube") return form === "full" ? "Twist-Tac-Toe" : "Twist";
+  return variant === "ultimate" ? "Ultimate" : "Classic";
+}

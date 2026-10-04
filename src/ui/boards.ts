@@ -25,6 +25,8 @@ export interface BoardOptions {
   mayMove?: (state: AnyGameState) => boolean;
   /** How Cube turns are named. Display only. */
   notation?: NotationStyle;
+  /** A replay: how long one step lasts (ms). The Cube turns its view to a played face within it. */
+  stepMs?: () => number;
 }
 
 export function createBoard(config: GameConfig, onMove: (move: Move) => void, opts: BoardOptions = {}): BoardView {
@@ -37,6 +39,7 @@ export function createBoard(config: GameConfig, onMove: (move: Move) => void, op
       readOnly: opts.readOnly ?? false,
       ...(opts.mayMove ? { mayMove: opts.mayMove as (state: CubeState) => boolean } : {}),
       ...(opts.notation ? { notation: opts.notation } : {}),
+      ...(opts.stepMs ? { stepMs: opts.stepMs } : {}),
     });
   } else view = createClassicBoard({ size: config.size, onCell: (cell) => onMove({ t: "place", cell }) });
   if (opts.readOnly) view.element.classList.add("read-only");

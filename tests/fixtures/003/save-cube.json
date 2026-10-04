@@ -1,0 +1,17 @@
+{
+  "schema": 3,
+  "settings": {
+    "hints": false,
+    "autoReplay": true,
+    "replaySpeed": 1,
+    "theme": "auto",
+    "markPalette": "default",
+    "cubeNotation": "cube",
+    "lastSetup": null
+  },
+  "game": {
+    "config": { "variant": "cube", "size": 3, "winLength": 3, "scoring": "faces", "lockFaces": true, "mode": "local" },
+    "moves": "5325113454311344510305145602",
+    "startedAt": 1234
+  }
+}

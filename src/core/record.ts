@@ -90,7 +90,7 @@ export function unpackLink(link: string): ReplayRecord | { error: string } {
 
   const players = parsePlayers(game);
   if ("error" in players) return players;
-  if (rules.variant === "cube" && players.mode === "computer") return { error: "The Cube has no computer opponent." };
+  if (rules.variant === "cube" && players.mode === "computer") return { error: "Twist has no computer opponent." };
   if (players.mode === "computer" && !seedText) return { error: "This link is missing part of the game." };
   const moves = decodeMoves(rules.variant, movesText);
   if (!Array.isArray(moves)) return moves;

@@ -17,12 +17,62 @@ export type HelpBlock =
   | { kind: "example"; title: string; alt: string; boards: HelpBoard[]; topic?: HelpTopic };
 
 export interface HelpSection {
-  id: "ultimate" | "cube" | "setup";
+  id: "classic" | "ultimate" | "cube" | "setup";
   title: string;
   blocks: HelpBlock[];
 }
 
 export const HELP_SECTIONS: HelpSection[] = [
+  {
+    id: "classic",
+    title: "Classic rules",
+    blocks: [
+      {
+        kind: "paragraph",
+        topic: "goal",
+        text: "Classic Tic-Tac-Toe is played on a square board. Be the first to make a line of your own marks: a row, a column or a diagonal.",
+      },
+      {
+        kind: "steps",
+        topic: "turn",
+        items: [
+          "X goes first. Players take turns, each placing one mark in any empty square.",
+          "A mark stays where it is put. Nothing is ever moved or taken off.",
+          "The game ends as soon as one player makes a line, or when the board is full.",
+        ],
+      },
+      {
+        kind: "paragraph",
+        topic: "special",
+        text: "How long a line must be depends on the board. On a 3×3 board you need 3 in a row. On 4×4 and 5×5 boards the usual win length is 4 in a row. Rows, columns and both diagonals count, and a line can sit anywhere on the board.",
+      },
+      {
+        kind: "example",
+        title: "Winning on a 3×3 board",
+        alt: "A 3 by 3 board where X has three marks along the diagonal from the top left to the bottom right, so X wins with 3 in a row. O has two marks.",
+        boards: [{ rows: ["XOO", ".XO", "..X"], mark: [[0, 0], [1, 1], [2, 2]], label: "X wins with 3 in a row" }],
+      },
+      {
+        kind: "example",
+        title: "Winning on a 4×4 board",
+        alt: "Two 4 by 4 boards. On the first, X has three marks in the top row and O has two marks: three is not yet a win. On the second, X has four marks in the top row, so X wins with 4 in a row.",
+        boards: [
+          { rows: ["XXX.", "OO..", "....", "...."], label: "3 in a row: not yet a win" },
+          { rows: ["XXXX", "OOO.", "....", "...."], mark: [[0, 0], [0, 1], [0, 2], [0, 3]], label: "4 in a row: X wins" },
+        ],
+      },
+      {
+        kind: "paragraph",
+        topic: "end",
+        text: "If every square is filled and nobody has a line, the game is a draw.",
+      },
+      {
+        kind: "paragraph",
+        topic: "size",
+        text: "You can play on 3×3, 4×4 or 5×5. The win length, from 3 up to the board size, can be changed in setup: a longer win length makes a game harder to win and more likely to be a draw.",
+      },
+    ],
+  },
   {
     id: "ultimate",
     title: "Ultimate",
@@ -30,7 +80,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: "paragraph",
         topic: "goal",
-        text: "Ultimate tic tac toe is played on a big board made of small boards. Win small boards to claim them, and claim a line of small boards in a row on the big board to win the game.",
+        text: "Ultimate Tic-Tac-Toe is played on a big board made of small boards. Win small boards to claim them, and claim a line of small boards in a row on the big board to win the game.",
       },
       {
         kind: "steps",
@@ -75,12 +125,12 @@ export const HELP_SECTIONS: HelpSection[] = [
   },
   {
     id: "cube",
-    title: "Cube",
+    title: "Twist-Tac-Toe",
     blocks: [
       {
         kind: "paragraph",
         topic: "goal",
-        text: "The Cube has six faces, each a board. Score more than your opponent: by default, more lines. A line is your win length in a row on one face, across, down or diagonally. A longer run scores once for each stretch of that length inside it: four in a row with a win length of three scores two lines.",
+        text: "Twist-Tac-Toe has six faces, each a board. Score more than your opponent: by default, more lines. A line is your win length in a row on one face, across, down or diagonally. A longer run scores once for each stretch of that length inside it: four in a row with a win length of three scores two lines.",
       },
       {
         kind: "steps",
@@ -107,12 +157,12 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: "paragraph",
         topic: "special",
-        text: "Lock scored faces (an option when you set up a Cube game): a face holding a line, yours or your opponent's, takes no more marks. Turning a layer is never blocked, and a turn that breaks the line reopens the face. If no empty square is left on an open face, the game ends at once and the scores decide it.",
+        text: "Lock scored faces (an option when you set up a Twist-Tac-Toe game): a face holding a line, yours or your opponent's, takes no more marks. Turning a layer is never blocked, and a turn that breaks the line reopens the face. If no empty square is left on an open face, the game ends at once and the scores decide it.",
       },
       {
         kind: "paragraph",
         topic: "special",
-        text: "Count faces, not lines (an option when you set up a Cube game): your score is the number of faces that hold at least one of your lines, however many lines are on them. Both players can count the same face. A second line on a face you already count gives no extra point, but it is still a line, so you must still turn a layer.",
+        text: "Count faces, not lines (an option when you set up a Twist-Tac-Toe game): your score is the number of faces that hold at least one of your lines, however many lines are on them. Both players can count the same face. A second line on a face you already count gives no extra point, but it is still a line, so you must still turn a layer.",
       },
       {
         kind: "paragraph",
@@ -127,7 +177,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: "paragraph",
         topic: "size",
-        text: "The Cube comes in 3×3, 4×4 and 5×5. A larger cube has more layers on each axis, so more turns to choose from, including inner layers. The win length, from 3 up to the face size, sets how long a line must be to score, and a longer win length means fewer lines.",
+        text: "Twist-Tac-Toe comes in 3×3, 4×4 and 5×5. A larger cube has more layers on each axis, so more turns to choose from, including inner layers. The win length, from 3 up to the face size, sets how long a line must be to score, and a longer win length means fewer lines.",
       },
     ],
   },
@@ -137,7 +187,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         kind: "paragraph",
-        text: "Board size: Classic, Ultimate and the Cube can each be played on 3×3, 4×4 or 5×5 boards.",
+        text: "Board size: Classic, Ultimate and Twist-Tac-Toe can each be played on 3×3, 4×4 or 5×5 boards.",
       },
       {
         kind: "paragraph",
@@ -149,7 +199,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         kind: "paragraph",
-        text: "In Settings you can pick one of four mark colour pairs, including one for colour-blind players, choose light or dark appearance, and choose whether Cube turns are named with arrows and words or in cube notation. These are kept on your device only.",
+        text: "In Settings you can pick one of four mark colour pairs, including one for colour-blind players, choose light or dark appearance, and choose whether Twist turns are named with arrows and words or in cube notation. These are kept on your device only.",
       },
     ],
   },

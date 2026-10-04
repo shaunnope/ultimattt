@@ -49,6 +49,6 @@ export function parseRulesCode(text: string): Rules | { error: string } {
   const winLength = Number(m[3]);
   if (winLength < 3 || winLength > size) return { error: "The win length cannot be longer than the board." };
   const variant = VARIANT_OF[m[1]!]!;
-  if (variant !== "cube" && (m[4] || m[5])) return { error: "Only the Cube has scoring and lock options." };
+  if (variant !== "cube" && (m[4] || m[5])) return { error: "Only Twist has scoring and lock options." };
   return { variant, size, winLength, scoring: m[4] ? "faces" : "lines", lockFaces: m[5] === "L" };
 }

@@ -49,7 +49,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Cube, in 3D and flat, with the layer picker", async ({ page }) => {
-      await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
       for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
       await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
       await clean(page, "cube 3D with picker");
@@ -93,12 +93,12 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Cube 4×4 with the picker, in notation mode", async ({ page }) => {
-      await startGame(page, { variant: "Cube", opponent: "A friend on this device", size: "4×4", winLength: 3 });
+      await startGame(page, { variant: "Twist", opponent: "A friend on this device", size: "4×4", winLength: 3 });
       for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
       await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
       await clean(page, "cube 4x4 with picker");
       await page.getByRole("button", { name: "Settings" }).click();
-      await page.getByRole("dialog", { name: "Settings" }).getByLabel("Cube turn names").selectOption("cube");
+      await page.getByRole("dialog", { name: "Settings" }).getByLabel("Twist turn names").selectOption("cube");
       await clean(page, "settings with palette picker");
       await page.getByRole("dialog", { name: "Settings" }).getByRole("button", { name: "Done" }).click();
       await clean(page, "cube 4x4 notation picker");

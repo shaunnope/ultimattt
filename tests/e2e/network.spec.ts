@@ -21,7 +21,7 @@ const test = base.extend<{ relay: Relay }>({
   },
 });
 
-type Variant = "Classic" | "Ultimate" | "Cube";
+type Variant = "Classic" | "Ultimate" | "Twist";
 
 async function host(page: Page, variant: Variant = "Classic", mark: "X" | "O" = "X", size?: "3×3" | "4×4" | "5×5"): Promise<string> {
   await page.goto("./");
@@ -46,7 +46,7 @@ async function pair(browser: Browser, relay: Relay, variant: Variant = "Classic"
   const { page: b } = await relay.device(browser);
   const code = await host(a, variant, mark);
   await joinWith(b, code);
-  const board = variant === "Cube" ? ".cube-board" : ".board";
+  const board = variant === "Twist" ? ".cube-board" : ".board";
   await expect(a.locator(board).first()).toBeVisible();
   await expect(b.locator(board).first()).toBeVisible();
   return { a, b, code };
@@ -100,7 +100,7 @@ test("an Ultimate game works across devices, and resigning ends it for both", as
 });
 
 test("a Cube game works across devices: the scoring player turns a layer before the other can move", async ({ browser, relay }) => {
-  const { a, b } = await pair(browser, relay, "Cube");
+  const { a, b } = await pair(browser, relay, "Twist");
   const st = (page: Page, f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   const play = async (page: Page, f: number, c: number) => {
     await st(page, f, c).dispatchEvent("click");
@@ -363,7 +363,7 @@ test("a guest whose host is gone gets a clear answer, and can go back", async ({
 });
 
 test("a Cube turn previewed on one device is not seen on the other until it is confirmed", async ({ browser, relay }) => {
-  const { a, b } = await pair(browser, relay, "Cube");
+  const { a, b } = await pair(browser, relay, "Twist");
   const st = (page: Page, f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   for (const [page, f, c] of [[a, 2, 0], [b, 0, 0], [a, 2, 1], [b, 0, 1], [a, 2, 2]] as [Page, number, number][]) {
     await st(page, f, c).dispatchEvent("click");
@@ -384,7 +384,7 @@ test("a Cube turn previewed on one device is not seen on the other until it is c
 
 test("a protocol 2 guest (a build from before the Cube options) is refused with a message to update", async ({ browser, relay }) => {
   const { page: a } = await relay.device(browser);
-  const code = await host(a, "Cube");
+  const code = await host(a, "Twist");
   const { page: old } = await relay.device(browser);
   await old.goto("./");
   await old.evaluate(() => {
@@ -403,7 +403,7 @@ test("a Cube game with the lock and faces scoring is the same on both devices", 
   const { page: a } = await relay.device(browser);
   const { page: b } = await relay.device(browser);
   await a.goto("./");
-  await choose(a, "Cube");
+  await choose(a, "Twist");
   await choose(a, "A friend on another device");
   await a.locator("#opt-lock").check();
   await a.locator("#opt-faces").check();

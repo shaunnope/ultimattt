@@ -10,7 +10,7 @@ import { markOf } from "../core/types.ts";
 import type { CubeLine } from "../core/cube.ts";
 import { layerStickers, rotateStickers } from "../core/cube.ts";
 import { settleAngle, targetAngle, type Quarters } from "../core/turn-path.ts";
-import { FACE_NAMES, faceViewAngles, frontFace } from "./cube-labels.ts";
+import { FACE_NAMES, faceInView, faceViewAngles, frontFace } from "./cube-labels.ts";
 import { createMark, markName } from "./mark.ts";
 import { h } from "./ui.ts";
 
@@ -30,6 +30,11 @@ export interface CubeView {
   readonly previewing: CubeRotate | null;
   setFlat(flat: boolean): void;
   showFace(face: number): void;
+  /** Whether a face can be read from the current view (always true in the flat view). */
+  isInView(face: number): boolean;
+  /** Turn the view to bring a face to the front, taking about `ms`, and resolve when it has arrived. Does nothing in the
+   *  flat view; with reduced motion the view changes at once. */
+  turnToFace(face: number, ms: number): Promise<void>;
   /** Redraw the marks. `fresh` is the sticker that was just placed, whose mark draws itself in. */
   update(stickers: readonly Cell[], lines: readonly CubeLine[], fresh?: number): void;
   /** Animate a layer turn, then call `commit` to put the new marks in place. */
@@ -150,9 +155,9 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     class: "cube-scene",
     role: "group",
     tabindex: 0,
-    "aria-label": "Cube, 3D view. Arrow keys turn the view; Shift with an arrow turns it a quarter.",
+    "aria-label": "Twist, 3D view. Arrow keys turn the view; Shift with an arrow turns it a quarter.",
   });
-  const flatBoard = h("div", { class: "cube-flat", role: "group", "aria-label": "Cube, flat view" });
+  const flatBoard = h("div", { class: "cube-flat", role: "group", "aria-label": "Twist, flat view" });
   const faceGroups = FACE_NAMES.map((name) => h("div", { class: "cube-flat-face", role: "group", "aria-label": `${name} face` }));
   faceGroups.forEach((g) => flatBoard.append(g));
   const stage = h("div", { class: "cube-stage", style: `--n:${n}` });
@@ -350,6 +355,21 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       flat = value;
       mount();
       if (keep) void api.previewTurn(keep);
+    },
+    isInView(face) {
+      return flat || faceInView(view.rx, view.ry, face);
+    },
+    async turnToFace(face, ms) {
+      if (flat) return;
+      const target = faceViewAngles(face);
+      // the nearest equivalent angle, so a view that was dragged round a few times does not spin back
+      view = { rx: target.rx, ry: target.ry + 360 * Math.round((view.ry - target.ry) / 360) };
+      const instant = reducedMotion();
+      scene.style.transitionDuration = instant ? "0s" : `${ms}ms`;
+      applyView(true);
+      // reduced motion: keep the zero duration until the browser has applied the new view, then let transitions back in
+      await new Promise<void>((resolve) => (instant ? requestAnimationFrame(() => requestAnimationFrame(() => resolve())) : setTimeout(resolve, ms + 30)));
+      scene.style.transitionDuration = "";
     },
     showFace(face) {
       if (flat) {

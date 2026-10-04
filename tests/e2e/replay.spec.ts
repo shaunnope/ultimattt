@@ -65,7 +65,7 @@ test("dismissing the result starts the replay by itself", async ({ page }) => {
 });
 
 test("a Cube replay includes its layer turns", async ({ page }) => {
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
   const sticker = (f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await sticker(f!, c!).dispatchEvent("click");
   await turnLayer(page, "Turn the bottom layer to the right");
@@ -213,4 +213,147 @@ test("Copy seed puts the seed on the clipboard, for a computer game", async ({ p
   const seed = (await page.locator("#game-seed").innerText()).replace(/^Seed:\s*/, "").trim();
   await page.getByRole("button", { name: "Copy seed" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(seed);
+});
+
+// ---- Twist replay turns the view to the face being played (spec 004, US2) ----
+
+// X and O alternate on cell 0 of the front, top, right, back, bottom and left faces: no line, so no layer turns.
+const SIX_FACES = [2, 0, 5, 3, 1, 4];
+const SIX_LINK = `./?watch=1&rules=B33&game=l&moves=${SIX_FACES.map((f) => `${f}0`).join("")}`;
+const stickerAt = (page: Page, face: number, c = 0) => page.locator(`button.sticker[data-face="${face}"][data-cell="${c}"]`);
+const sceneView = async (page: Page): Promise<{ rx: number; ry: number }> => {
+  const [rx, ry] = (await page.locator(".cube-scene").getAttribute("data-view"))!.split(" ").map(Number);
+  return { rx: rx!, ry: ry! };
+};
+/** Same test as faceInView in src/ui/cube-labels.ts, written out so the test does not share the code under test. */
+function inView({ rx, ry }: { rx: number; ry: number }, face: number): boolean {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const [x, y, z] = [[0, -1, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1], [-1, 0, 0], [1, 0, 0]][face]!;
+  const z1 = -x! * Math.sin(rad(ry)) + z! * Math.cos(rad(ry));
+  return y! * Math.sin(rad(rx)) + z1 * Math.cos(rad(rx)) >= 0.4 - 1e-9;
+}
+async function openSixFaceReplay(page: Page) {
+  await page.goto(SIX_LINK);
+  await expect(controls(page)).toBeVisible();
+  await page.getByRole("button", { name: /^(Pause|Play)$/ }).first().click(); // stop the autoplay, however far it got
+  await slider(page).fill("0");
+  await expect(page.locator("button.sticker:not([data-mark=''])")).toHaveCount(0);
+}
+/** Step to a position and return when the view changed and when the new mark appeared (ms on the page clock). */
+async function stepTo(page: Page, k: number, face: number) {
+  await page.evaluate((f) => {
+    const w = window as unknown as { __seen: { view: number; mark: number } };
+    w.__seen = { view: 0, mark: 0 };
+    const scene = document.querySelector(".cube-scene")!;
+    new MutationObserver(() => { w.__seen.view ||= performance.now(); }).observe(scene, { attributes: true, attributeFilter: ["data-view"] });
+    const sticker = document.querySelector(`button.sticker[data-face="${f}"][data-cell="0"]`)!;
+    new MutationObserver(() => { if ((sticker as HTMLElement).dataset.mark) w.__seen.mark ||= performance.now(); }).observe(sticker, { attributes: true, attributeFilter: ["data-mark"] });
+  }, face);
+  await slider(page).fill(String(k));
+  await expect(stickerAt(page, face)).toHaveAttribute("data-mark", /^[XO]$/);
+  return page.evaluate(() => (window as unknown as { __seen: { view: number; mark: number } }).__seen);
+}
+
+test("a Twist replay turns to a face that is out of view before its mark appears, and leaves the view alone for a face in view", async ({ page }) => {
+  await openSixFaceReplay(page);
+  for (const [i, face] of SIX_FACES.entries()) {
+    const before = await sceneView(page);
+    const seen = await stepTo(page, i + 1, face);
+    const after = await sceneView(page);
+    expect(inView(after, face), `face ${face} is in view when its mark appears`).toBe(true);
+    if (inView(before, face)) {
+      expect(after, `face ${face} was already in view`).toEqual(before);
+    } else {
+      expect(seen.view, `face ${face}: the view changes`).toBeGreaterThan(0);
+      expect(seen.mark - seen.view, `face ${face}: the mark waits for the turn`).toBeGreaterThan(100);
+    }
+  }
+});
+
+test("a layer-turn step in a Twist replay does not change the view", async ({ page }) => {
+  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await stickerAt(page, f!, c!).dispatchEvent("click");
+  await turnLayer(page, "Turn the bottom layer to the right");
+  await expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Resign" }).click();
+  await page.getByRole("button", { name: /confirm/i }).click();
+  await openReplay(page);
+  await page.getByRole("button", { name: /^(Pause|Play)$/ }).first().click();
+  await slider(page).fill("5");
+  await expect(page.locator(".cube-scene")).toBeVisible();
+  const before = await sceneView(page);
+  await slider(page).fill("6");
+  await expect(page.locator("#cube-score")).toContainText("X: 1");
+  expect(await sceneView(page)).toEqual(before);
+});
+
+test("jumping across hidden faces and stepping back leaves the view on the last placement's face", async ({ page }) => {
+  await openSixFaceReplay(page);
+  await slider(page).fill("4"); // back
+  await slider(page).fill("5"); // bottom, straight away
+  await expect(stickerAt(page, 1)).toHaveAttribute("data-mark", /^[XO]$/);
+  await expect.poll(async () => inView(await sceneView(page), 1)).toBe(true);
+  await page.getByRole("button", { name: "Step back" }).click(); // position 4: the back face again
+  await expect(stickerAt(page, 1)).toHaveAttribute("data-mark", "");
+  await expect.poll(async () => inView(await sceneView(page), 3)).toBe(true);
+  await slider(page).fill("6");
+  await expect.poll(async () => inView(await sceneView(page), 4)).toBe(true);
+  await expect(page.locator(".cube-scene")).not.toHaveClass(/dragging/);
+});
+
+test("in flat view a replay does not turn anything and the mark shows at once", async ({ page }) => {
+  await openSixFaceReplay(page);
+  await page.getByRole("button", { name: "Flat view" }).click();
+  await slider(page).fill("4");
+  await expect(stickerAt(page, 3)).toHaveAttribute("data-mark", /^[XO]$/, { timeout: 150 });
+});
+
+test("with reduced motion the face is shown without an animation, before the mark", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openSixFaceReplay(page);
+  await slider(page).fill("4");
+  await expect(stickerAt(page, 3)).toHaveAttribute("data-mark", /^[XO]$/, { timeout: 400 });
+  expect(inView(await sceneView(page), 3)).toBe(true);
+});
+
+test("at 4× speed every placement still turns, then shows its mark", async ({ page }) => {
+  await openSixFaceReplay(page);
+  await page.locator("#replay-speed").selectOption("4");
+  await slider(page).fill("0");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page.locator("button.sticker:not([data-mark=''])")).toHaveCount(6, { timeout: 8000 });
+  expect(inView(await sceneView(page), 4)).toBe(true);
+});
+
+// ---- replay notation (spec 004, US3) ----
+
+test("the move list reads AcB and UAcB with no X or O, and each entry is named in words with its mover", async ({ page }) => {
+  await page.goto("./?watch=1&rules=C33&game=l&moves=03142");
+  const entries = page.getByRole("list", { name: "Moves" }).getByRole("button");
+  await expect(entries).toHaveText(["1. 1c1", "2. 2c1", "3. 1c2", "4. 2c2", "5. 1c3"]);
+  await expect(entries.first()).toHaveAccessibleName("Move 1, X, row 1, column 1");
+  await expect(entries.nth(1)).toHaveAccessibleName("Move 2, O, row 2, column 1");
+
+  await page.goto(SIX_LINK);
+  const faces = page.getByRole("list", { name: "Moves" }).getByRole("button");
+  await expect(faces).toHaveText(["1. F1c1", "2. U1c1", "3. R1c1", "4. B1c1", "5. D1c1", "6. L1c1"]);
+  await expect(faces.nth(1)).toHaveAccessibleName("Move 2, O, top face, row 1, column 1");
+});
+
+test("the notation setting changes how layer turns are named, not the placements", async ({ page }) => {
+  const link = "./?watch=1&rules=B33&game=l&moves=2000210122.y0%2B";
+  await page.goto(link);
+  const entries = page.getByRole("list", { name: "Moves" }).getByRole("button");
+  await expect(entries.first()).toHaveText("1. F1c1");
+  await expect(entries.nth(5)).toContainText(/layer/);
+
+  await page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem("ttt.save") ?? "null") ?? { schema: 3, settings: {}, game: null };
+    save.settings = { ...save.settings, cubeNotation: "cube" };
+    localStorage.setItem("ttt.save", JSON.stringify(save));
+  });
+  await page.goto(link);
+  await expect(entries.first()).toHaveText("1. F1c1");
+  await expect(entries.nth(5)).not.toContainText(/layer/);
+  await expect(entries.nth(5)).toHaveAccessibleName(/^Move 6, X, turn the .* layer/);
 });
