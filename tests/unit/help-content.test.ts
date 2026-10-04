@@ -41,6 +41,29 @@ test("the Cube section covers layer turns, preview and confirm, and both naming 
   assert.match(text, /score|line/);
 });
 
+test("the Cube help names the notation convention with the 4×4 and 5×5 example names", () => {
+  const text = textOf(section("cube"));
+  assert.match(text, /single layer|one layer/);
+  assert.match(text, /nearer face|nearest face/);
+  assert.match(text, /middle layer of an odd cube|middle layer of any odd cube|odd cube/);
+  assert.match(text, /no wide turns|not wide turns|never wide/);
+  for (const name of ["2l", "2r", "m", "e", "s"]) assert.ok(text.includes(name), name);
+  assert.match(text, /2l 2r|2l and 2r/);
+  assert.doesNotMatch(text, /3l/);
+});
+
+test("the Cube help explains both rule options and the end of the game", () => {
+  const text = textOf(section("cube"));
+  assert.match(text, /lock scored faces/);
+  assert.match(text, /turn.{0,40}(reopen|open)/);
+  assert.match(text, /no open face|no face left|ends at once|ends early/);
+  assert.match(text, /count faces, not lines/);
+  assert.match(text, /second line.{0,80}(no point|no extra point|nothing)/);
+  assert.match(text, /still.{0,40}turn/);
+  assert.doesNotMatch(text, /the player with more lines wins/);
+  assert.match(textOf(section("setup")), /changing the board size.{0,60}(sets|resets|picks)/);
+});
+
 test("the setup options section explains board size, win length and turn notation", () => {
   const text = textOf(section("setup"));
   assert.match(text, /board size|4×4|5×5/);

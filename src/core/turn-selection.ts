@@ -3,7 +3,8 @@
 // the DOM layer only animates what the effects ask for and reports when an animation has ended.
 //
 //   idle ──select──▶ animating(play) ──done──▶ previewing
-//   previewing ──select another──▶ animating(reverse, then play the new one) ──done, done──▶ previewing
+//   previewing ──select another layer──▶ animating(reverse, then play the new one) ──done, done──▶ previewing
+//   previewing ──select the same layer, another way──▶ animating(retarget) ──done──▶ previewing
 //   previewing ──cancel──▶ animating(reverse) ──done──▶ idle
 //   previewing ──confirm──▶ idle (effect: commit)
 //   any ──reset──▶ idle (effect: discard)
@@ -15,7 +16,7 @@ import type { CubeRotate } from "./types.ts";
 
 export type TurnSelection =
   | { status: "idle" }
-  | { status: "animating"; /** the turn on screen */ rotation: CubeRotate; phase: "play" | "reverse"; /** a turn to play once this one has reversed */ queued: CubeRotate | null }
+  | { status: "animating"; /** the turn on screen */ rotation: CubeRotate; phase: "play" | "reverse" | "retarget"; /** a turn to play once this one has reversed */ queued: CubeRotate | null }
   | { status: "previewing"; rotation: CubeRotate; queued: null; phase: null };
 
 export const IDLE: TurnSelection = { status: "idle" };
@@ -32,6 +33,8 @@ export type TurnEvent =
 export type TurnEffect =
   /** Animate the layer to its turned position and hold it there */
   | { kind: "play"; rotation: CubeRotate }
+  /** The same layer, another way: swing it straight from the first turn's position to the second's */
+  | { kind: "retarget"; from: CubeRotate; to: CubeRotate }
   /** Animate the layer back to where it was */
   | { kind: "reverse"; rotation: CubeRotate }
   /** The player confirmed: make exactly this move, settling the view without replaying the animation */
@@ -58,6 +61,12 @@ export function step(state: TurnSelection, event: TurnEvent): Step {
     case "previewing":
       if (event.type === "select") {
         if (same(event.rotation, state.rotation)) return stay(state);
+        if (event.rotation.axis === state.rotation.axis && event.rotation.layer === state.rotation.layer) {
+          return {
+            state: { status: "animating", rotation: event.rotation, phase: "retarget", queued: null },
+            effects: [{ kind: "retarget", from: state.rotation, to: event.rotation }],
+          };
+        }
         return {
           state: { status: "animating", rotation: state.rotation, phase: "reverse", queued: event.rotation },
           effects: [{ kind: "reverse", rotation: state.rotation }],
@@ -70,7 +79,7 @@ export function step(state: TurnSelection, event: TurnEvent): Step {
       return stay(state);
     case "animating":
       if (event.type !== "done") return stay(state);
-      if (state.phase === "play") return { state: { status: "previewing", rotation: state.rotation, queued: null, phase: null }, effects: [] };
+      if (state.phase === "play" || state.phase === "retarget") return { state: { status: "previewing", rotation: state.rotation, queued: null, phase: null }, effects: [] };
       if (state.queued) {
         return {
           state: { status: "animating", rotation: state.queued, phase: "play", queued: null },

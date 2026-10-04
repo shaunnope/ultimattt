@@ -12,7 +12,7 @@ import type { CubeState } from "../core/cube.ts";
 import { Computer, defaultWorker } from "./computer.ts";
 import { createBoard, type BoardView } from "./boards.ts";
 import { whereToPlay } from "./board-ultimate.ts";
-import { cubeStatus } from "./cube-labels.ts";
+import { cubeStatus, lockEndText, optionsNote, scoreLabel } from "./cube-labels.ts";
 import { refusalMessage } from "./messages.ts";
 import { mountReplay, type ReplayHandle } from "./replay.ts";
 import { LEVEL_NAMES } from "./setup.ts";
@@ -185,7 +185,7 @@ class GameController implements NetGameHandle {
     this.container.replaceChildren(
       h("section", { class: "screen", "aria-label": "Game" },
         h("div", { class: "game-head" },
-          h("span", { class: "game-title", id: "game-title" }, `${VARIANT_TITLE[this.config.variant]} ${this.config.size}×${this.config.size}, ${this.config.winLength} in a row`),
+          h("span", { class: "game-title", id: "game-title" }, `${VARIANT_TITLE[this.config.variant]} ${this.config.size}×${this.config.size}, ${this.config.winLength} in a row${optionsNote(this.config)}`),
           h("span", { class: "game-sub" }, sub)),
         ...(this.config.seed
           ? [h("div", { class: "seed-row" }, h("span", { id: "game-seed", class: "game-sub" }, `Seed: ${this.config.seed}`), h("button", { class: "btn btn-small", type: "button", onclick: () => void this.copySeed() }, "Copy seed"))]
@@ -212,9 +212,10 @@ class GameController implements NetGameHandle {
   private statusText(): string {
     if (this.resigned) return `${this.resigned} resigned. ${other(this.resigned)} wins.`;
     const st = this.mod.status(this.state);
-    if (st.status === "won") return `${st.winner!} wins!`;
+    const lockNote = this.config.variant === "cube" ? lockEndText(this.state as CubeState) : "";
+    if (st.status === "won") return `${st.winner!} wins!${lockNote ? ` ${lockNote}` : ""}`;
     if (st.status === "draw") return "It's a draw.";
-    if (st.status === "tie") return "It's a tie.";
+    if (st.status === "tie") return `It's a tie.${lockNote ? ` ${lockNote}` : ""}`;
     if (this.net) {
       const mine = this.state.toMove === this.net.myMark;
       if (this.config.variant === "cube" && (this.state as CubeState).phase === "rotate") {
@@ -422,8 +423,9 @@ class GameController implements NetGameHandle {
     if (winner) celebrate(); // nothing at all when the player has asked for reduced motion
     let body: string;
     if (this.config.variant === "cube" && !this.resigned) {
-      const lines = (this.state as CubeState).lines;
-      body = `Final lines: ${"X"} ${lines.X}, ${"O"} ${lines.O}.`;
+      const cube = this.state as CubeState;
+      const note = lockEndText(cube);
+      body = `Final ${scoreLabel(cube.config.scoring).toLowerCase()}: X ${cube.scores.X}, O ${cube.scores.O}.${note ? ` ${note}` : ""}`;
     } else if (!winner) body = "Nobody won this one.";
     else if (this.net) body = winner === this.net.myMark ? "You won." : "Your friend won.";
     else if (this.vsComputer) body = winner === this.human ? "You won." : "The computer won.";

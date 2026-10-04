@@ -5,11 +5,11 @@
 // core/turn-selection.ts; this file only animates what it asks for. Input is ignored while a turn animates.
 
 import type { Axis, CubeHint, CubeRotate, HintSet, Move } from "../core/types.ts";
-import { cubeLines } from "../core/cube.ts";
+import { cubeLines, lockedFaces } from "../core/cube.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerLabel, layerPhrase, turnName, turnsFor, type NotationStyle } from "../core/notation.ts";
 import { IDLE, step, type TurnEvent, type TurnSelection } from "../core/turn-selection.ts";
-import { FACE_NAMES, rotationLabel } from "./cube-labels.ts";
+import { FACE_NAMES, rotationLabel, scoreLabel } from "./cube-labels.ts";
 import { createCubeView } from "./cube-view.ts";
 import { icon, type IconName } from "./icons.ts";
 import { h } from "./ui.ts";
@@ -58,7 +58,7 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   const size = opts.size;
   let notation: NotationStyle = opts.notation ?? "words";
   const view = createCubeView({ size, onSticker: (face, cell) => opts.onMove({ t: "place", face, cell }) });
-  const score = h("div", { id: "cube-score", class: "cube-score", "aria-live": "polite" }, "X: 0 · O: 0");
+  const score = h("div", { id: "cube-score", class: "cube-score", "aria-live": "polite" }, `${scoreLabel("lines")} · X: 0 · O: 0`);
 
   // ---- view bar ----
   const faceButtons = FACE_NAMES.map((name, face) =>
@@ -97,7 +97,9 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
       const group = h("div", { class: "rotate-section" }, h("h3", null, SECTION_TITLES[axis]));
       for (const [layer, turns] of rows.get(axis)!) {
         const name = notation === "cube" ? layerLabel(axis, layer, size, "cube") : capitalise(layerPhrase(axis, layer, size));
-        const row = h("div", { class: "rotate-row", "data-axis": axis, "data-layer": layer }, h("span", { class: "rotate-name" }, name));
+        const nameEl = h("span", { class: "rotate-name" }, name);
+        const row = h("div", { class: "rotate-row", "data-axis": axis, "data-layer": layer }, nameEl);
+        watchLayer(row, nameEl, axis, layer);
         for (const turn of turns) {
           const label = rotationLabel(turn, size);
           const button = h("button", {
@@ -120,6 +122,62 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
     }
     picker.replaceChildren(...sections, h("div", { class: "turn-actions" }, caption, confirm));
     paintSelection();
+  }
+
+  // ---- the layer highlight (contracts/ui-contracts.md): a tapped name (touch), else hover or focus, else the held preview ----
+  type LayerRef = { axis: Axis; layer: number };
+  let hovered: LayerRef | null = null;
+  let focused: LayerRef | null = null;
+  let tapped: LayerRef | null = null;
+  /** The pointer type of the last press on a layer name, so only a touch tap sticks. */
+  let lastPointer = "mouse";
+
+  const canHover = (): boolean => typeof matchMedia !== "function" || matchMedia("(hover: hover)").matches;
+
+  function refreshOutline(): void {
+    const held = selection.status === "idle" ? null : { axis: selection.rotation.axis, layer: selection.rotation.layer };
+    // A tap is a deliberate act on a touch screen, where a stray "hover" can linger from a fake mouse move; it comes first.
+    const shown = tapped ?? hovered ?? focused ?? held;
+    view.outline(shown?.axis ?? "y", shown?.layer ?? null);
+  }
+
+  function watchLayer(row: HTMLElement, nameEl: HTMLElement, axis: Axis, layer: number): void {
+    const ref: LayerRef = { axis, layer };
+    row.addEventListener("pointerenter", (e) => {
+      // A touch screen has no hover (and fakes a mouse move after the layout changes under a finger): a tap on the
+      // name highlights instead.
+      if (e.pointerType === "touch" || !canHover()) return;
+      hovered = ref;
+      refreshOutline();
+    });
+    row.addEventListener("pointerleave", () => {
+      if (hovered !== ref) return;
+      hovered = null;
+      refreshOutline();
+    });
+    row.addEventListener("focusin", (e) => {
+      // Only keyboard focus highlights: a mouse click leaves focus on the button, which must not hold the outline.
+      if (!(e.target as Element).matches(":focus-visible")) return;
+      focused = ref;
+      refreshOutline();
+    });
+    row.addEventListener("focusout", () => {
+      if (focused !== ref) return;
+      focused = null;
+      refreshOutline();
+    });
+    row.addEventListener("pointerdown", (e) => {
+      lastPointer = e.pointerType;
+      if (e.pointerType === "mouse" && tapped) {
+        tapped = null; // the mouse took over from the touch screen
+        refreshOutline();
+      }
+    });
+    nameEl.addEventListener("click", () => {
+      if (lastPointer === "mouse") return;
+      tapped = ref;
+      refreshOutline();
+    });
   }
 
   const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -146,9 +204,11 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   function dispatch(event: TurnEvent): void {
     const out = step(selection, event);
     selection = out.state;
+    if (event.type === "cancel" || event.type === "confirm" || event.type === "reset") tapped = null;
     const mine = epoch;
     for (const effect of out.effects) {
       if (effect.kind === "play") void view.previewTurn(effect.rotation).then(() => mine === epoch && dispatch({ type: "done" }));
+      else if (effect.kind === "retarget") void view.retargetTurn(effect.from, effect.to).then(() => mine === epoch && dispatch({ type: "done" }));
       else if (effect.kind === "reverse") void view.cancelPreview().then(() => mine === epoch && dispatch({ type: "done" }));
       else if (effect.kind === "discard") {
         epoch++;
@@ -159,6 +219,7 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
       }
     }
     paintSelection();
+    refreshOutline();
   }
 
   confirm.addEventListener("click", () => dispatch({ type: "confirm" }));
@@ -201,15 +262,20 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
 
   function show(state: CubeState, fresh?: number): void {
     view.update(state.stickers, cubeLines(state.stickers, size, state.config.winLength), fresh);
-    score.textContent = `X: ${state.lines.X} · O: ${state.lines.O}`;
+    view.setLocked(state.config.lockFaces ? lockedFaces(state.stickers, size, state.config.winLength) : []);
+    score.textContent = `${scoreLabel(state.config.scoring)} · X: ${state.scores.X} · O: ${state.scores.O}`;
     const rotating = state.phase === "rotate" && state.status === "playing" && !opts.readOnly && (opts.mayMove?.(state) ?? true);
     picker.hidden = !rotating;
     element.dataset.phase = rotating ? "rotate" : "place";
-    if (!rotating && selection.status !== "idle") {
-      selection = step(selection, { type: "reset" }).state;
-      epoch++;
-      view.discardPreview();
-      paintSelection();
+    if (!rotating) {
+      hovered = focused = tapped = null;
+      if (selection.status !== "idle") {
+        selection = step(selection, { type: "reset" }).state;
+        epoch++;
+        view.discardPreview();
+        paintSelection();
+      }
+      refreshOutline();
     }
   }
 

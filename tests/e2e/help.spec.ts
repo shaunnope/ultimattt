@@ -79,3 +79,14 @@ for (const scheme of ["light", "dark"] as const) {
     expect(colours.fg).not.toBe(colours.bg);
   });
 }
+
+test("the Cube help explains the notation convention with the larger cubes' layer names", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("link", { name: "Help" }).click();
+  const view = page.locator("#help-view");
+  await expect(view).toContainText(/single layer/i);
+  await expect(view).toContainText(/nearer face/i);
+  await expect(view).toContainText(/middle layer of an odd cube is M, E or S/i);
+  await expect(view).toContainText("L, 2L, M, 2R, R");
+  await expect(view).not.toContainText("3L");
+});

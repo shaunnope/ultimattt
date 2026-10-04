@@ -30,8 +30,8 @@ export interface ReplayRecord {
 }
 
 export function configFromRecord(record: ReplayRecord): GameConfig {
-  const { variant, size, winLength } = record.rules;
-  const config: GameConfig = { variant, size, winLength, mode: record.players.mode };
+  const { variant, size, winLength, scoring, lockFaces } = record.rules;
+  const config: GameConfig = { variant, size, winLength, scoring, lockFaces, mode: record.players.mode };
   if (record.players.mode === "computer" && record.seed !== undefined) config.seed = record.seed;
   if (record.players.level !== undefined) config.level = record.players.level;
   if (record.players.humanMark !== undefined) config.humanMark = record.players.humanMark;
@@ -46,8 +46,8 @@ function gameText(players: Players): string {
 
 /** The link's query string, starting with "?". `nonce` only makes each link look different; it is not read back. */
 export function packLink(record: ReplayRecord, nonce: number): string {
-  const { variant, size, winLength } = record.rules;
-  const parts = [`watch=${nonce}`, `rules=${rulesCode(variant, size, winLength)}`];
+  const { variant, size, winLength, scoring, lockFaces } = record.rules;
+  const parts = [`watch=${nonce}`, `rules=${rulesCode(variant, size, winLength, scoring, lockFaces)}`];
   if (record.players.mode === "computer" && record.seed) parts.push(`seed=${record.seed}`);
   parts.push(`game=${gameText(record.players)}`, `moves=${encodeURIComponent(encodeMoves(variant, record.moves))}`);
   if (record.end) parts.push(`end=${record.end}`);
@@ -85,7 +85,7 @@ export function unpackLink(link: string): ReplayRecord | { error: string } {
   } else {
     // No rules: a 001 link. The seed prefix names them.
     if (!fromSeed || "error" in fromSeed) return { error: "This link is missing part of the game." };
-    rules = { variant: fromSeed.variant, size: fromSeed.size, winLength: fromSeed.winLength };
+    rules = { variant: fromSeed.variant, size: fromSeed.size, winLength: fromSeed.winLength, scoring: "lines", lockFaces: false };
   }
 
   const players = parsePlayers(game);
@@ -112,7 +112,7 @@ export function recordFromGame(config: GameConfig, moves: readonly Move[], resig
   const players: Players = { mode: config.mode };
   if (config.level !== undefined) players.level = config.level;
   if (config.humanMark !== undefined) players.humanMark = config.humanMark;
-  const record: ReplayRecord = { rules: { variant: config.variant, size: config.size, winLength: config.winLength }, moves: [...moves], players };
+  const record: ReplayRecord = { rules: { variant: config.variant, size: config.size, winLength: config.winLength, scoring: config.scoring, lockFaces: config.lockFaces }, moves: [...moves], players };
   if (config.mode === "computer" && config.seed) record.seed = config.seed;
   if (resigned) record.end = resigned === "X" ? "rx" : "ro";
   return record;

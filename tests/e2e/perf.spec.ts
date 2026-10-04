@@ -25,6 +25,9 @@ const CASES: Case[] = [
   { variant: "Ultimate", size: "4×4", winLength: 3 },
   { variant: "Ultimate", size: "5×5", winLength: 3 },
   { variant: "Ultimate", size: "5×5", winLength: 5 },
+  // the default win length is now 4 on 4×4 and 5×5 in every variant: Ultimate must stay fast with it
+  { variant: "Ultimate", size: "4×4", winLength: 4 },
+  { variant: "Ultimate", size: "5×5", winLength: 4 },
 ];
 
 for (const { variant, size, winLength } of CASES) {
@@ -109,3 +112,55 @@ test(`the cube ${size} stays smooth while the view is dragged and a layer turn i
   expect(worst, `slowest frame ${worst.toFixed(1)} ms`).toBeLessThanOrEqual(50);
 });
 }
+
+test("the cube 5×5 stays smooth while a previewed layer swings to another direction and back (4x slower CPU)", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "frame timing is measured in Chromium");
+  await throttle(page);
+  await startGame(page, { variant: "Cube", opponent: "A friend on this device", size: "5×5", winLength: 3 });
+  test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available");
+  for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
+  const picker = page.getByRole("group", { name: "Turn a layer" });
+  await expect(picker).toBeVisible();
+  const turn = (name: string) => picker.getByRole("button", { name, exact: true });
+  // warm up: the first time a layer moves the browser builds its compositing layers, which is not what is measured here
+  await turn("Turn the top layer to the right").click();
+  await page.waitForTimeout(800);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(800);
+  await turn("Turn the top layer to the right").click();
+  await page.waitForTimeout(800);
+
+  await page.evaluate(() => {
+    const w = window as unknown as { __frames: number[]; __raf: number };
+    w.__frames = [];
+    let last = performance.now();
+    const tick = (now: number) => {
+      w.__frames.push(now - last);
+      last = now;
+      w.__raf = requestAnimationFrame(tick);
+    };
+    w.__raf = requestAnimationFrame(tick);
+  });
+  await turn("Turn the top layer to the left").click(); // quarter to the opposite quarter: through the half turn
+  await page.waitForTimeout(700);
+  await turn("Half turn the top layer").click();
+  await page.waitForTimeout(700);
+  await turn("Turn the top layer to the right").click();
+  await page.waitForTimeout(700);
+  await page.keyboard.press("Escape"); // and back to the original orientation
+  await page.waitForTimeout(700);
+
+  const frames = await page.evaluate(() => {
+    const w = window as unknown as { __frames: number[]; __raf: number };
+    cancelAnimationFrame(w.__raf);
+    return w.__frames.slice(2);
+  });
+  expect(frames.length).toBeGreaterThan(60);
+  const sorted = [...frames].sort((a, b) => a - b);
+  const p95 = sorted[Math.floor(sorted.length * 0.95)]!;
+  const worst = sorted[sorted.length - 1]!;
+  console.log(`retarget frames: ${frames.length}, p95 ${p95.toFixed(1)} ms, worst ${worst.toFixed(1)} ms`);
+  expect(p95, `95th percentile frame ${p95.toFixed(1)} ms`).toBeLessThanOrEqual(20);
+  // three frames at 60 Hz are 50.0 or 50.1 ms depending on timer rounding: that is the 50 ms budget, not over it
+  expect(worst, `slowest frame ${worst.toFixed(1)} ms`).toBeLessThanOrEqual(50.5);
+});

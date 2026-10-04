@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { startGame, turnLayer, confirmTurnButton } from "./helpers.ts";
-import { newGame, legalMoves, apply, status } from "../../src/core/cube.ts";
+import { newGame, legalMoves, apply, status, layerStickers } from "../../src/core/cube.ts";
 import { randomSource } from "../../src/core/seed.ts";
 import { rotationLabel } from "../../src/ui/cube-labels.ts";
 import type { CubeMove, GameConfig } from "../../src/core/types.ts";
@@ -24,7 +24,7 @@ async function startCube(page: Page) {
 
 // Build a full game from the rules (random legal moves, fixed seed) to replay through the UI.
 function randomGame(seed: number): { moves: CubeMove[]; end: ReturnType<typeof status> } {
-  const config: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+  const config: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
   const rand = randomSource(seed);
   let s = newGame(config);
   const moves: CubeMove[] = [];
@@ -164,7 +164,7 @@ async function stickerMarks(page: Page): Promise<string[]> {
 
 /** The marks the rules give after the scoring moves and one turn, in sticker order. */
 function expectedAfter(turn: CubeMove): string[] {
-  let s = newGame({ variant: "cube", size: 3, winLength: 3, mode: "local" });
+  let s = newGame({ variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" });
   for (const [face, cell] of SCORE) s = apply(s, { t: "place", face, cell });
   s = apply(s, turn);
   return s.stickers.map((v) => (v === 0 ? "" : v === 1 ? "X" : "O"));
@@ -349,3 +349,223 @@ for (const size of ["4×4", "5×5"] as const) {
     await expect(page.locator("#game-status")).toContainText("O to move");
   });
 }
+
+// ---- same-layer preview continuity and the layer highlight (003) ----
+
+const TOP_RIGHT = "Turn the top layer to the right";
+const TOP_LEFT = "Turn the top layer to the left";
+const TOP_HALF = "Half turn the top layer";
+const layerOf = (axis: "x" | "y" | "z", layer: number) => new Set(layerStickers(3, axis, layer).map((i) => `${Math.floor(i / 9)}:${i % 9}`));
+const highlighted = (page: Page) =>
+  page.locator('button.sticker[data-preview="true"]').evaluateAll((els) => els.map((e) => `${(e as HTMLElement).dataset.face}:${(e as HTMLElement).dataset.cell}`));
+const nameOf = (page: Page, text: string) => picker(page).locator(".rotate-name", { hasText: text }).first();
+
+/** Remember where one sticker on the top layer sits before any preview, to measure turn angles against. */
+async function captureBase(page: Page) {
+  await page.evaluate(() => {
+    const el = document.querySelector('button.sticker[data-face="2"][data-cell="1"]') as HTMLElement;
+    (window as unknown as { __base: DOMMatrix }).__base = new DOMMatrix(getComputedStyle(el).transform).inverse();
+  });
+}
+
+/** Start recording, once per animation frame, the turn angle (degrees) of that sticker since captureBase. */
+async function recordAngles(page: Page) {
+  await page.evaluate(() => {
+    const el = document.querySelector('button.sticker[data-face="2"][data-cell="1"]') as HTMLElement;
+    const base = (window as unknown as { __base: DOMMatrix }).__base;
+    const w = window as unknown as { __angles: number[]; __stop: boolean };
+    w.__angles = [];
+    w.__stop = false;
+    const tick = () => {
+      const m = new DOMMatrix(getComputedStyle(el).transform).multiply(base);
+      w.__angles.push((Math.atan2(m.m31, m.m11) * 180) / Math.PI);
+      if (!w.__stop) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+const stopAngles = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { __angles: number[]; __stop: boolean };
+    w.__stop = true;
+    return w.__angles;
+  });
+/** Within 15 degrees of the layer's original orientation. */
+const nearZero = (degrees: number) => Math.abs((((degrees % 360) + 540) % 360) - 180) < 15;
+
+async function previewReady(page: Page) {
+  await startCube(page);
+  test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available in this browser");
+  await scoreFront(page);
+  await captureBase(page);
+}
+
+test("changing direction on the previewed layer never passes through the original orientation", async ({ page }) => {
+  await previewReady(page);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await recordAngles(page);
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  const angles = await stopAngles(page);
+  expect(angles.length).toBeGreaterThan(5);
+  expect(angles.filter(nearZero), `angles ${angles.map((a) => Math.round(a)).join(",")}`).toHaveLength(0);
+  // and a half turn then a quarter back the other way
+  await recordAngles(page);
+  await turnButton(page, TOP_HALF).click();
+  await idle(page);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  const more = await stopAngles(page);
+  expect(more.filter(nearZero), `angles ${more.map((a) => Math.round(a)).join(",")}`).toHaveLength(0);
+});
+
+test("cancel after a same-layer change returns the layer to the original orientation", async ({ page }) => {
+  await previewReady(page);
+  const marks = await stickerMarks(page);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  await page.keyboard.press("Escape");
+  await idle(page);
+  await expect(confirmTurnButton(page)).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => (document.querySelector('button.sticker[data-face="2"][data-cell="1"]') as HTMLElement).style.getPropertyValue("--turn"))).toBe("");
+  expect(await stickerMarks(page)).toEqual(marks);
+});
+
+test("confirm after a same-layer change makes exactly the last turn selected", async ({ page }) => {
+  await previewReady(page);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await turnButton(page, TOP_HALF).click();
+  await idle(page);
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  await expect(turnButton(page, TOP_LEFT)).toHaveAttribute("aria-pressed", "true");
+  await confirmTurnButton(page).click();
+  await idle(page);
+  const moves = (await page.evaluate(() => JSON.parse(localStorage.getItem("ttt.save")!).game.moves)) as string;
+  expect(moves.endsWith(".y2-")).toBe(true);
+  expect(await stickerMarks(page)).toEqual(expectedAfter({ t: "rotate", axis: "y", layer: 2, dir: -1 }));
+});
+
+test("hovering a layer name or a turn button highlights exactly that layer, with no preview", async ({ page, hasTouch }) => {
+  test.skip(hasTouch, "a touch screen has no hover: see the tap test");
+  await previewReady(page);
+  await nameOf(page, "Top").hover();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("y", 2));
+  await expect(page.locator('button.sticker[style*="--turn"]')).toHaveCount(0);
+  await expect(confirmTurnButton(page)).toBeDisabled();
+  await turnButton(page, "Turn the left layer up").hover();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("x", 0));
+  await expect(page.locator('button.sticker[style*="--turn"]')).toHaveCount(0);
+});
+
+test("the highlight is there on every frame while a preview starts, changes and ends under the pointer", async ({ page, hasTouch }) => {
+  test.skip(hasTouch, "a touch screen has no hover: see the tap test");
+  await previewReady(page);
+  await turnButton(page, TOP_RIGHT).hover();
+  await expect.poll(async () => (await highlighted(page)).length).toBeGreaterThan(0);
+  await page.evaluate(() => {
+    const w = window as unknown as { __counts: number[]; __stop: boolean };
+    w.__counts = [];
+    w.__stop = false;
+    const tick = () => {
+      w.__counts.push(document.querySelectorAll('button.sticker[data-preview="true"]').length);
+      if (!w.__stop) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await turnButton(page, TOP_LEFT).hover();
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  await page.keyboard.press("Escape");
+  await idle(page);
+  const counts = await page.evaluate(() => {
+    const w = window as unknown as { __counts: number[]; __stop: boolean };
+    w.__stop = true;
+    return w.__counts;
+  });
+  expect(counts.length).toBeGreaterThan(10);
+  expect(counts.every((c) => c === layerOf("y", 2).size), counts.join(",")).toBe(true);
+});
+
+test("the highlight clears when the pointer leaves and nothing is held, and stays while a preview is held", async ({ page, hasTouch }) => {
+  test.skip(hasTouch, "a touch screen has no hover: see the tap test");
+  await previewReady(page);
+  await nameOf(page, "Top").hover();
+  expect((await highlighted(page)).length).toBeGreaterThan(0);
+  await page.mouse.move(2, 2);
+  await expect.poll(async () => (await highlighted(page)).length).toBe(0);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await page.mouse.move(2, 2);
+  expect(new Set(await highlighted(page))).toEqual(layerOf("y", 2));
+  await page.keyboard.press("Escape");
+  await idle(page);
+  await expect.poll(async () => (await highlighted(page)).length).toBe(0);
+});
+
+test("on touch, tapping a layer name highlights it until another name is tapped or the turn ends", async ({ page, hasTouch }) => {
+  test.skip(!hasTouch, "needs a touch device");
+  await previewReady(page);
+  await nameOf(page, "Top").tap();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("y", 2));
+  await expect(page.locator('button.sticker[style*="--turn"]')).toHaveCount(0);
+  await nameOf(page, "Left").tap();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("x", 0));
+  await turnButton(page, "Turn the left layer up").tap();
+  await idle(page);
+  expect(new Set(await highlighted(page))).toEqual(layerOf("x", 0));
+  await page.keyboard.press("Escape");
+  await idle(page);
+  await expect.poll(async () => (await highlighted(page)).length).toBe(0);
+});
+
+test("keyboard focus on a turn button highlights its layer, and leaving it clears the highlight", async ({ page, hasTouch }) => {
+  test.skip(hasTouch, "needs a keyboard");
+  await previewReady(page);
+  await page.keyboard.press("Shift"); // the page is now in keyboard mode, so a script focus shows focus
+  await turnButton(page, "Turn the left layer up").focus();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("x", 0));
+  await expect(page.locator('button.sticker[style*="--turn"]')).toHaveCount(0);
+  await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+  await expect.poll(async () => (await highlighted(page)).length).toBe(0);
+});
+
+test("the highlight and the same-layer change also work in the flat view", async ({ page, hasTouch }) => {
+  await startCube(page);
+  const flat = page.getByRole("button", { name: "Flat view" });
+  if ((await flat.getAttribute("aria-pressed")) !== "true") await flat.click();
+  await scoreFront(page);
+  if (hasTouch) await nameOf(page, "Top").tap();
+  else await nameOf(page, "Top").hover();
+  expect(new Set(await highlighted(page))).toEqual(layerOf("y", 2));
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  await expect(turnButton(page, TOP_LEFT)).toHaveAttribute("aria-pressed", "true");
+  expect(await page.locator("button.sticker[data-ghost]").count()).toBeGreaterThan(0);
+  expect(new Set(await highlighted(page))).toEqual(layerOf("y", 2));
+  await confirmTurnButton(page).click();
+  await idle(page);
+  expect(await stickerMarks(page)).toEqual(expectedAfter({ t: "rotate", axis: "y", layer: 2, dir: -1 }));
+});
+
+test("with reduced motion the new position appears at once", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await previewReady(page);
+  await turnButton(page, TOP_RIGHT).click();
+  await idle(page);
+  await recordAngles(page);
+  await turnButton(page, TOP_LEFT).click();
+  await idle(page);
+  await page.waitForTimeout(100);
+  const angles = await stopAngles(page);
+  // every sampled frame is already at the new position (a quarter turn the other way)
+  for (const a of angles.slice(1)) expect(Math.abs(Math.abs(a) - 90) < 2 || Math.abs(Math.abs(a) - 270) < 2, `angle ${a}`).toBe(true);
+});

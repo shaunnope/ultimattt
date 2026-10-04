@@ -23,7 +23,7 @@ async function fresh(page: Page) {
 
 // A whole game from random legal moves (fixed seed), to replay through the interface.
 function randomGame(variant: Variant, seed: number): { moves: Move[]; config: GameConfig } {
-  const config: GameConfig = { variant, size: 3, winLength: 3, mode: "local" };
+  const config: GameConfig = { variant, size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
   const mod = moduleFor(config);
   const rand = randomSource(seed);
   let state = mod.newGame(config);

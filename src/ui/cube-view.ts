@@ -9,6 +9,7 @@ import type { Axis, Cell, CubeRotate } from "../core/types.ts";
 import { markOf } from "../core/types.ts";
 import type { CubeLine } from "../core/cube.ts";
 import { layerStickers, rotateStickers } from "../core/cube.ts";
+import { settleAngle, targetAngle, type Quarters } from "../core/turn-path.ts";
 import { FACE_NAMES, faceViewAngles, frontFace } from "./cube-labels.ts";
 import { createMark, markName } from "./mark.ts";
 import { h } from "./ui.ts";
@@ -35,6 +36,9 @@ export interface CubeView {
   playRotation(rotation: CubeRotate, commit: () => void): Promise<void>;
   /** Turn a layer to its previewed position and hold it there. Resolves when the animation has ended. */
   previewTurn(rotation: CubeRotate): Promise<void>;
+  /** Swing the previewed layer straight from the turn it shows to another turn of the same layer, never back through
+   *  where it started. Resolves when the animation has ended. */
+  retargetTurn(from: CubeRotate, to: CubeRotate): Promise<void>;
   /** Turn the previewed layer back. Resolves when the animation has ended. */
   cancelPreview(): Promise<void>;
   /** The preview is confirmed: call `commit` to put the new marks in place, with no animation replayed. */
@@ -43,6 +47,8 @@ export interface CubeView {
   discardPreview(): void;
   /** Point out winning stickers (a dot) and stickers to block (a dashed ring). */
   setHints(win: readonly number[], block: readonly number[]): void;
+  /** Mark these faces as locked (lock option): a striped pattern, a "Locked" label, and empty stickers aria-disabled. */
+  setLocked(faces: readonly number[]): void;
   /** Outline the stickers of a layer (null clears). */
   outline(axis: Axis, layer: number | null): void;
   /** Cancel an animation and settle immediately. */
@@ -50,11 +56,13 @@ export interface CubeView {
 }
 
 const FACE_TRANSFORM = ["rotateX(90deg)", "rotateX(-90deg)", "rotateY(0deg)", "rotateY(180deg)", "rotateY(-90deg)", "rotateY(90deg)"];
-// A +90° turn of the model, as the CSS rotation that does the same on screen (CSS y points down).
-const TURN_CSS: Record<Axis, (quarters: number) => string> = {
-  x: (q) => `rotateX(${-90 * q}deg)`,
-  y: (q) => `rotateY(${90 * q}deg)`,
-  z: (q) => `rotateZ(${-90 * q}deg)`,
+// A turn of the model by `deg` (+90 per quarter), as the CSS rotation that does the same on screen (CSS y points down).
+// All three axes are always listed, so a transition between any two turns interpolates each angle on its own
+// (matching function lists) instead of falling back to matrix interpolation, which cannot tell 270° from -90°.
+const TURN_CSS: Record<Axis, (deg: number) => string> = {
+  x: (deg) => `rotateX(${-deg}deg) rotateY(0deg) rotateZ(0deg)`,
+  y: (deg) => `rotateX(0deg) rotateY(${deg}deg) rotateZ(0deg)`,
+  z: (deg) => `rotateX(0deg) rotateY(0deg) rotateZ(${-deg}deg)`,
 };
 const ANIMATION_MS = 340;
 const INITIAL_VIEW = { rx: -25, ry: -30 };
@@ -62,7 +70,7 @@ const INITIAL_VIEW = { rx: -25, ry: -30 };
 /** Each face drawn flat on the net, as 1-based [column, row] of its top-left sticker (U D F B L R): the cross of the original game. */
 export const netOrigin = (n: number): [number, number][] => [[n + 1, 1], [n + 1, 2 * n + 1], [n + 1, n + 1], [3 * n + 1, n + 1], [1, n + 1], [2 * n + 1, n + 1]];
 
-const quartersOf = (rotation: CubeRotate): number => (rotation.dir === 1 ? 1 : rotation.dir === -1 ? -1 : 2);
+const quartersOf = (rotation: CubeRotate): Quarters => (rotation.dir === 1 ? 1 : rotation.dir === -1 ? -1 : 2);
 
 function supports3D(): boolean {
   try {
@@ -89,12 +97,23 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
   let shown: Cell[] = Array<Cell>(6 * n2).fill(0);
   let lastStickers: readonly Cell[] = shown;
   let previewing: CubeRotate | null = null;
+  /** The previewed layer's cumulative angle in degrees (+90 per quarter); 0 when no preview is held */
+  let angle = 0;
+  let locked: ReadonlySet<number> = new Set();
 
   const describe = (i: number, value: Cell) => {
     const face = Math.floor(i / n2);
     const cell = i % n2;
-    return `${FACE_NAMES[face]} face, row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}, ${value === 0 ? "empty" : markName(markOf(value))}`;
+    const state = value === 0 ? (locked.has(face) ? "empty, locked face" : "empty") : markName(markOf(value));
+    return `${FACE_NAMES[face]} face, row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}, ${state}`;
   };
+
+  /** One "Locked" badge per face, shown only while that face is locked. Not announced: the stickers say it. */
+  const lockLabels = FACE_NAMES.map((_, face) => {
+    const label = h("div", { class: "face-locked-label", "aria-hidden": "true", hidden: true }, h("span", null, "Locked"));
+    label.style.setProperty("--face", FACE_TRANSFORM[face]!);
+    return label;
+  });
 
   for (let i = 0; i < 6 * n2; i++) {
     const face = Math.floor(i / n2);
@@ -138,6 +157,21 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
   faceGroups.forEach((g) => flatBoard.append(g));
   const stage = h("div", { class: "cube-stage", style: `--n:${n}` });
 
+  /** Redraw the lock marks: data-locked and aria-disabled on stickers, the badge on faces. */
+  function applyLocks(): void {
+    buttons.forEach((b, i) => {
+      const face = Math.floor(i / n2);
+      const isLocked = locked.has(face);
+      if (isLocked) b.dataset.locked = "true";
+      else delete b.dataset.locked;
+      const label = describe(i, shown[i]!);
+      if (b.getAttribute("aria-label") !== label) b.setAttribute("aria-label", label);
+      if (isLocked && shown[i] === 0) b.setAttribute("aria-disabled", "true");
+      else b.removeAttribute("aria-disabled");
+    });
+    lockLabels.forEach((label, face) => (label.hidden = !locked.has(face)));
+  }
+
   function applyView(snap = false): void {
     // Set the transform itself: a changed custom property would make the browser restyle all 150 stickers.
     scene.style.transform = `rotateX(${view.rx}deg) rotateY(${view.ry}deg)`;
@@ -176,9 +210,14 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     stopsKey = "";
     if (flat) {
       buttons.forEach((b, i) => faceGroups[Math.floor(i / n2)]!.append(b));
+      lockLabels.forEach((label, face) => {
+        label.style.setProperty("--fc", String(origin[face]![0]));
+        label.style.setProperty("--fr", String(origin[face]![1]));
+        faceGroups[face]!.append(label);
+      });
       stage.replaceChildren(flatBoard);
     } else {
-      scene.replaceChildren(...buttons);
+      scene.replaceChildren(...buttons, ...lockLabels);
       stage.replaceChildren(scene);
     }
     stage.dataset.mode = flat ? "flat" : "3d";
@@ -246,6 +285,18 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       setTimeout(resolve, ms);
     });
   const layerButtons = (axis: Axis, layer: number) => layerStickers(n, axis, layer).map((i) => buttons[i]!);
+  const setAngle = (turn: CubeRotate, deg: number) => layerButtons(turn.axis, turn.layer).forEach((b) => b.style.setProperty("--turn", TURN_CSS[turn.axis](deg)));
+  /** Put the layer back at its original orientation with no transition. Only the layer's own stickers are told to skip
+   *  their transition, so the browser does not have to restyle the whole cube twice (it is slow on a 5×5 cube). */
+  const clearAngle = (turn: CubeRotate) => {
+    const layer = layerButtons(turn.axis, turn.layer);
+    layer.forEach((b) => {
+      b.style.transition = "none";
+      b.style.removeProperty("--turn");
+    });
+    angle = 0;
+    requestAnimationFrame(() => requestAnimationFrame(() => layer.forEach((b) => b.style.removeProperty("transition"))));
+  };
   const setBusy = (value: boolean) => {
     busy = value;
     if (value) stage.dataset.busy = "true";
@@ -327,6 +378,11 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
         }
       });
       shown = stickers.slice() as Cell[];
+      applyLocks();
+    },
+    setLocked(faces) {
+      locked = new Set(faces);
+      applyLocks();
     },
     async playRotation(rotation, commit) {
       api.settle();
@@ -342,7 +398,7 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
         await wait(220);
         layer.forEach((b) => b.classList.remove("flash"));
       } else {
-        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
+        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation) * 90)));
         await wait(ANIMATION_MS + 40);
         // Put the stickers back where they were with no transition, then show the new marks.
         scene.classList.add("no-anim");
@@ -357,43 +413,69 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     },
     async previewTurn(rotation) {
       previewing = rotation;
-      const layer = layerButtons(rotation.axis, rotation.layer);
+      angle = flat ? 0 : targetAngle(0, quartersOf(rotation));
       if (flat) {
         showGhosts(rotation);
         setBusy(true);
         await wait(reducedMotion() ? 0 : 160);
       } else if (reducedMotion()) {
-        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
+        setAngle(rotation, angle);
         scene.classList.add("no-anim");
         endNoAnim();
       } else {
         setBusy(true);
-        layer.forEach((b) => b.style.setProperty("--turn", TURN_CSS[rotation.axis](quartersOf(rotation))));
+        setAngle(rotation, angle);
         await wait(ANIMATION_MS + 40);
       }
+      finish = null;
+      setBusy(false);
+    },
+    async retargetTurn(from, to) {
+      if (!previewing || previewing.axis !== to.axis || previewing.layer !== to.layer) {
+        // Nothing to swing from (the preview was dropped meanwhile): just show the new turn.
+        await api.previewTurn(to);
+        return;
+      }
+      previewing = to;
+      if (flat) {
+        showGhosts(to);
+        setBusy(true);
+        await wait(reducedMotion() ? 0 : 160);
+      } else {
+        angle = targetAngle(angle, quartersOf(to));
+        if (reducedMotion()) {
+          scene.classList.add("no-anim");
+          setAngle(to, angle);
+          endNoAnim();
+        } else {
+          setBusy(true);
+          setAngle(to, angle);
+          await wait(ANIMATION_MS + 40);
+        }
+      }
+      void from;
       finish = null;
       setBusy(false);
     },
     async cancelPreview() {
       const turn = previewing;
       if (!turn) return;
-      const layer = layerButtons(turn.axis, turn.layer);
       if (flat) {
         clearGhosts();
         previewing = null;
         return;
       }
       if (reducedMotion()) {
-        scene.classList.add("no-anim");
-        layer.forEach((b) => b.style.removeProperty("--turn"));
-        endNoAnim();
+        clearAngle(turn);
         previewing = null;
         return;
       }
       setBusy(true);
-      layer.forEach((b) => b.style.removeProperty("--turn"));
+      // The nearest multiple of 360 is the original orientation, reached by the shortest way.
+      setAngle(turn, settleAngle(angle));
       await wait(ANIMATION_MS + 40);
       finish = null;
+      clearAngle(turn);
       previewing = null;
       setBusy(false);
     },
@@ -402,10 +484,8 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       previewing = null;
       if (turn && !flat) {
         // Hold the turned layer, then swap in the new marks with no transition so nothing plays twice.
-        scene.classList.add("no-anim");
-        layerButtons(turn.axis, turn.layer).forEach((b) => b.style.removeProperty("--turn"));
+        clearAngle(turn);
         commit();
-        endNoAnim();
         return;
       }
       commit();
@@ -419,9 +499,7 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
         clearGhosts();
         return;
       }
-      scene.classList.add("no-anim");
-      layerButtons(turn.axis, turn.layer).forEach((b) => b.style.removeProperty("--turn"));
-      endNoAnim();
+      clearAngle(turn);
       setBusy(false);
     },
     setHints(win, block) {
@@ -430,9 +508,13 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       for (const i of win) buttons[i]?.setAttribute("data-hint", "win");
     },
     outline(axis, layer) {
-      buttons.forEach((b) => b.removeAttribute("data-preview"));
-      if (layer === null) return;
-      for (const i of layerStickers(n, axis, layer)) buttons[i]!.setAttribute("data-preview", "true");
+      // Only touch the stickers whose state changes, so a layer that stays highlighted is never cleared and redrawn.
+      const wanted = new Set(layer === null ? [] : layerStickers(n, axis, layer));
+      buttons.forEach((b, i) => {
+        const on = b.dataset.preview === "true";
+        if (wanted.has(i) && !on) b.dataset.preview = "true";
+        else if (!wanted.has(i) && on) b.removeAttribute("data-preview");
+      });
     },
     settle() {
       finish?.();

@@ -145,3 +145,42 @@ test("the start screen remembers the last choices, after New game and after a re
   await expect(page.locator("input#mark-O")).toBeChecked();
   await expect(page.locator("#level")).toHaveValue("5");
 });
+
+// ---- win length default follows every size choice (003) ----
+
+async function startScreen(page: Page) {
+  await page.goto("./");
+  const start = page.getByRole("button", { name: "Start game" });
+  const leave = page.getByRole("button", { name: "New game" });
+  await expect(start.or(leave)).toBeVisible();
+  if (await leave.isVisible()) await leave.click();
+}
+
+for (const variant of ["Classic", "Ultimate", "Cube"] as const) {
+  test(`${variant}: choosing 4×4 or 5×5 sets the win length to 4, and 3×3 shows it fixed`, async ({ page }) => {
+    await startScreen(page);
+    await choose(page, variant);
+    for (const size of ["5×5", "4×4"] as const) {
+      await choose(page, size);
+      await expect(page.locator("#winlength-4")).toBeChecked();
+    }
+    await choose(page, "5×5");
+    await choose(page, "5"); // edit the win length
+    await expect(page.locator("#winlength-5")).toBeChecked();
+    await choose(page, "4×4");
+    await expect(page.locator("#winlength-4")).toBeChecked();
+    await choose(page, "3×3");
+    await expect(page.locator("#win-fixed")).toContainText("3 in a row");
+    await choose(page, "5×5");
+    await expect(page.locator("#winlength-4")).toBeChecked();
+  });
+
+  test(`${variant}: choosing the size that is already selected keeps an edited win length`, async ({ page }) => {
+    await startScreen(page);
+    await choose(page, variant);
+    await choose(page, "5×5");
+    await choose(page, "5");
+    await choose(page, "5×5");
+    await expect(page.locator("#winlength-5")).toBeChecked();
+  });
+}

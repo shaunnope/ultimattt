@@ -4,10 +4,31 @@ import { parseConfig } from "../../src/core/config.ts";
 
 const base = { variant: "classic", size: 5, winLength: 3, mode: "local" };
 
+const defaults = { scoring: "lines", lockFaces: false };
+
 test("a valid config round-trips", () => {
-  assert.deepEqual(parseConfig(base), base);
+  assert.deepEqual(parseConfig(base), { ...base, ...defaults });
   const computer = { ...base, mode: "computer", level: 3, humanMark: "X", seed: "C53-BXK4-M9TR" };
-  assert.deepEqual(parseConfig(computer), computer);
+  assert.deepEqual(parseConfig(computer), { ...computer, ...defaults });
+});
+
+test("scoring defaults to lines and lockFaces to false; both are read for a Cube config", () => {
+  const cube = { variant: "cube", size: 4, winLength: 3, mode: "local" };
+  assert.deepEqual(parseConfig(cube), { ...cube, ...defaults });
+  assert.deepEqual(parseConfig({ ...cube, scoring: "faces", lockFaces: true }), { ...cube, scoring: "faces", lockFaces: true });
+  assert.deepEqual(parseConfig({ ...cube, scoring: "faces" }), { ...cube, scoring: "faces", lockFaces: false });
+  assert.deepEqual(parseConfig({ ...cube, lockFaces: true }), { ...cube, scoring: "lines", lockFaces: true });
+});
+
+test("non-default scoring or lock on Classic or Ultimate, or a value of the wrong type, is refused", () => {
+  for (const variant of ["classic", "ultimate"]) {
+    assert.equal(parseConfig({ ...base, variant, scoring: "faces" }), null, variant);
+    assert.equal(parseConfig({ ...base, variant, lockFaces: true }), null, variant);
+  }
+  const cube = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+  for (const bad of [{ scoring: "points" }, { scoring: 1 }, { scoring: null }, { lockFaces: "yes" }, { lockFaces: 1 }, { lockFaces: null }]) {
+    assert.equal(parseConfig({ ...cube, ...bad }), null, JSON.stringify(bad));
+  }
 });
 
 test("win length must be an integer from 3 to the size", () => {

@@ -1,0 +1,13 @@
+{
+  "schema": 2,
+  "settings": {
+    "hints": true,
+    "autoReplay": true,
+    "replaySpeed": 2,
+    "theme": "dark",
+    "markPalette": "default",
+    "cubeNotation": "cube",
+    "lastSetup": { "variant": "cube", "size": 4, "winLength": 3, "mode": "network", "level": 3, "markChoice": "random" }
+  },
+  "game": null
+}

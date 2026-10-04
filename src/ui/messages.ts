@@ -16,8 +16,12 @@ const MESSAGES: Record<string, string> = {
   "out-of-sync": "Your game was out of step with your friend's, so it was refreshed.",
   "nothing-to-undo": "You have no move of your own to take back yet.",
   "undo-pending": "You have already asked to take a move back.",
+  "face-locked": "That face is locked because it holds a line. Turn a layer to open it, or play on another face.",
   "closed-board": "That board is already decided. Choose an open board.",
 };
+
+/** Shown when the other device runs a build with different rules or messages. */
+export const VERSION_MISMATCH = "Both devices need the latest version of the app. Reload the page on each to update it.";
 
 const GENERIC = "That move is not allowed.";
 

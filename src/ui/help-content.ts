@@ -80,7 +80,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: "paragraph",
         topic: "goal",
-        text: "The Cube has six faces, each a board. Score more lines than your opponent. A line is your win length in a row on one face, across, down or diagonally. A longer run scores once for each stretch of that length inside it: four in a row with a win length of three scores two lines.",
+        text: "The Cube has six faces, each a board. Score more than your opponent: by default, more lines. A line is your win length in a row on one face, across, down or diagonally. A longer run scores once for each stretch of that length inside it: four in a row with a win length of three scores two lines.",
       },
       {
         kind: "steps",
@@ -107,12 +107,22 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: "paragraph",
         topic: "special",
-        text: "The turn buttons show arrows by default, with the full words as their names for screen readers. In Settings you can switch to cube notation: R, L, U, D, F and B for the outer layers, a ' for the opposite way and a 2 for a half turn, M, E and S for the middle slices of a 3×3, and numbers such as 2R or 3L for inner layers on larger cubes. Words or notation only changes how turns are named; the game is the same.",
+        text: "Lock scored faces (an option when you set up a Cube game): a face holding a line, yours or your opponent's, takes no more marks. Turning a layer is never blocked, and a turn that breaks the line reopens the face. If no empty square is left on an open face, the game ends at once and the scores decide it.",
+      },
+      {
+        kind: "paragraph",
+        topic: "special",
+        text: "Count faces, not lines (an option when you set up a Cube game): your score is the number of faces that hold at least one of your lines, however many lines are on them. Both players can count the same face. A second line on a face you already count gives no extra point, but it is still a line, so you must still turn a layer.",
+      },
+      {
+        kind: "paragraph",
+        topic: "special",
+        text: "The turn buttons show arrows by default, with the full words as their names for screen readers. In Settings you can switch to cube notation: R, L, U, D, F and B for the outer layers, a ' for the opposite way and a 2 for a half turn. Every name is a single layer, never wide turns. An inner layer is named by its depth from the nearer face: on a 4×4 the layers across are L, 2L and 2R, R (with D, 2D, 2U, U and B, 2B, 2F, F the other ways), and on a 5×5 they are L, 2L, M, 2R, R. The middle layer of an odd cube is M, E or S, as on a 3×3: M turns like L, E like D and S like F. Words or notation only changes how turns are named; the game is the same.",
       },
       {
         kind: "paragraph",
         topic: "end",
-        text: "The game ends when every square is filled and no turn is waiting. The player with more lines wins; if you have the same number of lines it is a tie.",
+        text: "The game ends when every square is filled and no turn is waiting. The player with the higher score wins, and equal scores are a tie. The score is lines, or faces if you chose to count faces. With the lock on, the game also ends at once when no empty square is left on an open face.",
       },
       {
         kind: "paragraph",
@@ -131,7 +141,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         kind: "paragraph",
-        text: "Win length: how many in a row make a line, from 3 up to the board size. On 3×3 it is always 3. Changing the board size keeps your win length if it still fits, and otherwise picks the usual one for that game.",
+        text: "Win length: how many in a row make a line, from 3 up to the board size. On 3×3 it is always 3. Changing the board size sets the usual win length for that size: 3 on a 3×3 board and 4 on 4×4 and 5×5. You can then choose another.",
       },
       {
         kind: "paragraph",

@@ -45,7 +45,7 @@ test("decoding rejects bad or truncated text with an error, never a throw", () =
   assert.deepEqual(decodeMoves("classic", ""), []);
 });
 
-const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 
 function cubeGame(seed: number): { moves: CubeMove[] } {
   const rand = randomSource(seed);
@@ -63,12 +63,12 @@ function cubeGame(seed: number): { moves: CubeMove[] } {
 const up = (board: number, cell: number): Move => ({ t: "place", board, cell });
 
 const RECORDS: ReplayRecord[] = [
-  { rules: { variant: "classic", size: 3, winLength: 3 }, moves: [0, 3, 1, 4, 2].map(place), players: { mode: "local" } },
-  { rules: { variant: "classic", size: 5, winLength: 3 }, seed: "C53-BXK4-M9TR", moves: [0, 5, 1, 6, 2].map(place), players: { mode: "computer", level: 3, humanMark: "X" } },
-  { rules: { variant: "ultimate", size: 3, winLength: 3 }, moves: [up(0, 0), up(0, 4), up(4, 0), up(0, 3), up(3, 0), up(0, 5), up(5, 0)], players: { mode: "local" } },
-  { rules: { variant: "cube", size: 3, winLength: 3 }, moves: cubeGame(5).moves, players: { mode: "local" } },
-  { rules: { variant: "classic", size: 3, winLength: 3 }, seed: "C33-BXK4-M9TR", moves: [4, 0].map(place), players: { mode: "computer", level: 5, humanMark: "O" }, end: "ro" },
-  { rules: { variant: "ultimate", size: 4, winLength: 3 }, moves: [], players: { mode: "network" }, end: "rx" },
+  { rules: { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false }, moves: [0, 3, 1, 4, 2].map(place), players: { mode: "local" } },
+  { rules: { variant: "classic", size: 5, winLength: 3, scoring: "lines", lockFaces: false }, seed: "C53-BXK4-M9TR", moves: [0, 5, 1, 6, 2].map(place), players: { mode: "computer", level: 3, humanMark: "X" } },
+  { rules: { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false }, moves: [up(0, 0), up(0, 4), up(4, 0), up(0, 3), up(3, 0), up(0, 5), up(5, 0)], players: { mode: "local" } },
+  { rules: { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false }, moves: cubeGame(5).moves, players: { mode: "local" } },
+  { rules: { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false }, seed: "C33-BXK4-M9TR", moves: [4, 0].map(place), players: { mode: "computer", level: 5, humanMark: "O" }, end: "ro" },
+  { rules: { variant: "ultimate", size: 4, winLength: 3, scoring: "lines", lockFaces: false }, moves: [], players: { mode: "network" }, end: "rx" },
 ];
 
 test("a replay link round-trips for every variant, mode and end flag", () => {
@@ -98,7 +98,7 @@ test("a record with a seed for a game without a computer does not write it", () 
 
 test("the link is rebuilt into a config from the rules", () => {
   const config = configFromRecord(RECORDS[1]!);
-  assert.deepEqual(config, { variant: "classic", size: 5, winLength: 3, mode: "computer", level: 3, humanMark: "X", seed: "C53-BXK4-M9TR" });
+  assert.deepEqual(config, { variant: "classic", size: 5, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 3, humanMark: "X", seed: "C53-BXK4-M9TR" });
   assert.equal(configFromRecord(RECORDS[2]!).variant, "ultimate");
   assert.equal(configFromRecord(RECORDS[3]!).variant, "cube");
   assert.ok(!("seed" in configFromRecord(RECORDS[0]!)));
@@ -114,9 +114,9 @@ test("a played-back link reproduces the exact game", () => {
 });
 
 test("recordFromGame takes the rules and the seed from the config", () => {
-  const config: GameConfig = { variant: "classic", size: 4, winLength: 3, mode: "computer", level: 2, humanMark: "O", seed: "C43-BXK4-M9TR" };
+  const config: GameConfig = { variant: "classic", size: 4, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 2, humanMark: "O", seed: "C43-BXK4-M9TR" };
   const record = recordFromGame(config, [0, 1].map(place), "X");
-  assert.deepEqual(record, { rules: { variant: "classic", size: 4, winLength: 3 }, seed: "C43-BXK4-M9TR", moves: [0, 1].map(place), players: { mode: "computer", level: 2, humanMark: "O" }, end: "rx" });
+  assert.deepEqual(record, { rules: { variant: "classic", size: 4, winLength: 3, scoring: "lines", lockFaces: false }, seed: "C43-BXK4-M9TR", moves: [0, 1].map(place), players: { mode: "computer", level: 2, humanMark: "O" }, end: "rx" });
 });
 
 test("bad links give an error: missing parts, unknown seed, bad rules, bad mode, illegal or truncated moves", () => {
@@ -162,7 +162,7 @@ test("a link without rules reads them from the seed prefix: 001 links keep worki
   for (const [link, variant, size, winLength] of cases) {
     const record = unpackLink(link);
     assert.ok(!("error" in record), link);
-    if (!("error" in record)) assert.deepEqual(record.rules, { variant, size, winLength });
+    if (!("error" in record)) assert.deepEqual(record.rules, { variant, size, winLength, scoring: "lines", lockFaces: false });
   }
 });
 
@@ -198,4 +198,60 @@ test("a link cannot claim a result: extra parameters are ignored and the result 
   if ("error" in back) return;
   const state = fromMoves(configFromRecord(back), back.moves);
   assert.equal(state.winner, "X");
+});
+
+// ---- scoring and lock flags (003) ----
+
+test("scoring and lock travel in the rules code and come back from the link", () => {
+  const base = { variant: "cube", size: 4, winLength: 3 } as const;
+  const cases: [Partial<ReplayRecord["rules"]>, string][] = [
+    [{ scoring: "faces", lockFaces: false }, "B43F"],
+    [{ scoring: "lines", lockFaces: true }, "B43L"],
+    [{ scoring: "faces", lockFaces: true }, "B43FL"],
+  ];
+  for (const [flags, code] of cases) {
+    const record: ReplayRecord = { rules: { ...base, scoring: "lines", lockFaces: false, ...flags }, moves: [{ t: "place", face: 2, cell: 4 }], players: { mode: "local" } };
+    const link = packLink(record, 1);
+    assert.ok(link.includes(`rules=${code}&`), link);
+    assert.deepEqual(unpackLink(link), record);
+    const config = configFromRecord(record);
+    assert.equal(config.scoring, record.rules.scoring);
+    assert.equal(config.lockFaces, record.rules.lockFaces);
+    assert.deepEqual(recordFromGame(config, record.moves).rules, record.rules);
+  }
+});
+
+test("a 001 or 002 link opens with lines and no lock", () => {
+  const links = JSON.parse(readFileSync(new URL("../fixtures/002/links.json", import.meta.url), "utf8")) as { link: string; variant: string }[];
+  for (const { link, variant } of links) {
+    const record = unpackLink(link);
+    assert.ok(!("error" in record), link);
+    if ("error" in record) continue;
+    assert.equal(record.rules.variant, variant);
+    assert.equal(record.rules.scoring, "lines");
+    assert.equal(record.rules.lockFaces, false);
+  }
+  const old = unpackLink("?watch=40862&seed=3X3-BXK4-M9TR&game=l&moves=03142");
+  assert.ok(!("error" in old));
+  if (!("error" in old)) assert.deepEqual([old.rules.scoring, old.rules.lockFaces], ["lines", false]);
+});
+
+test("a flag on a Classic or Ultimate code is an error", () => {
+  for (const rules of ["C33F", "C33L", "U33FL"]) assert.ok("error" in unpackLink(`?watch=1&rules=${rules}&game=l&moves=0`), rules);
+});
+
+test("a link or seed from before the new default still reads its win length from the legacy table", () => {
+  const cases: [string, number][] = [
+    ["?watch=1&seed=4X4-BXK4-M9TR&game=l&moves=0", 4],
+    ["?watch=1&seed=5X5-BXK4-M9TR&game=l&moves=0", 4],
+    ["?watch=1&seed=ULT-BXK4-M9TR&game=l&moves=0004", 3],
+    ["?watch=1&seed=CUB-BXK4-M9TR&game=l&moves=22", 3],
+    ["?watch=1&rules=U43&game=l&moves=0004", 3],
+    ["?watch=1&rules=B53&game=l&moves=22", 3],
+  ];
+  for (const [link, winLength] of cases) {
+    const record = unpackLink(link);
+    assert.ok(!("error" in record), link);
+    if (!("error" in record)) assert.equal(record.rules.winLength, winLength, link);
+  }
 });

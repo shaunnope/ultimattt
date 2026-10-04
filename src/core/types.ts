@@ -6,6 +6,8 @@ export type Mark = "X" | "O";
 export type Cell = 0 | 1 | 2;
 export type Mode = "computer" | "local" | "network";
 export type Level = 1 | 2 | 3 | 4 | 5;
+/** How a Cube game is tallied: lines made, or faces holding at least one line */
+export type Scoring = "lines" | "faces";
 export type Axis = "x" | "y" | "z";
 /** +1 quarter turn, -1 quarter turn back, 2 half turn */
 export type RotateDir = 1 | -1 | 2;
@@ -16,6 +18,10 @@ export interface GameConfig {
   size: 3 | 4 | 5;
   /** Cells in a row that make a line, K: 3 up to size */
   winLength: number;
+  /** Cube only: "lines" counts lines, "faces" counts faces holding a line. Always "lines" elsewhere */
+  scoring: Scoring;
+  /** Cube only: faces holding a line refuse new marks. Always false elsewhere */
+  lockFaces: boolean;
   mode: Mode;
   /** Computer level, when mode is "computer" */
   level?: Level;

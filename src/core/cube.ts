@@ -2,7 +2,10 @@
 // face of a cube. Every window of K in a row on any face scores a point for its owner (a run longer than K
 // scores one point per window). A move that scores must be followed, by the same player, by turning one
 // layer of the cube, which carries marks between faces and can make or break lines. The game ends when
-// every cell is filled and no turn is pending; the player with more lines wins.
+// every cell is filled and no turn is pending; the player with the higher score wins. The score is lines by
+// default; with face-count scoring it is the number of faces holding at least one of the player's lines.
+// With the lock option, a face holding a line (of either player) refuses new marks until a turn breaks the
+// line, and the game also ends when no empty sticker lies on an open face.
 //
 // Pure: no DOM, storage, network or clock.
 //
@@ -16,7 +19,7 @@
 // For N=3 this is the 001 geometry scaled by two; tests/fixtures/cube-golden.json checks it against
 // the original game's own turn logic.
 
-import type { Axis, Cell, CubeHint, CubeMove, CubeRotate, GameConfig, HintSet, Legality, Mark, Move, RotateDir, StateBase, Status } from "./types.ts";
+import type { Axis, Cell, CubeHint, CubeMove, CubeRotate, GameConfig, HintSet, Legality, Mark, Move, RotateDir, Scoring, StateBase, Status } from "./types.ts";
 import { OK, cellOf, other, refuse } from "./types.ts";
 import { hashString } from "./seed.ts";
 import { lines as windows } from "./classic.ts";
@@ -32,12 +35,14 @@ export interface CubeState extends StateBase {
   phase: Phase;
   /** Lines currently on the cube, recounted from the stickers after every move */
   lines: { X: number; O: number };
+  /** What the winner is decided by: lines in "lines" mode, faces holding one of the player's lines in "faces" mode */
+  scores: { X: number; O: number };
   empty: number;
   pendingRotateFor: Mark | null;
 }
 
 /** Every reason isLegal can refuse a move with. */
-export const REASONS = ["invalid-move", "game-over", "out-of-range", "occupied", "rotate-pending", "no-rotation-due"] as const;
+export const REASONS = ["invalid-move", "game-over", "out-of-range", "occupied", "rotate-pending", "no-rotation-due", "face-locked"] as const;
 
 type Vec = readonly [number, number, number];
 
@@ -156,6 +161,20 @@ export function countLines(stickers: readonly Cell[], size: number, winLength: n
   return count;
 }
 
+/** The faces holding at least one line of either player. Derived, never stored; only the lock option acts on it. */
+export function lockedFaces(stickers: readonly Cell[], size: number, winLength: number): number[] {
+  const faces = new Set(cubeLines(stickers, size, winLength).map((line) => line.face));
+  return [...faces].sort((a, b) => a - b);
+}
+
+/** The tally the winner is decided by: lines made, or faces holding at least one of the player's lines. */
+export function scoreOf(stickers: readonly Cell[], size: number, winLength: number, scoring: Scoring): { X: number; O: number } {
+  if (scoring === "lines") return countLines(stickers, size, winLength);
+  const held = { X: new Set<number>(), O: new Set<number>() };
+  for (const line of cubeLines(stickers, size, winLength)) held[line.owner].add(line.face);
+  return { X: held.X.size, O: held.O.size };
+}
+
 export function newGame(config: GameConfig): CubeState {
   const total = 6 * config.size * config.size;
   return {
@@ -167,6 +186,7 @@ export function newGame(config: GameConfig): CubeState {
     stickers: Array<Cell>(total).fill(0),
     phase: "place",
     lines: { X: 0, O: 0 },
+    scores: { X: 0, O: 0 },
     empty: total,
     pendingRotateFor: null,
   };
@@ -196,6 +216,7 @@ export function isLegal(state: CubeState, move: Move): Legality {
     const { face, cell } = move;
     if (!Number.isInteger(face) || face < 0 || face > 5 || !Number.isInteger(cell) || cell < 0 || cell >= n2) return refuse("out-of-range");
     if (state.stickers[face * n2 + cell] !== 0) return refuse("occupied");
+    if (state.config.lockFaces && lockedFaces(state.stickers, size, state.config.winLength).includes(face)) return refuse("face-locked");
     return OK;
   }
   if (state.phase !== "rotate") return refuse("no-rotation-due");
@@ -207,16 +228,28 @@ export function legalMoves(state: CubeState): CubeMove[] {
   if (state.status !== "playing") return [];
   if (state.phase === "rotate") return rotations(state.config.size);
   const n2 = state.config.size * state.config.size;
+  const locked = state.config.lockFaces ? lockedFaces(state.stickers, state.config.size, state.config.winLength) : [];
   const out: CubeMove[] = [];
   state.stickers.forEach((v, i) => {
-    if (v === 0) out.push({ t: "place", face: Math.floor(i / n2), cell: i % n2 });
+    const face = Math.floor(i / n2);
+    if (v === 0 && !locked.includes(face)) out.push({ t: "place", face, cell: i % n2 });
   });
   return out;
 }
 
+/** True when nobody can place a mark: every sticker is filled or, with the lock, every empty one is on a locked face. */
+function noPlacementLeft(state: CubeState): boolean {
+  if (state.empty === 0) return true;
+  if (!state.config.lockFaces) return false;
+  const { size, winLength } = state.config;
+  const n2 = size * size;
+  const locked = lockedFaces(state.stickers, size, winLength);
+  return state.stickers.every((v, i) => v !== 0 || locked.includes(Math.floor(i / n2)));
+}
+
 function settle(state: CubeState): CubeState {
-  if (state.phase === "place" && state.empty === 0) {
-    const { X, O } = state.lines;
+  if (state.phase === "place" && noPlacementLeft(state)) {
+    const { X, O } = state.scores;
     return { ...state, status: X === O ? "tie" : "won", winner: X === O ? null : X > O ? "X" : "O" };
   }
   return state;
@@ -237,6 +270,7 @@ export function apply(state: CubeState, move: Move): CubeState {
       moves,
       stickers,
       lines,
+      scores: scoreOf(stickers, size, winLength, state.config.scoring),
       empty: state.empty - 1,
       phase: scored ? "rotate" : "place",
       pendingRotateFor: scored ? state.toMove : null,
@@ -250,6 +284,7 @@ export function apply(state: CubeState, move: Move): CubeState {
     moves,
     stickers,
     lines: countLines(stickers, size, winLength),
+    scores: scoreOf(stickers, size, winLength, state.config.scoring),
     phase: "place",
     pendingRotateFor: null,
     toMove: other(state.toMove),
@@ -281,9 +316,11 @@ export function hints(state: CubeState, mark: Mark): HintSet<CubeHint> {
   const faceLines = windows(size, winLength);
   const mine = cellOf(mark);
   const theirs = cellOf(other(mark));
+  const locked = state.config.lockFaces ? lockedFaces(state.stickers, size, winLength) : [];
   state.stickers.forEach((value, i) => {
     if (value !== 0) return;
     const face = Math.floor(i / n2);
+    if (locked.includes(face)) return;
     const cell = i % n2;
     const completes = (who: Cell) =>
       faceLines.some((line) => line.includes(cell) && line.every((c) => c === cell || state.stickers[face * n2 + c] === who));

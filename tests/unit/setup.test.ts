@@ -78,14 +78,43 @@ test("win length options are 3 up to the size, and fixed at 3 on a 3×3 board", 
   assert.equal(winLengthChoice({ ...DEFAULT_SETUP, variant: "cube", size: 3 }).fixed, true);
 });
 
-test("changing the size keeps a win length that is still valid, and otherwise sets the default", () => {
-  const classic5 = { ...DEFAULT_SETUP, variant: "classic" as const, size: 5 as const, winLength: 3 };
-  assert.equal(chooseSize(classic5, 4).winLength, 3);
-  assert.equal(chooseSize({ ...classic5, winLength: 5 }, 4).winLength, 4); // 5 no longer fits: Classic default for 4×4
-  assert.equal(chooseSize({ ...classic5, winLength: 5 }, 3).winLength, 3);
-  assert.equal(chooseSize({ ...classic5, variant: "ultimate", winLength: 5 }, 4).winLength, 3);
-  assert.equal(chooseSize({ ...DEFAULT_SETUP, size: 3 }, 5).winLength, 3);
-  assert.equal(chooseSize({ ...DEFAULT_SETUP, size: 3 }, 5).size, 5);
+test("changing the size always sets that size's default win length, in every variant", () => {
+  for (const variant of ["classic", "ultimate", "cube"] as const) {
+    const at = (size: 3 | 4 | 5, winLength: number) => ({ ...DEFAULT_SETUP, variant, size, winLength });
+    assert.equal(chooseSize(at(3, 3), 5).winLength, 4, variant);
+    assert.equal(chooseSize(at(5, 5), 4).winLength, 4, variant);
+    assert.equal(chooseSize(at(5, 3), 4).winLength, 4, variant);
+    assert.equal(chooseSize(at(4, 3), 5).winLength, 4, variant);
+    assert.equal(chooseSize(at(5, 5), 3).winLength, 3, variant);
+    assert.equal(chooseSize(at(4, 4), 3).winLength, 3, variant);
+    assert.equal(chooseSize(at(3, 3), 5).size, 5, variant);
+  }
+});
+
+test("choosing the size that is already selected changes nothing, so an edited win length stays", () => {
+  const state = { ...DEFAULT_SETUP, size: 5 as const, winLength: 5 };
+  assert.equal(chooseSize(state, 5), state);
+});
+
+test("a run of size choices always ends on the default of the last size", () => {
+  const sizes = [3, 4, 5] as const;
+  for (const first of sizes) for (const second of sizes) for (const third of sizes) {
+    let state: ReturnType<typeof initialSetup> = { ...DEFAULT_SETUP, size: 3, winLength: 3 };
+    for (const size of [first, second, third]) state = chooseSize(state, size);
+    assert.equal(state.winLength, third === 3 ? 3 : 4, `${first} ${second} ${third}`);
+  }
+});
+
+test("a remembered valid size and win length are kept, and a seed keeps its own values", () => {
+  const saved = { ...DEFAULT_SETUP, variant: "ultimate" as const, size: 5 as const, winLength: 5 };
+  const opened = initialSetup(saved);
+  assert.deepEqual([opened.size, opened.winLength], [5, 5]);
+  const seeded = applySeedToSetup(DEFAULT_SETUP, "U54-BXK4-M9TR");
+  assert.ok(!("error" in seeded));
+  if (!("error" in seeded)) assert.deepEqual([seeded.size, seeded.winLength], [5, 4]);
+  const legacy = applySeedToSetup(DEFAULT_SETUP, "CUB-BXK4-M9TR");
+  assert.ok(!("error" in legacy));
+  if (!("error" in legacy)) assert.deepEqual([legacy.size, legacy.winLength], [3, 3]);
 });
 
 test("size can be chosen for every variant", () => {
@@ -136,12 +165,32 @@ test("with nothing remembered the start screen opens on the defaults", () => {
 });
 
 test("remembered choices are what the start screen opens on", () => {
-  const saved = { variant: "ultimate", size: 4, winLength: 3, mode: "local", level: 5, markChoice: "O" } as const;
+  const saved = { variant: "ultimate", size: 4, winLength: 3, scoring: "lines", lockFaces: false, mode: "local", level: 5, markChoice: "O" } as const;
   assert.deepEqual(initialSetup(saved), saved);
 });
 
 test("a remembered opponent the variant no longer offers is replaced by the first one it does", () => {
-  const saved = { variant: "cube", size: 3, winLength: 3, mode: "computer", level: 2, markChoice: "X" } as const;
+  const saved = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 2, markChoice: "X" } as const;
   assert.equal(initialSetup(saved).mode, "local");
   assert.equal(initialSetup(saved).level, 2);
+});
+
+test("configFromSetup copies scoring and lock for a Cube setup and forces lines and no lock elsewhere", () => {
+  const cube = configFromSetup({ ...DEFAULT_SETUP, variant: "cube", mode: "local", scoring: "faces", lockFaces: true });
+  assert.equal(cube.scoring, "faces");
+  assert.equal(cube.lockFaces, true);
+  const plain = configFromSetup({ ...DEFAULT_SETUP, variant: "cube", mode: "local" });
+  assert.deepEqual([plain.scoring, plain.lockFaces], ["lines", false]);
+  for (const variant of ["classic", "ultimate"] as const) {
+    const config = configFromSetup({ ...DEFAULT_SETUP, variant, mode: "local", scoring: "faces", lockFaces: true });
+    assert.deepEqual([config.scoring, config.lockFaces], ["lines", false], variant);
+  }
+});
+
+test("the Cube options do not change which controls show or which opponents exist", () => {
+  const state = { ...DEFAULT_SETUP, variant: "cube", scoring: "faces", lockFaces: true } as const;
+  assert.deepEqual(modesFor("cube"), ["local", "network"]);
+  assert.equal(seedControlsVisible({ ...state, mode: "local" }), false);
+  assert.equal(seedControlsVisible({ ...DEFAULT_SETUP, mode: "computer" }), true);
+  assert.equal(chooseVariant(state, "classic").scoring, "faces", "the choice is remembered, only the config forces it off");
 });

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, lines } from "../../src/core/classic.ts";
 import type { ClassicMove, GameConfig } from "../../src/core/types.ts";
 
-const config = (size: 3 | 4 | 5 = 3, winLength = size === 3 ? 3 : 4): GameConfig => ({ variant: "classic", size, winLength, mode: "local" });
+const config = (size: 3 | 4 | 5 = 3, winLength = size === 3 ? 3 : 4): GameConfig => ({ variant: "classic", size, winLength, scoring: "lines", lockFaces: false, mode: "local" });
 const place = (cell: number): ClassicMove => ({ t: "place", cell });
 
 function play(size: 3 | 4 | 5, cells: number[], winLength?: number) {

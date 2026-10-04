@@ -34,16 +34,17 @@ test("middle slices on a 3×3 are M (follows L), E (follows D) and S (follows F)
   assert.equal(turnName(turn("x", 1, 2), 3, "cube"), "M2");
 });
 
-test("inner layers on 4×4 and 5×5 are numbered from the nearer side: 2R, 2L, 3L", () => {
+test("inner layers on 4×4 and 5×5 are numbered from the nearer face: 2R, 2L, and the odd cube's middle is a slice", () => {
   assert.equal(turnName(turn("x", 2, -1), 4, "cube"), "2R");
   assert.equal(turnName(turn("x", 1, 1), 4, "cube"), "2L");
   assert.equal(turnName(turn("x", 1, -1), 4, "cube"), "2L'");
   assert.equal(turnName(turn("y", 2, -1), 4, "cube"), "2U");
   assert.equal(turnName(turn("z", 1, 1), 4, "cube"), "2B");
   assert.equal(turnName(turn("x", 3, -1), 5, "cube"), "2R");
-  assert.equal(turnName(turn("x", 2, 2), 5, "cube"), "3L2");
-  assert.equal(turnName(turn("y", 2, 1), 5, "cube"), "3D");
-  assert.equal(turnName(turn("z", 2, -1), 5, "cube"), "3B'");
+  assert.equal(turnName(turn("x", 2, 2), 5, "cube"), "M2");
+  assert.equal(turnName(turn("y", 2, 1), 5, "cube"), "E");
+  assert.equal(turnName(turn("z", 2, -1), 5, "cube"), "S");
+  assert.equal(turnName(turn("z", 2, 1), 5, "cube"), "S'");
   assert.equal(turnName(turn("x", 1, 1), 5, "cube"), "2L");
 });
 
@@ -71,8 +72,40 @@ test("parseTurnName is the inverse of the cube style for every turn on every siz
   }
 });
 
+const LAYER_NAMES: Record<number, Record<Axis, string[]>> = {
+  3: { x: ["L", "M", "R"], y: ["D", "E", "U"], z: ["B", "S", "F"] },
+  4: { x: ["L", "2L", "2R", "R"], y: ["D", "2D", "2U", "U"], z: ["B", "2B", "2F", "F"] },
+  5: { x: ["L", "2L", "M", "2R", "R"], y: ["D", "2D", "E", "2U", "U"], z: ["B", "2B", "S", "2F", "F"] },
+};
+
+test("every layer on 3×3, 4×4 and 5×5 has exactly the documented name, low side first", () => {
+  for (const size of SIZES) {
+    for (const axis of ["x", "y", "z"] as const) {
+      const names = Array.from({ length: size }, (_, layer) => layerLabel(axis, layer, size, "cube"));
+      assert.deepEqual(names, LAYER_NAMES[size]![axis], `${axis} on ${size}`);
+    }
+  }
+});
+
+test("no layer is named with a 3 prefix, and the direction convention is unchanged: M like L, E like D, S like F", () => {
+  for (const size of SIZES) for (const r of rotations(size)) assert.doesNotMatch(turnName(r, size, "cube"), /^3/, `${size}`);
+  for (const size of [3, 5] as const) {
+    const mid = (size - 1) / 2;
+    assert.equal(turnName(turn("x", mid, 1), size, "cube"), "M");
+    assert.equal(turnName(turn("y", mid, 1), size, "cube"), "E");
+    assert.equal(turnName(turn("z", mid, -1), size, "cube"), "S");
+  }
+});
+
+test("parseTurnName rejects the old 3L on a 5×5 and M or E on an even cube", () => {
+  for (const text of ["3L", "3D", "3B'", "3L2"]) assert.ok("error" in parseTurnName(text, 5), text);
+  for (const text of ["M", "E", "S", "M'", "S2"]) assert.ok("error" in parseTurnName(text, 4), text);
+  assert.deepEqual(parseTurnName("M", 5), turn("x", 2, 1));
+  assert.deepEqual(parseTurnName("2L", 4), turn("x", 1, 1));
+});
+
 test("parseTurnName gives an error for anything that is not a turn on that size", () => {
-  for (const [text, size] of [["", 3], ["X", 3], ["R3", 3], ["2R", 3], ["M", 4], ["E", 5], ["3R", 4], ["1R", 4], ["r", 3], ["RR", 3], ["R''", 3], ["2M", 3], ["4L", 5], ["9", 3], ["R2'", 3]] as const) {
+  for (const [text, size] of [["", 3], ["X", 3], ["R3", 3], ["2R", 3], ["M", 4], ["E", 4], ["3R", 4], ["1R", 4], ["r", 3], ["RR", 3], ["R''", 3], ["2M", 3], ["4L", 5], ["9", 3], ["R2'", 3]] as const) {
     const result = parseTurnName(text, size);
     assert.ok("error" in result, `${text} on ${size}`);
   }
@@ -111,8 +144,8 @@ test("layerLabel is the row label: the layer's name in words, or its face letter
   assert.equal(layerLabel("x", 1, 3, "cube"), "M");
   assert.equal(layerLabel("x", 1, 4, "cube"), "2L");
   assert.equal(layerLabel("y", 4, 5, "cube"), "U");
-  assert.equal(layerLabel("y", 2, 5, "cube"), "3D");
-  assert.equal(layerLabel("z", 2, 5, "cube"), "3B");
+  assert.equal(layerLabel("y", 2, 5, "cube"), "E");
+  assert.equal(layerLabel("z", 2, 5, "cube"), "S");
   assert.equal(layerLabel("y", 2, 3, "words"), "top");
   assert.equal(layerLabel("x", 0, 3, "words"), "left");
 });

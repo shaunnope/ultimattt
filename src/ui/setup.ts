@@ -4,7 +4,7 @@
 
 import type { GameConfig, Level, Mark, Mode, Variant } from "../core/types.ts";
 import { newSeed, parseSeed, pickMark, randomMark } from "../core/seed.ts";
-import { clampWinLength, winLengthOptions } from "../core/rules.ts";
+import { clampWinLength, defaultWinLength, winLengthOptions } from "../core/rules.ts";
 import { isValidCode, normaliseCode } from "../core/pairing.ts";
 import type { SetupChoice } from "../core/settings.ts";
 import { loadSave, updateSettings } from "../adapters/store.ts";
@@ -20,7 +20,7 @@ export const LEVEL_NAMES: Record<Level, string> = {
 
 export type SetupState = SetupChoice;
 
-export const DEFAULT_SETUP: SetupState = { variant: "classic", size: 3, winLength: 3, mode: "computer", level: 3, markChoice: "random" };
+export const DEFAULT_SETUP: SetupState = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 3, markChoice: "random" };
 
 const VARIANTS: { value: Variant; title: string; blurb: string }[] = [
   { value: "classic", title: "Classic", blurb: "One board; get a line in a row" },
@@ -47,9 +47,10 @@ export function winLengthChoice(state: SetupState): { options: number[]; fixed: 
   return { options: winLengthOptions(state.size), fixed: state.size === 3, value: clampWinLength(state.variant, state.size, state.winLength) };
 }
 
-/** A new board size keeps the win length when it still fits, and otherwise takes the default for that variant and size. */
+/** A new board size always sets that size's default win length, in every variant. The same size changes nothing. */
 export function chooseSize(state: SetupState, size: 3 | 4 | 5): SetupState {
-  return { ...state, size, winLength: clampWinLength(state.variant, size, state.winLength) };
+  if (size === state.size) return state;
+  return { ...state, size, winLength: defaultWinLength(size) };
 }
 
 /** A new variant keeps the board size and a valid win length, and moves to an opponent the variant offers. */
@@ -77,7 +78,8 @@ export function chooseMode(form: SetupForm, mode: Mode): SetupForm {
 export function configFromSetup(state: SetupState, seed?: string): GameConfig {
   const mode = modesFor(state.variant).includes(state.mode) ? state.mode : modesFor(state.variant)[0]!;
   const winLength = clampWinLength(state.variant, state.size, state.winLength);
-  const config: GameConfig = { variant: state.variant, size: state.size, winLength, mode };
+  const cube = state.variant === "cube";
+  const config: GameConfig = { variant: state.variant, size: state.size, winLength, scoring: cube ? state.scoring : "lines", lockFaces: cube && state.lockFaces, mode };
   if (mode === "computer") {
     const gameSeed = seed ?? newSeed(state.variant, state.size, winLength);
     config.seed = gameSeed;
@@ -174,6 +176,19 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
   const sizeHost = h("div");
   const winHost = h("div");
 
+  // Cube-only rule options. They are kept when another variant is picked, but only a Cube game uses them.
+  const lockInput = h("input", { type: "checkbox", id: "opt-lock", "aria-describedby": "opt-lock-hint", checked: state.lockFaces });
+  lockInput.addEventListener("change", () => { state.lockFaces = lockInput.checked; });
+  const facesInput = h("input", { type: "checkbox", id: "opt-faces", "aria-describedby": "opt-faces-hint", checked: state.scoring === "faces" });
+  facesInput.addEventListener("change", () => { state.scoring = facesInput.checked ? "faces" : "lines"; });
+  const cubeOptions = h("div", { class: "card", id: "cube-options" },
+    h("fieldset", { "data-group": "cube-options" },
+      h("legend", null, "Cube rules"),
+      h("label", { class: "check", for: "opt-lock" }, lockInput, h("span", null, "Lock scored faces")),
+      h("p", { class: "hint-text", id: "opt-lock-hint" }, "A face holding a line takes no more marks, until a turn breaks the line."),
+      h("label", { class: "check", for: "opt-faces" }, facesInput, h("span", null, "Count faces, not lines")),
+      h("p", { class: "hint-text", id: "opt-faces-hint" }, "Your score is the number of faces holding one of your lines.")));
+
   const modeHost = h("div");
   const levelSelect = h("select", { id: "level" },
     ...(Object.keys(LEVEL_NAMES) as unknown as Level[]).map((l) =>
@@ -235,6 +250,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
     levelField.hidden = !vsComputer;
     markGroup.hidden = state.mode === "local";
     seedCard.hidden = !seedControlsVisible(state);
+    cubeOptions.hidden = state.variant !== "cube";
     if (seedCard.hidden) clearSeed();
     start.textContent = state.mode === "network" ? "Host game" : "Start game";
   }
@@ -314,6 +330,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
       h("div", { class: "card" }, variantGroup),
       h("div", { class: "card" }, sizeHost, winHost),
       h("div", { class: "card" }, modeHost, levelField, markGroup),
+      cubeOptions,
       seedCard,
       h("div", { class: "btn-row" }, start),
       h("p", { class: "menu-links" }, h("a", { href: "#/help", id: "help-link", class: "help-link" }, "Help")),

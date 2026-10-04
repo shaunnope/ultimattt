@@ -13,8 +13,8 @@ import { describeMove } from "../../src/ui/replay-text.ts";
 import type { GameConfig, Move } from "../../src/core/types.ts";
 
 const place = (cell: number): Move => ({ t: "place", cell });
-const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, mode: "computer", level: 3, humanMark: "X", seed: newSeed("classic", 3, 3) };
-const net: GameConfig = { variant: "classic", size: 3, winLength: 3, mode: "network", humanMark: "X" };
+const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 3, humanMark: "X", seed: newSeed("classic", 3, 3) };
+const net: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "network", humanMark: "X" };
 
 /** Every colour and palette id, as text a leak could contain. */
 const SECRETS = [
@@ -61,7 +61,7 @@ test("no message of a two-device game carries a palette id, a colour or the turn
 });
 
 test("the move list reads the same text for a Cube turn whatever the setting only in its display style", () => {
-  const cube: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+  const cube: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
   const turn: Move = { t: "rotate", axis: "x", layer: 2, dir: -1 };
   assert.equal(describeMove(cube, turn, "X", 6, "cube"), "6. X: R");
   assert.equal(describeMove(cube, turn, "X", 6, "words"), "6. X: turn the right layer up");

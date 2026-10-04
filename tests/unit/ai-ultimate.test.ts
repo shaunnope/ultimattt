@@ -7,7 +7,7 @@ import type { UltimateState } from "../../src/core/ultimate.ts";
 import { rngFor } from "../../src/core/seed.ts";
 import type { GameConfig, Level, UltimateMove } from "../../src/core/types.ts";
 
-const config = (seed: string, size: 3 | 4 | 5 = 3, winLength = 3): GameConfig => ({ variant: "ultimate", size, winLength, mode: "computer", seed });
+const config = (seed: string, size: 3 | 4 | 5 = 3, winLength = 3): GameConfig => ({ variant: "ultimate", size, winLength, scoring: "lines", lockFaces: false, mode: "computer", seed });
 const SEEDS = ["U33-BXK4-M9TR", "U33-CDFG-HJKL", "U33-MNPQ-RSTV", "U33-WXYZ-2345", "U33-6789-BCDF"];
 const pick = (state: UltimateState, level: Level, seed: string): UltimateMove =>
   chooseMove("ultimate", state, level, rngFor(seed, state.moves.length)) as UltimateMove;
