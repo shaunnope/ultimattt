@@ -86,6 +86,16 @@ for (const scheme of ["light", "dark"] as const) {
       await clean(page, "help page");
     });
 
+    test("help page at 320 px wide", async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 700 });
+      await page.goto("./#/help");
+      await expect(page.locator("#help-view h2").first()).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await clean(page, "help page at 320 px");
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus")).toBeVisible();
+    });
+
     test("Ultimate 4×4 game", async ({ page }) => {
       await startGame(page, { variant: "Ultimate", opponent: "A friend on this device", size: "4×4", winLength: 3 });
       await page.locator('button[data-board="5"][data-cell="9"]').click();

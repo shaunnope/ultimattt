@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rotationLabel, layerName, FACE_NAMES, faceViewAngles, frontFace, cubeStatus, scoreLabel, lockEndText, optionsNote } from "../../src/ui/cube-labels.ts";
+import { rotationLabel, layerName, FACE_NAMES, faceViewAngles, frontFace, scoreLabel, lockEndText, optionsNote } from "../../src/ui/cube-labels.ts";
 import { rotations, newGame, apply } from "../../src/core/cube.ts";
 import { turnName } from "../../src/core/notation.ts";
+import { statusText } from "../../src/ui/status-text.ts";
 import type { Cell, CubeMove, GameConfig } from "../../src/core/types.ts";
 
 test("every one of the 9N rotations has its own, readable label", () => {
@@ -54,11 +55,14 @@ const config: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "l
 const place = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const play = (moves: CubeMove[]) => moves.reduce((s, m) => apply(s, m), newGame(config));
 
+const say = (state: ReturnType<typeof newGame>): string =>
+  statusText({ variant: "cube", status: "playing", winner: null, toMove: state.toMove, phase: state.phase, mode: "one-device", resigned: null, thinking: false, lockNote: "", where: "" });
+
 test("the status line says whose move it is, and asks for a layer turn after a score", () => {
-  assert.equal(cubeStatus(newGame(config)), "X to move.");
-  assert.equal(cubeStatus(play([place(2, 4)])), "O to move.");
+  assert.equal(say(newGame(config)), "X to move.");
+  assert.equal(say(play([place(2, 4)])), "O to move.");
   const scored = play([place(2, 0), place(0, 0), place(2, 1), place(0, 1), place(2, 2)]);
-  assert.equal(cubeStatus(scored), "X scored! Turn a layer of the cube.");
+  assert.equal(say(scored), "X scored! Turn a layer of the cube.");
 });
 
 test("frontFace names the face turned towards the viewer for a view", () => {
@@ -88,7 +92,7 @@ test("a game the lock ended says no open face is left; an ordinary end or a game
 
 test("the status line of a game the lock ended is not blank", () => {
   const ended = { ...newGame({ ...config, lockFaces: true }), status: "won" as const, winner: "X" as const, empty: 1 };
-  assert.match(cubeStatus(ended), /No open face left/);
+  assert.match(lockEndText(ended), /No open face left/);
 });
 
 test("the options note names what is on, and says nothing when both are off", () => {

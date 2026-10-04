@@ -3,7 +3,6 @@
 import type { CubeRotate, Scoring } from "../core/types.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerName, turnName } from "../core/notation.ts";
-import { statusText } from "./status-text.ts";
 
 export { layerName };
 
@@ -58,11 +57,6 @@ export function lockEndText(state: CubeState): string {
 /** The Cube options in play, for a game's title: "" when both are off. */
 export function optionsNote(config: { scoring: Scoring; lockFaces: boolean }): string {
   return [config.scoring === "faces" ? "faces scoring" : "", config.lockFaces ? "locked faces" : ""].filter(Boolean).map((t) => `, ${t}`).join("");
-}
-
-export function cubeStatus(state: CubeState): string {
-  if (state.status !== "playing") return lockEndText(state);
-  return statusText({ variant: "cube", status: "playing", winner: null, toMove: state.toMove, phase: state.phase, mode: "one-device", resigned: null, thinking: false, lockNote: "", where: "" });
 }
 
 /** A face counts as in view when it turns towards the viewer enough to read: the depth of its outward normal is at least
