@@ -11,11 +11,12 @@ async function choose(page: Page, title: string) {
   await page.locator("label", { has: page.locator("strong", { hasText: new RegExp(`^${title}$`) }) }).click();
 }
 
-async function start(page: Page, opts: { size?: "3×3" | "4×4" | "5×5"; opponent: "Computer" | "A friend on this device"; level?: string; mark?: "X" | "O" }) {
+async function start(page: Page, opts: { size?: "3×3" | "4×4" | "5×5"; winLength?: 3 | 4 | 5; opponent: "Computer" | "A friend on this device"; level?: string; mark?: "X" | "O" }) {
   await page.goto("./");
   await choose(page, "Classic");
   await choose(page, opts.opponent);
   if (opts.size) await choose(page, opts.size);
+  if (opts.winLength) await choose(page, String(opts.winLength));
   if (opts.opponent === "Computer") {
     if (opts.level) await page.locator("#level").selectOption({ label: opts.level });
     await choose(page, opts.mark ?? "X");
@@ -45,18 +46,59 @@ test("3×3 two players: a full board with no line is a draw", async ({ page }) =
   await expect(page.getByRole("dialog")).toContainText("draw");
 });
 
-test("4×4: three in a row does not win, four does", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device", size: "4×4" });
+test("4×4 with win length 4: three in a row does not win, four does", async ({ page }) => {
+  await start(page, { opponent: "A friend on this device", size: "4×4", winLength: 4 });
   await playCells(page, [0, 4, 1, 5, 2]);
   await expect(page.locator("#game-status")).not.toContainText("wins");
   await playCells(page, [8, 3]);
   await expect(page.locator("#game-status")).toContainText("X wins");
 });
 
-test("5×5: four in a row wins", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device", size: "5×5" });
-  await playCells(page, [0, 5, 1, 6, 2, 7, 3]);
+test("5×5 with win length 4: four in a row wins", async ({ page }) => {
+  await start(page, { opponent: "A friend on this device", size: "5×5", winLength: 4 });
+  await playCells(page, [0, 5, 1, 6, 2, 7]);
+  await expect(page.locator("#game-status")).not.toContainText("wins");
+  await playCells(page, [3]);
   await expect(page.locator("#game-status")).toContainText("X wins");
+});
+
+test("5×5 with win length 3: three in a row wins, and the line is highlighted", async ({ page }) => {
+  await start(page, { opponent: "A friend on this device", size: "5×5", winLength: 3 });
+  await expect(page.locator("#game-title")).toContainText("5×5, 3 in a row");
+  await playCells(page, [0, 5, 1, 6, 2]);
+  await expect(page.locator("#game-status")).toContainText("X wins");
+  for (const c of [0, 1, 2]) await expect(cell(page, c)).toHaveAttribute("data-win", "true");
+});
+
+test("3×3 shows the win length fixed at 3, with nothing to choose", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.locator("#win-fixed")).toContainText("3 in a row");
+  await expect(page.locator('input[name="winlength"]')).toHaveCount(0);
+  await choose(page, "5×5");
+  await expect(page.locator('input[name="winlength"]')).toHaveCount(3);
+  await choose(page, "4");
+  await choose(page, "3×3");
+  await expect(page.locator("#win-fixed")).toBeVisible();
+});
+
+test("changing the size keeps a win length that still fits, and otherwise takes the usual one", async ({ page }) => {
+  await page.goto("./");
+  await choose(page, "5×5");
+  await choose(page, "5");
+  await choose(page, "4×4");
+  await expect(page.locator("input#winlength-4")).toBeChecked();
+});
+
+test("a 001 save of a 5×5 game resumes with its original rules (four in a row)", async ({ page }) => {
+  await page.goto("./");
+  await page.evaluate(() => localStorage.setItem("ttt.save", JSON.stringify({
+    schema: 1,
+    settings: {},
+    game: { config: { variant: "classic", size: 5, mode: "local", seed: "5X5-BXK4-M9TR" }, moves: "0516273", startedAt: 1 },
+  })));
+  await page.reload();
+  await expect(page.locator("#game-status")).toContainText("X wins");
+  await expect(page.locator("#game-title")).toContainText("5×5, 4 in a row");
 });
 
 test("an occupied cell is refused with an explanation and the turn does not change", async ({ page }) => {
@@ -65,21 +107,21 @@ test("an occupied cell is refused with an explanation and the turn does not chan
   await cell(page, 0).click();
   await expect(page.locator("#game-status")).toContainText(/taken|occupied/i);
   await cell(page, 1).click();
-  await expect(cell(page, 1)).toContainText("O");
+  await expect(cell(page, 1)).toHaveAttribute("data-mark", "O");
 });
 
 test("against the computer: it replies, and Undo takes back the move and the reply", async ({ page }) => {
   await start(page, { opponent: "Computer", level: "3. Steady", mark: "X" });
   await cell(page, 4).click();
-  await expect(page.locator('[data-cell] >> text="O"')).toHaveCount(1, { timeout: 5000 });
+  await expect(page.locator('[data-cell][data-mark="O"]')).toHaveCount(1, { timeout: 5000 });
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.locator('[data-cell] >> text="X"')).toHaveCount(0);
-  await expect(page.locator('[data-cell] >> text="O"')).toHaveCount(0);
+  await expect(page.locator('[data-cell][data-mark="X"]')).toHaveCount(0);
+  await expect(page.locator('[data-cell][data-mark="O"]')).toHaveCount(0);
 });
 
 test("playing as O, the computer moves first", async ({ page }) => {
   await start(page, { opponent: "Computer", level: "1. Beginner", mark: "O" });
-  await expect(page.locator('[data-cell] >> text="X"')).toHaveCount(1, { timeout: 5000 });
+  await expect(page.locator('[data-cell][data-mark="X"]')).toHaveCount(1, { timeout: 5000 });
 });
 
 test("Resign ends the game for the player who resigns", async ({ page }) => {

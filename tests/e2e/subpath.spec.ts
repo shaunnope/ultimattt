@@ -56,7 +56,7 @@ test("everything loads from under the project path, and nothing is asked for at 
     });
     await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
     await page.locator('[data-cell="4"]').click();
-    await expect(page.locator('[data-cell="4"] .mark')).toHaveText("X");
+    await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
     expect(failed, failed.join("\n")).toEqual([]);
     expect(requests.filter((p) => !p.startsWith(PREFIX)), "requests outside the project path").toEqual([]);
   });
@@ -82,12 +82,12 @@ test("offline play and resuming a game work from under the project path", async 
     await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
     await page.locator('[data-cell="4"]').click();
     await controlled(page);
-    await expect(page.locator('[data-cell="4"] .mark')).toHaveText("X"); // the game came back
+    await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X"); // the game came back
     await context.setOffline(true);
     await page.reload();
-    await expect(page.locator('[data-cell="4"] .mark')).toHaveText("X");
+    await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
     await page.locator('[data-cell="0"]').click();
-    await expect(page.locator('[data-cell="0"] .mark')).toHaveText("O");
+    await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
   });
 });
 

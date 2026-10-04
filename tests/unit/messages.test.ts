@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refusalMessage, iconMessage } from "../../src/ui/messages.ts";
-import { ICON_REASONS } from "../../src/core/icons.ts";
+import { refusalMessage } from "../../src/ui/messages.ts";
 import { REASONS as CLASSIC_REASONS } from "../../src/core/classic.ts";
 import { REASONS as ULTIMATE_REASONS } from "../../src/core/ultimate.ts";
 import { REASONS as CUBE_REASONS } from "../../src/core/cube.ts";
@@ -28,13 +27,4 @@ test("an unknown key falls back to a generic message", () => {
 test("messages name the cause", () => {
   assert.match(refusalMessage("occupied"), /taken/i);
   assert.match(refusalMessage("game-over"), /over/i);
-});
-
-test("every way an icon can be refused has a message", () => {
-  for (const reason of ICON_REASONS) {
-    const text = iconMessage({ ok: false, reason, mark: "X" });
-    assert.ok(text.trim().length > 0, reason);
-  }
-  assert.equal(iconMessage({ ok: true }), "");
-  assert.match(iconMessage({ ok: false, reason: "same", mark: "O" }), /different/i);
 });

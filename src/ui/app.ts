@@ -37,6 +37,66 @@ export function showSetup(seed?: string): void {
   renderSetup(main(), seed ? { ...options, seed } : options);
 }
 
+// ---- help (#/help) ----
+// The help page has its own place in the document next to the game's, so opening or leaving it never touches
+// whatever is on the game's side: a game in progress carries on exactly as it was.
+
+const HELP_HASH = "#/help";
+let helpBuilt = false;
+/** True when help was opened by following a link (so the browser's Back goes where the player came from) */
+let helpFromLink = false;
+
+function helpView(): HTMLElement {
+  const el = document.getElementById("help-view");
+  if (!el) throw new Error("#help-view is missing from index.html");
+  return el;
+}
+
+function leaveHelp(): void {
+  if (helpFromLink && history.length > 1) {
+    history.back();
+    return;
+  }
+  history.replaceState(null, "", location.pathname + location.search);
+  routeHash();
+}
+
+/** Show or hide the help page to match the address. */
+async function routeHash(): Promise<void> {
+  const wantsHelp = location.hash === HELP_HASH;
+  const view = helpView();
+  if (wantsHelp) {
+    try {
+      if (!helpBuilt) {
+        const { renderHelp } = await import("./help.ts");
+        renderHelp(view, { onBack: leaveHelp });
+        helpBuilt = true;
+      }
+    } catch {
+      loadFailed();
+      history.replaceState(null, "", location.pathname + location.search);
+      return;
+    }
+    if (location.hash !== HELP_HASH) return; // the player already left while the page was loading
+    main().hidden = true;
+    view.hidden = false;
+    view.focus();
+    window.scrollTo?.(0, 0);
+  } else {
+    const wasOpen = !view.hidden;
+    view.hidden = true;
+    main().hidden = false;
+    if (wasOpen) main().focus();
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("hashchange", () => {
+    helpFromLink = location.hash === HELP_HASH;
+    void routeHash();
+  });
+}
+
 /**
  * The game and two-device code are loaded when first needed. Offline they come from the service worker's
  * cache; in the first moments of a very first visit the worker may not have finished caching them yet.
@@ -121,22 +181,26 @@ async function openWatch(): Promise<boolean> {
   }
   const { mountReplay } = await import("./replay.ts");
   const settings = loadSave().save.settings;
-  const playThisSeed = h("button", {
-    class: "btn",
-    type: "button",
-    onclick: () => {
-      history.replaceState(null, "", location.pathname);
-      showSetup(record.seed);
-    },
-  }, "Play this seed");
+  // Only a game that has a seed (one against the computer) can be played again from its seed.
+  const playThisSeed = record.seed
+    ? h("button", {
+        class: "btn",
+        type: "button",
+        onclick: () => {
+          history.replaceState(null, "", location.pathname);
+          showSetup(record.seed);
+        },
+      }, "Play this seed")
+    : null;
   const options = {
     config: configFromRecord(record),
     moves: record.moves,
     speed: settings.replaySpeed,
     onSpeed: (speed: typeof settings.replaySpeed) => updateSettings({ replaySpeed: speed }),
     autoplay: true,
+    notation: settings.cubeNotation,
     onClose: leaveWatch,
-    actions: [playThisSeed],
+    actions: playThisSeed ? [playThisSeed] : [],
   };
   const resigner: Mark | undefined = record.end === "rx" ? "X" : record.end === "ro" ? "O" : undefined;
   mountReplay(main(), resigner ? { ...options, resigned: resigner } : options);
@@ -146,9 +210,13 @@ async function openWatch(): Promise<boolean> {
 function addHeaderButtons(): void {
   const actions = document.getElementById("header-actions");
   if (!actions || actions.childElementCount > 0) return;
+  const helpButton = h("button", { class: "icon-btn", type: "button", "aria-label": "Help", title: "Help", id: "help-button" }, icon("help"));
+  helpButton.addEventListener("click", () => {
+    location.hash = HELP_HASH;
+  });
   const button = h("button", { class: "icon-btn", type: "button", "aria-label": "Settings", title: "Settings" }, icon("settings"));
   button.addEventListener("click", () => void openSettings());
-  actions.append(button);
+  actions.append(helpButton, button);
 }
 
 async function boot(): Promise<void> {
@@ -156,6 +224,7 @@ async function boot(): Promise<void> {
   applySettings(loadSave().save.settings);
   addHeaderButtons();
   const code = codeFromSearch(location.search);
+  if (location.hash === HELP_HASH) void routeHash();
   if (code) {
     history.replaceState(null, "", location.pathname);
     await joinFriend(code);

@@ -32,6 +32,15 @@ export const LEVELS: Record<Level, LevelSpec> = {
   5: { depth: 99, random: 0, margin: 0, budget: 150_000 },
 };
 
+/** Most positions searched, by board size and level. Positions, never milliseconds, so a seed plays the same
+ *  everywhere. Larger boards cost more per position, so their budgets are lower; each is tuned so the slowest
+ *  reply stays well under a second (tests/e2e/perf.spec.ts). Size 3 keeps the 001 budgets. */
+export const CLASSIC_BUDGETS: Record<3 | 4 | 5, Record<Level, number>> = {
+  3: { 1: 5_000, 2: 20_000, 3: 60_000, 4: 60_000, 5: 150_000 },
+  4: { 1: 5_000, 2: 20_000, 3: 40_000, 4: 40_000, 5: 80_000 },
+  5: { 1: 5_000, 2: 15_000, 3: 25_000, 4: 25_000, 5: 40_000 },
+};
+
 export type AnyState = ClassicState | UltimateState | CubeState;
 
 export interface Choice {
@@ -57,7 +66,7 @@ interface Board {
 }
 
 function makeBoard(state: ClassicState): Board {
-  const lines = classicLines(state.size);
+  const lines = classicLines(state.size, state.winLength);
   const byCell: number[][][] = Array.from({ length: state.cells.length }, () => []);
   for (const line of lines) for (const i of line) byCell[i]!.push(line);
   const mid = (state.size - 1) / 2;
@@ -165,7 +174,7 @@ function chooseClassic(state: ClassicState, level: Level, rng: () => number): Ch
   const board = makeBoard(state);
   const player = cellOf(state.toMove);
   const empties = board.cells.reduce((n, c) => n + (c === 0 ? 1 : 0), 0);
-  const search: Search = { board, budget: spec.budget, nodes: 0, empties };
+  const search: Search = { board, budget: CLASSIC_BUDGETS[state.size][level], nodes: 0, empties };
   const exact = spec.random > 0;
 
   let scored: Scored[] | null = null;

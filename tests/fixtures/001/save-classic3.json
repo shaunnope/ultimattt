@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "settings": {
+    "hints": false,
+    "autoReplay": true,
+    "replaySpeed": 1,
+    "theme": "auto",
+    "icons": {
+      "X": "X",
+      "O": "O"
+    },
+    "lastSetup": null
+  },
+  "game": {
+    "config": {
+      "variant": "classic",
+      "size": 3,
+      "mode": "computer",
+      "level": 3,
+      "humanMark": "X",
+      "seed": "3X3-BXK4-M9TR"
+    },
+    "moves": "048",
+    "startedAt": 1234
+  }
+}

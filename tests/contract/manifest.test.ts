@@ -62,3 +62,13 @@ test("a narrow and a wide screenshot are declared, exist, and are the size the m
     assert.equal(shot.sizes, `${width}x${height}`, shot.src);
   }
 });
+
+test("the manifest and the theme-color meta tag use the light background token", () => {
+  const theme = readFileSync(join(site, "css", "theme.css"), "utf8");
+  const bg = /--bg:\s*(#[0-9a-fA-F]{6})/.exec(theme)?.[1];
+  assert.ok(bg, "theme.css defines --bg");
+  assert.equal(manifest.background_color!.toLowerCase(), bg!.toLowerCase());
+  assert.equal(manifest.theme_color!.toLowerCase(), bg!.toLowerCase());
+  const html = readFileSync(join(site, "index.html"), "utf8");
+  assert.match(html, new RegExp(`<meta name="theme-color" content="${bg}"`, "i"));
+});

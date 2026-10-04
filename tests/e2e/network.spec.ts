@@ -1,5 +1,5 @@
 import { test as base, expect, type Browser, type Page } from "@playwright/test";
-import { choose } from "./helpers.ts";
+import { choose, turnLayer } from "./helpers.ts";
 import { Relay } from "./relay.ts";
 
 // Two-device play is tested with every device in its own browser context (its own storage, as a real second
@@ -23,10 +23,11 @@ const test = base.extend<{ relay: Relay }>({
 
 type Variant = "Classic" | "Ultimate" | "Cube";
 
-async function host(page: Page, variant: Variant = "Classic", mark: "X" | "O" = "X"): Promise<string> {
+async function host(page: Page, variant: Variant = "Classic", mark: "X" | "O" = "X", size?: "3×3" | "4×4" | "5×5"): Promise<string> {
   await page.goto("./");
   await choose(page, variant);
   await choose(page, "A friend on another device");
+  if (size) await choose(page, size);
   await choose(page, mark);
   await page.getByRole("button", { name: "Host game" }).click();
   const code = (await page.locator("#join-code-display").innerText()).trim();
@@ -52,7 +53,7 @@ async function pair(browser: Browser, relay: Relay, variant: Variant = "Classic"
 }
 
 const cell = (page: Page, i: number) => page.locator(`[data-cell="${i}"]`);
-const marks = (page: Page, text: string) => page.locator(`button .mark:text-is("${text}")`);
+const marks = (page: Page, text: string) => page.locator(`button[data-mark="${text}"]`);
 
 test("the waiting screen shows the code, a join link and a QR code, and Cancel stops hosting", async ({ browser, relay }) => {
   const { page } = await relay.device(browser);
@@ -75,8 +76,8 @@ test("host and guest play a Classic game to a result, and both screens agree at 
   const moves: [Page, number][] = [[a, 0], [b, 3], [a, 1], [b, 4], [a, 2]];
   for (const [page, c] of moves) {
     await cell(page, c).click();
-    await expect(cell(a, c).locator(".mark")).toHaveText(page === a ? "X" : "O");
-    await expect(cell(b, c).locator(".mark")).toHaveText(page === a ? "X" : "O");
+    await expect(cell(a, c)).toHaveAttribute("data-mark", page === a ? "X" : "O");
+    await expect(cell(b, c)).toHaveAttribute("data-mark", page === a ? "X" : "O");
   }
   for (const page of [a, b]) {
     await expect(page.locator("#game-status")).toContainText("X wins");
@@ -88,10 +89,10 @@ test("an Ultimate game works across devices, and resigning ends it for both", as
   const { a, b } = await pair(browser, relay, "Ultimate");
   const sq = (page: Page, board: number, c: number) => page.locator(`button[data-board="${board}"][data-cell="${c}"]`);
   await sq(a, 4, 2).click();
-  await expect(sq(b, 4, 2).locator(".mark")).toHaveText("X");
+  await expect(sq(b, 4, 2)).toHaveAttribute("data-mark", "X");
   await expect(b.locator("#game-status")).toContainText(/your move/i);
   await sq(b, 2, 0).click();
-  await expect(sq(a, 2, 0).locator(".mark")).toHaveText("O");
+  await expect(sq(a, 2, 0)).toHaveAttribute("data-mark", "O");
   await b.getByRole("button", { name: "Resign" }).click();
   await b.getByRole("button", { name: /confirm/i }).click();
   await expect(a.getByRole("dialog")).toContainText(/resigned|X wins/i);
@@ -103,8 +104,8 @@ test("a Cube game works across devices: the scoring player turns a layer before 
   const st = (page: Page, f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   const play = async (page: Page, f: number, c: number) => {
     await st(page, f, c).dispatchEvent("click");
-    await expect(st(a, f, c)).not.toHaveText("");
-    await expect(st(b, f, c)).not.toHaveText("");
+    await expect(st(a, f, c)).not.toHaveAttribute("data-mark", "");
+    await expect(st(b, f, c)).not.toHaveAttribute("data-mark", "");
   };
   await play(a, 2, 0);
   await play(b, 0, 0);
@@ -114,8 +115,8 @@ test("a Cube game works across devices: the scoring player turns a layer before 
   await expect(a.getByRole("group", { name: "Turn a layer" })).toBeVisible();
   await expect(b.getByRole("group", { name: "Turn a layer" })).toBeHidden();
   await b.locator('button.sticker[data-face="1"][data-cell="0"]').dispatchEvent("click");
-  await expect(st(a, 1, 0)).toHaveText("");
-  await a.getByRole("button", { name: "Turn the bottom layer to the right" }).click();
+  await expect(st(a, 1, 0)).toHaveAttribute("data-mark", "");
+  await turnLayer(a, "Turn the bottom layer to the right");
   await expect(b.locator("#game-status")).toContainText(/your move/i);
   await expect(b.locator("#cube-score")).toContainText("X: 1");
 });
@@ -131,12 +132,12 @@ test("you cannot move on your friend's turn", async ({ browser, relay }) => {
 test("taking a move back asks the other player, who can agree or say no", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await a.getByRole("button", { name: "Undo" }).click();
   await expect(b.getByRole("dialog")).toContainText(/take back/i);
   await b.getByRole("button", { name: "Not now" }).click();
   await expect(a.locator("#toasts")).toContainText(/said no|declined/i);
-  await expect(cell(a, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(a, 0)).toHaveAttribute("data-mark", "X");
   await a.getByRole("button", { name: "Undo" }).click();
   await b.getByRole("dialog").getByRole("button", { name: "Allow" }).click();
   await expect(marks(a, "X")).toHaveCount(0);
@@ -158,7 +159,7 @@ test("a lost connection is shown to both, and the guest can reconnect and carry 
   await expect(marks(b, "X")).toHaveCount(1);
   await expect(marks(b, "O")).toHaveCount(1);
   await cell(a, 2).click();
-  await expect(cell(b, 2).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 2)).toHaveAttribute("data-mark", "X");
 });
 
 test("a wrong code is explained, and a third device is told the game is full", async ({ browser, relay }) => {
@@ -180,17 +181,50 @@ test("a join link opens the game and joins it by itself", async ({ browser, rela
   await expect(a.locator(".board")).toBeVisible();
 });
 
-test("each device shows its own icons", async ({ browser, relay }) => {
+test("each device shows its own mark colours, and the choice never reaches the other device", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await a.getByRole("button", { name: "Settings" }).click();
   const dialog = a.getByRole("dialog", { name: "Settings" });
-  await dialog.getByLabel("Icon for X").fill("★");
-  await dialog.getByLabel("Icon for O").fill("●");
+  await dialog.getByLabel("Colour-blind safe").check({ force: true });
   await dialog.getByRole("button", { name: "Done" }).click();
   await cell(a, 4).click();
-  await expect(marks(a, "★")).toHaveCount(1);
+  await expect(marks(a, "X")).toHaveCount(1);
   await expect(marks(b, "X")).toHaveCount(1);
-  await expect(marks(b, "★")).toHaveCount(0);
+  const colour = (page: Page) => page.locator("html").evaluate((el) => el.style.getPropertyValue("--mark-x"));
+  expect(await colour(a)).not.toBe(await colour(b));
+});
+
+test("a two-device game of 4×4 Ultimate with win length 3 stays in step on both devices", async ({ browser, relay }) => {
+  const { page: a } = await relay.device(browser);
+  const { page: b } = await relay.device(browser);
+  const code = await host(a, "Ultimate", "X", "4×4");
+  await joinWith(b, code);
+  await expect(a.locator(".ultimate")).toBeVisible();
+  await expect(b.locator(".ultimate")).toBeVisible();
+  const sq = (page: Page, board: number, c: number) => page.locator(`button[data-board="${board}"][data-cell="${c}"]`);
+  await sq(a, 3, 9).click();
+  await expect(sq(b, 3, 9)).toHaveAttribute("data-mark", "X");
+  await expect(b.locator('.sub-board[data-playable="true"]')).toHaveCount(1);
+  await expect(b.locator('.sub-board[data-board="9"]')).toHaveAttribute("data-playable", "true");
+  await sq(b, 9, 0).click();
+  await expect(sq(a, 9, 0)).toHaveAttribute("data-mark", "O");
+});
+
+test("a version 1 guest is refused with a message to update", async ({ browser, relay }) => {
+  const { page: a } = await relay.device(browser);
+  const code = await host(a);
+  const { page: old } = await relay.device(browser);
+  await old.goto("./");
+  await old.evaluate(() => {
+    const send = (window as unknown as { __relaySend: (m: { kind: string; data?: { v?: number; type?: string } }) => void }).__relaySend;
+    (window as unknown as { __relaySend: unknown }).__relaySend = (m: { kind: string; data?: { v?: number; type?: string } }) => {
+      if (m.kind === "data" && m.data?.type === "hello") m.data.v = 1;
+      return send(m);
+    };
+  });
+  await old.locator("#join-code").fill(code);
+  await old.getByRole("button", { name: "Join game" }).click();
+  await expect(old.locator("#toasts, .net-error, [role=alert]").first()).toContainText(/latest version/i);
 });
 
 test("with no connection the two-device options are unavailable, and the other modes still work", async ({ browser, relay }) => {
@@ -212,9 +246,9 @@ test("with no connection the two-device options are unavailable, and the other m
 test("the host can reload the page: the game and the code come back, the guest reconnects and play carries on", async ({ browser, relay }) => {
   const { a, b, code } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await cell(b, 4).click();
-  await expect(cell(a, 4).locator(".mark")).toHaveText("O");
+  await expect(cell(a, 4)).toHaveAttribute("data-mark", "O");
 
   await a.reload();
   await expect(a.locator("#join-code-display")).toHaveText(code); // the same code, hosting again
@@ -229,7 +263,7 @@ test("the host can reload the page: the game and the code come back, the guest r
   await expect(b.locator("#net-status")).toContainText(/connected/i);
   await expect(a.locator("#game-status")).toContainText(/your move/i);
   await cell(a, 2).click();
-  await expect(cell(b, 2).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 2)).toHaveAttribute("data-mark", "X");
 });
 
 test("a guest who joins after the host reloaded gets the whole game", async ({ browser, relay }) => {
@@ -247,7 +281,7 @@ test("a guest who joins after the host reloaded gets the whole game", async ({ b
 test("leaving a hosted game, or finishing one, means a reload does not resume it", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await a.getByRole("button", { name: "New game" }).click();
   await a.reload();
   await expect(a.getByRole("button", { name: "Join game" })).toBeVisible();
@@ -274,9 +308,9 @@ test("leaving a hosted game, or finishing one, means a reload does not resume it
 test("a guest who reloads the page, or applies an update, rejoins the same game by itself", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await cell(b, 4).click();
-  await expect(cell(a, 4).locator(".mark")).toHaveText("O");
+  await expect(cell(a, 4)).toHaveAttribute("data-mark", "O");
 
   await b.reload(); // an update reloads the page in just the same way
   await expect(b.locator(".board")).toBeVisible();
@@ -285,15 +319,15 @@ test("a guest who reloads the page, or applies an update, rejoins the same game 
   await expect(b.locator("#net-status")).toContainText(/connected/i);
   await expect(a.locator("#net-status")).toContainText(/connected/i);
   await cell(a, 2).click();
-  await expect(cell(b, 2).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 2)).toHaveAttribute("data-mark", "X");
   await cell(b, 8).click();
-  await expect(cell(a, 8).locator(".mark")).toHaveText("O");
+  await expect(cell(a, 8)).toHaveAttribute("data-mark", "O");
 });
 
 test("a guest who left on purpose, or whose game finished, is not rejoined after a reload", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await b.getByRole("button", { name: "New game" }).click();
   await b.reload();
   await expect(b.getByRole("button", { name: "Join game" })).toBeVisible();
@@ -318,7 +352,7 @@ test("a guest who left on purpose, or whose game finished, is not rejoined after
 test("a guest whose host is gone gets a clear answer, and can go back", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
   await cell(a, 0).click();
-  await expect(cell(b, 0).locator(".mark")).toHaveText("X");
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
   await a.getByRole("button", { name: "New game" }).click(); // the host leaves for good
   await b.reload();
   await expect(b.locator("#toasts, .net-error, [role=alert]").first()).toContainText(/nobody is hosting|could not reach|dropped/i);
@@ -326,4 +360,24 @@ test("a guest whose host is gone gets a clear answer, and can go back", async ({
   await expect(b.getByRole("button", { name: "Join game" })).toBeVisible();
   await b.reload();
   await expect(b.getByRole("button", { name: "Join game" })).toBeVisible(); // and it does not try again
+});
+
+test("a Cube turn previewed on one device is not seen on the other until it is confirmed", async ({ browser, relay }) => {
+  const { a, b } = await pair(browser, relay, "Cube");
+  const st = (page: Page, f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
+  for (const [page, f, c] of [[a, 2, 0], [b, 0, 0], [a, 2, 1], [b, 0, 1], [a, 2, 2]] as [Page, number, number][]) {
+    await st(page, f, c).dispatchEvent("click");
+    await expect(st(page === a ? b : a, f, c)).not.toHaveAttribute("data-mark", "");
+  }
+  const marksOf = (page: Page) => page.locator("button.sticker").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.mark ?? ""));
+  const before = await marksOf(b);
+  const group = a.getByRole("group", { name: "Turn a layer" });
+  await group.getByRole("button", { name: "Turn the left layer up", exact: true }).click();
+  await expect(a.getByRole("button", { name: "Confirm turn" })).toBeEnabled();
+  await a.waitForTimeout(600);
+  expect(await marksOf(b)).toEqual(before);
+  await expect(b.locator("#game-status")).toContainText(/waiting|friend/i);
+  await a.getByRole("button", { name: "Confirm turn" }).click();
+  await expect(b.locator("#cube-score")).toContainText("X: 0");
+  await expect(b.locator("#game-status")).toContainText(/your move/i);
 });

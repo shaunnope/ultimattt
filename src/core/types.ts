@@ -12,14 +12,17 @@ export type RotateDir = 1 | -1 | 2;
 
 export interface GameConfig {
   variant: Variant;
-  /** Classic board size (3, 4 or 5); 3 for the other variants */
+  /** Board edge N: 3, 4 or 5. Classic board, Ultimate small board and grid, Cube face */
   size: 3 | 4 | 5;
+  /** Cells in a row that make a line, K: 3 up to size */
+  winLength: number;
   mode: Mode;
   /** Computer level, when mode is "computer" */
   level?: Level;
   /** The mark the human takes in computer and network games */
   humanMark?: Mark;
-  seed: string;
+  /** Present exactly when mode is "computer": it decides the computer's random choices */
+  seed?: string;
 }
 
 export interface ClassicMove {
@@ -39,7 +42,8 @@ export interface CubePlace {
 export interface CubeRotate {
   t: "rotate";
   axis: Axis;
-  layer: 0 | 1 | 2;
+  /** 0 .. N-1 */
+  layer: number;
   dir: RotateDir;
 }
 export type CubeMove = CubePlace | CubeRotate;

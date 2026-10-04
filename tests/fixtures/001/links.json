@@ -1,0 +1,37 @@
+[
+  {
+    "name": "classic3",
+    "link": "?watch=40862&seed=3X3-BXK4-M9TR&game=l&moves=03142",
+    "winner": "X",
+    "status": "won",
+    "moveCount": 5
+  },
+  {
+    "name": "classic5-computer",
+    "link": "?watch=40862&seed=5X5-BXK4-M9TR&game=c3x&moves=0516273",
+    "winner": "X",
+    "status": "won",
+    "moveCount": 7
+  },
+  {
+    "name": "ultimate",
+    "link": "?watch=40862&seed=ULT-BXK4-M9TR&game=l&moves=00044003300550",
+    "winner": null,
+    "status": "playing",
+    "moveCount": 7
+  },
+  {
+    "name": "cube",
+    "link": "?watch=40862&seed=CUB-BXK4-M9TR&game=l&moves=5325113454311344510305145602",
+    "winner": null,
+    "status": "playing",
+    "moveCount": 14
+  },
+  {
+    "name": "resigned",
+    "link": "?watch=40862&seed=3X3-BXK4-M9TR&game=c5o&moves=40&end=ro",
+    "winner": null,
+    "status": "playing",
+    "moveCount": 2
+  }
+]

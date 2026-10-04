@@ -3,20 +3,23 @@ import assert from "node:assert/strict";
 import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, lines } from "../../src/core/classic.ts";
 import type { ClassicMove, GameConfig } from "../../src/core/types.ts";
 
-const config = (size: 3 | 4 | 5 = 3): GameConfig => ({ variant: "classic", size, mode: "local", seed: `${size}X${size}-BXK4-M9TR` });
+const config = (size: 3 | 4 | 5 = 3, winLength = size === 3 ? 3 : 4): GameConfig => ({ variant: "classic", size, winLength, mode: "local" });
 const place = (cell: number): ClassicMove => ({ t: "place", cell });
 
-function play(size: 3 | 4 | 5, cells: number[]) {
-  return cells.reduce((s, c) => apply(s, place(c)), newGame(config(size)));
+function play(size: 3 | 4 | 5, cells: number[], winLength?: number) {
+  return cells.reduce((s, c) => apply(s, place(c)), newGame(config(size, winLength)));
 }
 
-test("line enumeration: 3x3 has 8 lines, 4x4 has 10, 5x5 (four in a row) has 28", () => {
-  assert.equal(lines(3).length, 8);
-  assert.equal(lines(4).length, 10);
-  assert.equal(lines(5).length, 28);
-  for (const line of lines(3)) assert.equal(line.length, 3);
-  for (const line of lines(4)) assert.equal(line.length, 4);
-  for (const line of lines(5)) assert.equal(line.length, 4);
+test("line enumeration: windows of exactly K cells in rows, columns and diagonals", () => {
+  // [size, K, windows]: rows + columns are 2*N*(N-K+1); diagonals are 2*(N-K+1)^2
+  const expected: [3 | 4 | 5, number, number][] = [[3, 3, 8], [4, 4, 10], [4, 3, 24], [5, 5, 12], [5, 4, 28], [5, 3, 48]];
+  for (const [size, k, count] of expected) {
+    const all = lines(size, k);
+    assert.equal(all.length, count, `${size}x${size} K=${k}`);
+    for (const line of all) assert.equal(line.length, k);
+  }
+  assert.equal(lines(5, 3), lines(5, 3), "cached by the pair");
+  assert.notEqual(lines(5, 3), lines(5, 4));
 });
 
 test("a new game is empty, X to move, playing", () => {
@@ -26,7 +29,7 @@ test("a new game is empty, X to move, playing", () => {
   assert.equal(status(s).status, "playing");
   assert.equal(s.winLength, 3);
   assert.equal(newGame(config(4)).winLength, 4);
-  assert.equal(newGame(config(5)).winLength, 4);
+  assert.equal(newGame(config(5, 3)).winLength, 3);
 });
 
 test("X moves first and marks alternate", () => {
@@ -58,6 +61,28 @@ test("on 5x5 four in a row wins, including an offset run", () => {
   const s = play(5, [1, 5, 2, 6, 3, 7, 4]);
   assert.equal(status(s).winner, "X");
   assert.deepEqual(status(s).winLine, [1, 2, 3, 4]);
+});
+
+test("on 5x5 with win length 3, three in a row wins in every direction and a longer run wins too", () => {
+  assert.equal(status(play(5, [0, 5, 1, 6, 2], 3)).winner, "X"); // row
+  assert.equal(status(play(5, [0, 1, 5, 2, 10], 3)).winner, "X"); // column
+  assert.equal(status(play(5, [0, 1, 6, 2, 12], 3)).winner, "X"); // diagonal
+  assert.equal(status(play(5, [4, 0, 8, 1, 12], 3)).winner, "X"); // anti-diagonal
+  assert.deepEqual(status(play(5, [10, 0, 11, 1, 12], 3)).winLine, [10, 11, 12]); // not wrapping onto the next row
+  const none = play(5, [3, 0, 4, 1, 5], 3); // 3, 4 and 5 are not in a line: 5 starts the next row
+  assert.equal(status(none).status, "playing");
+  const long = play(5, [0, 6, 1, 18, 3, 24, 2], 3); // 0,1,_,3 then 2 makes a run of four
+  assert.equal(status(long).winner, "X");
+});
+
+test("on 4x4 with win length 4, three in a row does not win; with win length 3 it does", () => {
+  assert.equal(status(play(4, [0, 4, 1, 5, 2], 4)).status, "playing");
+  assert.equal(status(play(4, [0, 4, 1, 5, 2], 3)).winner, "X");
+});
+
+test("win length 5 on 5x5 needs a whole row, column or diagonal", () => {
+  assert.equal(status(play(5, [0, 5, 1, 6, 2, 7, 3, 8], 5)).status, "playing");
+  assert.equal(status(play(5, [0, 5, 1, 6, 2, 7, 3, 8, 4], 5)).winner, "X");
 });
 
 test("a full board with no line is a draw", () => {

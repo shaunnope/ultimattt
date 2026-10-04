@@ -3,9 +3,9 @@
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
-const BRAND = [204, 255, 204];
-const INK = [18, 24, 21];
-const ACCENT = [31, 107, 61];
+const BRAND = [250, 248, 243]; // --bg
+const INK = [26, 26, 26]; // --fg
+const ACCENT = [59, 91, 219]; // --accent
 
 function crc32(buf) {
   let c, crc = ~0;
@@ -57,7 +57,7 @@ function artwork(pad) {
     }
     if (cx === 1 && cy === 1) {
       const d = Math.hypot(lx, ly);
-      if (d < 0.34 && d > 0.2) return INK;
+      if (d < 0.34 && d > 0.2) return [194, 65, 12]; // the default O colour
     }
     if (cx === 2 && cy === 2) {
       if (Math.abs(Math.abs(lx) - Math.abs(ly)) < 0.09 && Math.abs(lx) < 0.32) return ACCENT;

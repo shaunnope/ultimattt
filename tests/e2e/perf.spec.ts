@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { choose, startGame } from "./helpers.ts";
+import { choose, startGame, turnLayer } from "./helpers.ts";
 
-// SC-004 / FR-016: the computer replies in under a second, at every level, in Classic 3x3 and Ultimate.
-// SC-008: the cube stays smooth while it is turned and while a layer turns.
+// SC-004: the computer replies in under a second, at every level, on every Classic and Ultimate size up to Ultimate 5x5.
+// SC-005: the cube stays smooth while it is turned and while a layer turn is previewed and confirmed, on 5x5 too.
 // "A mid-range phone" is stood in for by a 4x CPU slowdown of the browser (see the spec's assumptions).
 
 async function throttle(page: Page, rate = 4): Promise<void> {
@@ -12,9 +12,24 @@ async function throttle(page: Page, rate = 4): Promise<void> {
 
 const LEVELS = ["1. Beginner", "2. Casual", "3. Steady", "4. Sharp", "5. Master"];
 
-for (const variant of ["Classic", "Ultimate"] as const) {
+interface Case {
+  variant: "Classic" | "Ultimate";
+  size?: "4×4" | "5×5";
+  winLength?: 3 | 4 | 5;
+}
+const CASES: Case[] = [
+  { variant: "Classic" },
+  { variant: "Ultimate" },
+  { variant: "Classic", size: "5×5", winLength: 3 },
+  { variant: "Classic", size: "5×5", winLength: 4 },
+  { variant: "Ultimate", size: "4×4", winLength: 3 },
+  { variant: "Ultimate", size: "5×5", winLength: 3 },
+  { variant: "Ultimate", size: "5×5", winLength: 5 },
+];
+
+for (const { variant, size, winLength } of CASES) {
   for (const level of LEVELS) {
-    test(`${variant}: the computer replies in under a second at level ${level} (4x slower CPU)`, async ({ page }) => {
+    test(`${variant}${size ? " " + size + " K=" + winLength : ""}: the computer replies in under a second at level ${level} (4x slower CPU)`, async ({ page }) => {
       await throttle(page);
       await page.goto("./");
       await expect(page.getByRole("button", { name: "Start game" }).or(page.getByRole("button", { name: "New game" }))).toBeVisible();
@@ -22,6 +37,8 @@ for (const variant of ["Classic", "Ultimate"] as const) {
       await page.goto("./");
       await choose(page, variant);
       await choose(page, "Computer");
+      if (size) await choose(page, size);
+      if (winLength) await choose(page, String(winLength));
       await page.locator("#level").selectOption({ label: level });
       await choose(page, "O"); // the computer opens, with every cell (or board) to choose from
       const marks = page.locator("button .mark");
@@ -42,10 +59,11 @@ for (const variant of ["Classic", "Ultimate"] as const) {
   }
 }
 
-test("the cube stays smooth while the view is dragged and a layer turns (4x slower CPU)", async ({ page, browserName }) => {
+for (const size of ["3×3", "5×5"] as const) {
+test(`the cube ${size} stays smooth while the view is dragged and a layer turn is previewed and confirmed (4x slower CPU)`, async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "frame timing is measured in Chromium");
   await throttle(page);
-  await startGame(page, { variant: "Cube", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Cube", opponent: "A friend on this device", size, winLength: size === "3×3" ? undefined : 3 });
   test.skip((await page.locator(".cube-scene").count()) === 0, "3D view not available");
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
   await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
@@ -70,8 +88,10 @@ test("the cube stays smooth while the view is dragged and a layer turns (4x slow
   await page.mouse.move(cx + 120, cy + 40, { steps: 40 });
   await page.mouse.move(cx - 60, cy - 30, { steps: 40 });
   await page.mouse.up();
-  await page.getByRole("button", { name: "Turn the left layer up" }).click();
+  await turnLayer(page, "Turn the left layer up");
   await page.waitForTimeout(700);
+  // a preview that is then cancelled by clicking outside
+  await expect(page.getByRole("group", { name: "Turn a layer" })).toBeHidden();
   await page.getByRole("button", { name: "Show right face" }).click();
   await page.waitForTimeout(700);
 
@@ -88,3 +108,4 @@ test("the cube stays smooth while the view is dragged and a layer turns (4x slow
   expect(p95, `95th percentile frame ${p95.toFixed(1)} ms`).toBeLessThanOrEqual(20);
   expect(worst, `slowest frame ${worst.toFixed(1)} ms`).toBeLessThanOrEqual(50);
 });
+}

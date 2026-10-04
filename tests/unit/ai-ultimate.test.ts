@@ -1,14 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chooseMove, chooseMoveDetailed } from "../../src/core/ai.ts";
-import { ULTIMATE_LEVELS } from "../../src/core/ai-ultimate.ts";
+import { ULTIMATE_BUDGETS } from "../../src/core/ai-ultimate.ts";
 import { newGame, apply, status, legalMoves, isLegal } from "../../src/core/ultimate.ts";
 import type { UltimateState } from "../../src/core/ultimate.ts";
 import { rngFor } from "../../src/core/seed.ts";
 import type { GameConfig, Level, UltimateMove } from "../../src/core/types.ts";
 
-const config = (seed: string): GameConfig => ({ variant: "ultimate", size: 3, mode: "computer", seed });
-const SEEDS = ["ULT-BXK4-M9TR", "ULT-CDFG-HJKL", "ULT-MNPQ-RSTV", "ULT-WXYZ-2345", "ULT-6789-BCDF"];
+const config = (seed: string, size: 3 | 4 | 5 = 3, winLength = 3): GameConfig => ({ variant: "ultimate", size, winLength, mode: "computer", seed });
+const SEEDS = ["U33-BXK4-M9TR", "U33-CDFG-HJKL", "U33-MNPQ-RSTV", "U33-WXYZ-2345", "U33-6789-BCDF"];
 const pick = (state: UltimateState, level: Level, seed: string): UltimateMove =>
   chooseMove("ultimate", state, level, rngFor(seed, state.moves.length)) as UltimateMove;
 
@@ -36,12 +36,60 @@ test("same seed and same moves give the same move", () => {
   }
 });
 
-test("node budget is never exceeded", () => {
-  for (const level of [1, 2, 3, 4, 5] as Level[]) {
-    const s = newGame(config(SEEDS[0]!));
-    const detail = chooseMoveDetailed("ultimate", s, level, rngFor(SEEDS[0]!, 0));
-    assert.ok(detail.nodes <= ULTIMATE_LEVELS[level].budget, `level ${level}: ${detail.nodes} > ${ULTIMATE_LEVELS[level].budget}`);
+test("every size has a node budget for every level, and it is never exceeded", () => {
+  for (const size of [3, 4, 5] as const) {
+    for (const level of [1, 2, 3, 4, 5] as Level[]) {
+      const budget = ULTIMATE_BUDGETS[size][level];
+      assert.ok(Number.isInteger(budget) && budget > 0, `size ${size} level ${level} has a budget`);
+      for (const winLength of size === 3 ? [3] : [3, size]) {
+        const s = newGame(config(SEEDS[0]!, size, winLength));
+        const detail = chooseMoveDetailed("ultimate", s, level, rngFor(SEEDS[0]!, 0));
+        assert.ok(detail.nodes <= budget, `size ${size} K=${winLength} level ${level}: ${detail.nodes} > ${budget}`);
+      }
+    }
   }
+});
+
+test("on 4x4 and 5x5 the computer only plays legal moves and is deterministic", () => {
+  for (const [size, winLength] of [[4, 3], [4, 4], [5, 3], [5, 5]] as const) {
+    for (const level of [1, 2, 3, 5] as Level[]) {
+      let s = newGame(config(SEEDS[1]!, size, winLength));
+      for (let ply = 0; ply < 10 && status(s).status === "playing"; ply++) {
+        const a = pick(s, level, SEEDS[1]!);
+        assert.deepEqual(a, pick(s, level, SEEDS[1]!), `deterministic ${size}/${winLength} L${level}`);
+        assert.deepEqual(isLegal(s, a), { ok: true }, `legal ${size}/${winLength} L${level} ply ${ply}`);
+        s = apply(s, a);
+      }
+    }
+  }
+});
+
+test("on a larger board it takes a board-claiming win and blocks one", () => {
+  for (const size of [4, 5] as const) {
+    const base = newGame(config(SEEDS[0]!, size, 3));
+    const boards = base.boards.map((b) => b.slice());
+    // X has cells 0 and 1 of board 7 and threatens 2; O has cells 5, 6 elsewhere in it so nothing else interferes
+    boards[7] = boards[7]!.map((_, i) => (i === 0 || i === 1 ? 1 : i === size * size - 1 ? 2 : 0)) as typeof boards[7];
+    const s: UltimateState = { ...base, boards, forced: 7, toMove: "X" };
+    for (const level of [2, 3, 4, 5] as Level[]) {
+      assert.deepEqual(pick(s, level, SEEDS[0]!), { t: "place", board: 7, cell: 2 }, `size ${size} claim level ${level}`);
+    }
+    const o: UltimateState = { ...s, toMove: "O" };
+    for (const level of [3, 4, 5] as Level[]) {
+      assert.deepEqual(pick(o, level, SEEDS[0]!), { t: "place", board: 7, cell: 2 }, `size ${size} block level ${level}`);
+    }
+  }
+});
+
+test("a full self-play game on 4x4 ends with a result and never an illegal move", () => {
+  let s = newGame(config(SEEDS[2]!, 4, 3));
+  let n = 0;
+  while (status(s).status === "playing" && n++ < 300) {
+    const move = pick(s, 1, SEEDS[2]!);
+    assert.deepEqual(isLegal(s, move), { ok: true });
+    s = apply(s, move);
+  }
+  assert.notEqual(status(s).status, "playing");
 });
 
 test("takes a game-winning move and a board-claiming move when one is available", () => {

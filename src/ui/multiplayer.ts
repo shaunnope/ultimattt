@@ -64,7 +64,7 @@ class NetRun {
 
   private heartbeat(): void {
     if (this.finished || !this.handle) return;
-    if (!this.lost) this.transport.send({ v: 1, type: "ping" });
+    if (!this.lost) this.transport.send({ v: 2, type: "ping" });
     if (!this.lost && Date.now() - this.lastSeen > SILENCE_LIMIT_MS) this.markLost("The connection has gone quiet.");
   }
 
@@ -298,7 +298,7 @@ export function joinGame(container: HTMLElement, code: string, exit: () => void)
         const reason = (raw as { reason?: string }).reason;
         rejected = true;
         forgetHostedGame(); // the answer is no: a reload must not ask again
-        show(reason === "full" ? "This game already has two players." : "This game was made with a different version of the app. Reload the page to update it.", true);
+        show(reason === "full" ? "This game already has two players." : "The other device needs the latest version of the app. Reload the page to update it.", true);
         return;
       }
       run.receive(raw);

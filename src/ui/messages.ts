@@ -19,18 +19,8 @@ const MESSAGES: Record<string, string> = {
   "closed-board": "That board is already decided. Choose an open board.",
 };
 
-import type { IconCheck } from "../core/icons.ts";
-
 const GENERIC = "That move is not allowed.";
 
 export function refusalMessage(reason: string): string {
   return MESSAGES[reason] ?? GENERIC;
-}
-
-/** Words for an icon that Settings will not accept. */
-export function iconMessage(check: IconCheck): string {
-  if (check.ok) return "";
-  if (check.reason === "blank") return `The icon for ${check.mark} cannot be blank. Type one character.`;
-  if (check.reason === "too-long") return `The icon for ${check.mark} must be one character.`;
-  return "The two icons must be different.";
 }

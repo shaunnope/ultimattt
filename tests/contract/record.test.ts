@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { encodeMoves, decodeMoves, packLink, unpackLink, configFromRecord, type ReplayRecord } from "../../src/core/record.ts";
+import { readFileSync } from "node:fs";
+import { encodeMoves, decodeMoves, packLink, unpackLink, configFromRecord, recordFromGame, type ReplayRecord } from "../../src/core/record.ts";
 import { rotations, newGame as newCube, apply as applyCube, legalMoves as cubeMoves, status as cubeStatus } from "../../src/core/cube.ts";
 import { fromMoves } from "../../src/core/variants.ts";
 import { randomSource } from "../../src/core/seed.ts";
-import type { CubeMove, Move } from "../../src/core/types.ts";
+import type { CubeMove, GameConfig, Move } from "../../src/core/types.ts";
 
 const place = (cell: number): Move => ({ t: "place", cell });
 
@@ -28,22 +29,27 @@ test("cube placements are two characters (face, cell) and rotations are a dot, a
   assert.deepEqual(decodeMoves("cube", text), moves);
 });
 
-test("all 27 cube rotations round-trip", () => {
-  const text = encodeMoves("cube", rotations());
-  assert.deepEqual(decodeMoves("cube", text), rotations());
+test("every cube rotation on every size round-trips", () => {
+  for (const size of [3, 4, 5]) {
+    const all = rotations(size);
+    assert.equal(all.length, 9 * size);
+    assert.deepEqual(decodeMoves("cube", encodeMoves("cube", all)), all);
+  }
 });
 
 test("decoding rejects bad or truncated text with an error, never a throw", () => {
-  for (const [variant, text] of [["classic", "0!"], ["classic", "Z"], ["ultimate", "0"], ["ultimate", "9a"], ["ultimate", "09"], ["cube", ".x"], ["cube", ".q1+"], ["cube", ".x3+"], ["cube", ".x1*"], ["cube", "6"], ["cube", "69"]] as const) {
+  for (const [variant, text] of [["classic", "0!"], ["classic", "Z"], ["ultimate", "0"], ["ultimate", "p0"], ["ultimate", "0!"], ["cube", ".x"], ["cube", ".q1+"], ["cube", ".x5+"], ["cube", ".x1*"], ["cube", "6"], ["cube", "69"]] as const) {
     const result = decodeMoves(variant, text);
     assert.ok(!Array.isArray(result) && "error" in result, `${variant} ${text}`);
   }
   assert.deepEqual(decodeMoves("classic", ""), []);
 });
 
+const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+
 function cubeGame(seed: number): { moves: CubeMove[] } {
   const rand = randomSource(seed);
-  let s = newCube({ variant: "cube", size: 3, mode: "local", seed: "CUB-BXK4-M9TR" });
+  let s = newCube(cubeConfig);
   const moves: CubeMove[] = [];
   while (cubeStatus(s).status === "playing") {
     const legal = cubeMoves(s);
@@ -54,13 +60,15 @@ function cubeGame(seed: number): { moves: CubeMove[] } {
   return { moves };
 }
 
+const up = (board: number, cell: number): Move => ({ t: "place", board, cell });
+
 const RECORDS: ReplayRecord[] = [
-  { variant: "classic", seed: "3X3-BXK4-M9TR", moves: [0, 3, 1, 4, 2].map(place), players: { mode: "local" } },
-  { variant: "classic", seed: "5X5-BXK4-M9TR", moves: [0, 5, 1, 6, 2, 7, 3].map(place), players: { mode: "computer", level: 3, humanMark: "X" } },
-  { variant: "ultimate", seed: "ULT-BXK4-M9TR", moves: [[0, 0], [0, 4], [4, 0], [0, 3], [3, 0], [0, 5], [5, 0]].map(([board, cell]) => ({ t: "place" as const, board: board!, cell: cell! })), players: { mode: "local" } },
-  { variant: "cube", seed: "CUB-BXK4-M9TR", moves: cubeGame(5).moves, players: { mode: "local" } },
-  { variant: "classic", seed: "3X3-BXK4-M9TR", moves: [4, 0].map(place), players: { mode: "computer", level: 5, humanMark: "O" }, end: "ro" },
-  { variant: "ultimate", seed: "ULT-BXK4-M9TR", moves: [], players: { mode: "network" }, end: "rx" },
+  { rules: { variant: "classic", size: 3, winLength: 3 }, moves: [0, 3, 1, 4, 2].map(place), players: { mode: "local" } },
+  { rules: { variant: "classic", size: 5, winLength: 3 }, seed: "C53-BXK4-M9TR", moves: [0, 5, 1, 6, 2].map(place), players: { mode: "computer", level: 3, humanMark: "X" } },
+  { rules: { variant: "ultimate", size: 3, winLength: 3 }, moves: [up(0, 0), up(0, 4), up(4, 0), up(0, 3), up(3, 0), up(0, 5), up(5, 0)], players: { mode: "local" } },
+  { rules: { variant: "cube", size: 3, winLength: 3 }, moves: cubeGame(5).moves, players: { mode: "local" } },
+  { rules: { variant: "classic", size: 3, winLength: 3 }, seed: "C33-BXK4-M9TR", moves: [4, 0].map(place), players: { mode: "computer", level: 5, humanMark: "O" }, end: "ro" },
+  { rules: { variant: "ultimate", size: 4, winLength: 3 }, moves: [], players: { mode: "network" }, end: "rx" },
 ];
 
 test("a replay link round-trips for every variant, mode and end flag", () => {
@@ -68,32 +76,32 @@ test("a replay link round-trips for every variant, mode and end flag", () => {
     const link = packLink(record, 40862);
     const back = unpackLink(link);
     assert.ok(!("error" in back), JSON.stringify(back));
-    if (!("error" in back)) {
-      assert.equal(back.variant, record.variant);
-      assert.equal(back.seed, record.seed);
-      assert.deepEqual(back.moves, record.moves);
-      assert.deepEqual(back.players, record.players);
-      assert.equal(back.end, record.end);
-    }
+    if (!("error" in back)) assert.deepEqual(back, record);
   }
 });
 
-test("links look like the reference game's: watch, seed, game, moves, end", () => {
-  const link = packLink(RECORDS[1]!, 40862);
-  assert.match(link, /^\?watch=40862&seed=5X5-BXK4-M9TR&game=c3x&moves=0516273(&end=\w+)?$/);
-  assert.match(packLink(RECORDS[0]!, 1), /game=l/);
-  assert.match(packLink(RECORDS[5]!, 1), /game=n.*end=rx/);
+test("links carry the rules always, and the seed only for computer games", () => {
+  assert.match(packLink(RECORDS[1]!, 40862), /^\?watch=40862&rules=C53&seed=C53-BXK4-M9TR&game=c3x&moves=05162(&end=\w+)?$/);
+  assert.match(packLink(RECORDS[0]!, 1), /^\?watch=1&rules=C33&game=l&moves=03142$/);
+  assert.match(packLink(RECORDS[5]!, 1), /rules=U43&game=n.*end=rx/);
+  for (const record of RECORDS) {
+    const link = packLink(record, 1);
+    assert.match(link, /rules=[CUB][345][345]/);
+    assert.equal(link.includes("seed="), record.players.mode === "computer");
+  }
 });
 
-test("the link is rebuilt into a config whose size and variant come from the seed", () => {
+test("a record with a seed for a game without a computer does not write it", () => {
+  const record: ReplayRecord = { ...RECORDS[0]!, seed: "C33-BXK4-M9TR" };
+  assert.ok(!packLink(record, 1).includes("seed="));
+});
+
+test("the link is rebuilt into a config from the rules", () => {
   const config = configFromRecord(RECORDS[1]!);
-  assert.equal(config.variant, "classic");
-  assert.equal(config.size, 5);
-  assert.equal(config.mode, "computer");
-  assert.equal(config.level, 3);
-  assert.equal(config.humanMark, "X");
+  assert.deepEqual(config, { variant: "classic", size: 5, winLength: 3, mode: "computer", level: 3, humanMark: "X", seed: "C53-BXK4-M9TR" });
   assert.equal(configFromRecord(RECORDS[2]!).variant, "ultimate");
   assert.equal(configFromRecord(RECORDS[3]!).variant, "cube");
+  assert.ok(!("seed" in configFromRecord(RECORDS[0]!)));
 });
 
 test("a played-back link reproduces the exact game", () => {
@@ -101,16 +109,24 @@ test("a played-back link reproduces the exact game", () => {
     const back = unpackLink(packLink(record, 7));
     assert.ok(!("error" in back));
     if ("error" in back) continue;
-    const a = fromMoves(configFromRecord(record), record.moves);
-    const b = fromMoves(configFromRecord(back), back.moves);
-    assert.deepEqual(a, b);
+    assert.deepEqual(fromMoves(configFromRecord(record), record.moves), fromMoves(configFromRecord(back), back.moves));
   }
 });
 
-test("bad links give an error: missing parts, unknown seed, bad mode, illegal or truncated moves", () => {
+test("recordFromGame takes the rules and the seed from the config", () => {
+  const config: GameConfig = { variant: "classic", size: 4, winLength: 3, mode: "computer", level: 2, humanMark: "O", seed: "C43-BXK4-M9TR" };
+  const record = recordFromGame(config, [0, 1].map(place), "X");
+  assert.deepEqual(record, { rules: { variant: "classic", size: 4, winLength: 3 }, seed: "C43-BXK4-M9TR", moves: [0, 1].map(place), players: { mode: "computer", level: 2, humanMark: "O" }, end: "rx" });
+});
+
+test("bad links give an error: missing parts, unknown seed, bad rules, bad mode, illegal or truncated moves", () => {
   const bad = [
     "",
     "?watch=1",
+    "?watch=1&game=l&moves=0", // no rules and no seed
+    "?watch=1&rules=C33",
+    "?watch=1&rules=C34&game=l&moves=0", // win length longer than the board
+    "?watch=1&rules=Z33&game=l&moves=0",
     "?watch=1&seed=NOPE&game=l&moves=0",
     "?watch=1&seed=3X3-BXK4-M9TR&game=z&moves=0",
     "?watch=1&seed=3X3-BXK4-M9TR&game=c9x&moves=0",
@@ -120,13 +136,58 @@ test("bad links give an error: missing parts, unknown seed, bad mode, illegal or
     "?watch=1&seed=ULT-BXK4-M9TR&game=l&moves=0", // truncated pair
     "?watch=1&seed=CUB-BXK4-M9TR&game=l&moves=22.x1", // truncated rotation
     "?watch=1&seed=CUB-BXK4-M9TR&game=l&moves=.x1+", // rotation with none due
+    "?watch=1&seed=CUB-BXK4-M9TR&game=l&moves=22.x3+", // layer beyond the cube
     "?watch=1&seed=3X3-BXK4-M9TR&game=l&moves=0&end=zz",
     "?watch=1&seed=CUB-BXK4-M9TR&game=c3x&moves=0", // no computer opponent in Cube
+    "?watch=1&rules=B33&game=c3x&moves=0",
+    "?watch=1&rules=C33&game=c3x&moves=0", // a computer game needs its seed
+    "?watch=1&rules=C53&seed=C44-BXK4-M9TR&game=c3x&moves=0", // rules and seed prefix disagree
+    "?watch=1&rules=C53&seed=ULT-BXK4-M9TR&game=l&moves=0",
   ];
   for (const link of bad) {
     const result = unpackLink(link);
     assert.ok("error" in result, link);
     assert.ok((result as { error: string }).error.length > 0, link);
+  }
+});
+
+test("a link without rules reads them from the seed prefix: 001 links keep working", () => {
+  const cases: [string, string, number, number][] = [
+    ["?watch=1&seed=3X3-BXK4-M9TR&game=l&moves=03142", "classic", 3, 3],
+    ["?watch=1&seed=4X4-BXK4-M9TR&game=l&moves=0", "classic", 4, 4],
+    ["?watch=1&seed=5X5-BXK4-M9TR&game=c3x&moves=0516273", "classic", 5, 4],
+    ["?watch=1&seed=ULT-BXK4-M9TR&game=l&moves=0004", "ultimate", 3, 3],
+    ["?watch=1&seed=CUB-BXK4-M9TR&game=l&moves=22", "cube", 3, 3],
+  ];
+  for (const [link, variant, size, winLength] of cases) {
+    const record = unpackLink(link);
+    assert.ok(!("error" in record), link);
+    if (!("error" in record)) assert.deepEqual(record.rules, { variant, size, winLength });
+  }
+});
+
+test("a seed carried by a game without a computer is accepted and dropped", () => {
+  const record = unpackLink("?watch=1&seed=3X3-BXK4-M9TR&game=l&moves=03142");
+  assert.ok(!("error" in record));
+  if (!("error" in record)) {
+    assert.equal(record.seed, undefined);
+    assert.ok(!packLink(record, 1).includes("seed="));
+  }
+  const withRules = unpackLink("?watch=1&rules=C33&seed=C33-BXK4-M9TR&game=n&moves=03142");
+  assert.ok(!("error" in withRules));
+});
+
+test("every 001 link in the fixtures opens and plays back to the recorded result", () => {
+  const links = JSON.parse(readFileSync(new URL("../fixtures/001/links.json", import.meta.url), "utf8")) as { name: string; link: string; winner: string | null; status: string; moveCount: number }[];
+  assert.ok(links.length >= 5);
+  for (const fixture of links) {
+    const record = unpackLink(fixture.link);
+    assert.ok(!("error" in record), fixture.name);
+    if ("error" in record) continue;
+    const state = fromMoves(configFromRecord(record), record.moves);
+    assert.equal(state.winner, fixture.winner, fixture.name);
+    assert.equal(state.status, fixture.status, fixture.name);
+    assert.equal(record.moves.length, fixture.moveCount, fixture.name);
   }
 });
 

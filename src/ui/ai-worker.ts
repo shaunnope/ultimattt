@@ -16,7 +16,7 @@ interface Request {
 /** Shared by the worker and the page's inline fallback. */
 export function solve(req: Request): Move {
   const state = fromMoves(req.config, req.moves);
-  return chooseMove(req.config.variant, state, req.level, rngFor(req.config.seed, req.moves.length));
+  return chooseMove(req.config.variant, state, req.level, rngFor(req.config.seed ?? "", req.moves.length));
 }
 
 const scope = self as unknown as { onmessage: ((e: MessageEvent<Request>) => void) | null; postMessage(message: unknown): void };

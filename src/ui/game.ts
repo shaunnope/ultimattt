@@ -21,7 +21,6 @@ import { loadSave, saveGame, savedGameFrom, updateSettings } from "../adapters/s
 import { NO_HINTS, hintsFor } from "./hints.ts";
 import { SETTINGS_EVENT } from "./settings.ts";
 import { celebrate } from "./confetti.ts";
-import { markGlyph } from "./glyph.ts";
 import { announce, h, openDialog, toast } from "./ui.ts";
 
 const COMPUTER_MIN_DELAY_MS = 250;
@@ -59,7 +58,7 @@ export interface NetGameHandle {
 
 const VARIANT_TITLE = { classic: "Classic", ultimate: "Ultimate", cube: "Cube" } as const;
 
-// Settings changes (icons, hints) redraw whichever game is on screen.
+// Settings changes (hints, turn notation, colours) redraw whichever game is on screen.
 let active: GameController | null = null;
 if (typeof window !== "undefined") window.addEventListener(SETTINGS_EVENT, () => active?.refresh());
 
@@ -153,7 +152,7 @@ class GameController implements NetGameHandle {
   async promptUndo(by: Mark): Promise<boolean> {
     const choice = await openDialog({
       title: "Take back a move?",
-      body: [`${markGlyph(by)} asks to take back their last move.`],
+      body: [`${by} asks to take back their last move.`],
       actions: [
         { label: "Not now", value: "no" },
         { label: "Allow", value: "yes", primary: true },
@@ -162,7 +161,7 @@ class GameController implements NetGameHandle {
     return choice === "yes";
   }
 
-  /** Redraw after a setting changed (for instance the icons). */
+  /** Redraw after a setting changed (for instance the turn notation). */
   refresh(): void {
     if (this.replay) return;
     this.start();
@@ -173,22 +172,24 @@ class GameController implements NetGameHandle {
     this.replay?.destroy();
     this.replay = null;
     const net = this.net;
-    this.board = createBoard(this.config, (move) => this.onMove(move), net ? { mayMove: (state) => state.toMove === net.myMark } : {});
+    const notation = loadSave().save.settings.cubeNotation;
+    this.board = createBoard(this.config, (move) => this.onMove(move), { notation, ...(net ? { mayMove: (state: AnyGameState) => state.toMove === net.myMark } : {}) });
     this.statusEl = h("div", { id: "game-status", class: "status-line" });
     this.undoBtn = h("button", { class: "btn", type: "button", onclick: () => this.undo() }, "Undo");
     this.resignBtn = h("button", { class: "btn", type: "button", onclick: () => void this.resign() }, "Resign");
     this.replayBtn = h("button", { class: "btn", type: "button", onclick: () => this.showReplay(true) }, "Replay");
     this.shareBtn = h("button", { class: "btn", type: "button", onclick: () => void this.shareReplay() }, "Share replay");
     const newGame = h("button", { class: "btn", type: "button", onclick: () => this.leave() }, "New game");
-    const copySeed = h("button", { class: "btn btn-small", type: "button", onclick: () => void this.copySeed() }, "Copy seed");
 
-    const sub = this.net ? `two devices, you are ${markGlyph(this.net.myMark)}` : this.vsComputer ? `vs Computer (${LEVEL_NAMES[this.config.level ?? 3]}), you are ${markGlyph(this.human)}` : "two players, this device";
+    const sub = this.net ? `two devices, you are ${this.net.myMark}` : this.vsComputer ? `vs Computer (${LEVEL_NAMES[this.config.level ?? 3]}), you are ${this.human}` : "two players, this device";
     this.container.replaceChildren(
       h("section", { class: "screen", "aria-label": "Game" },
         h("div", { class: "game-head" },
-          h("span", { class: "game-title" }, this.config.variant === "classic" ? `Classic ${this.config.size}×${this.config.size}` : VARIANT_TITLE[this.config.variant]),
+          h("span", { class: "game-title", id: "game-title" }, `${VARIANT_TITLE[this.config.variant]} ${this.config.size}×${this.config.size}, ${this.config.winLength} in a row`),
           h("span", { class: "game-sub" }, sub)),
-        h("div", { class: "seed-row" }, h("span", { id: "game-seed", class: "game-sub" }, `Seed: ${this.config.seed}`), copySeed),
+        ...(this.config.seed
+          ? [h("div", { class: "seed-row" }, h("span", { id: "game-seed", class: "game-sub" }, `Seed: ${this.config.seed}`), h("button", { class: "btn btn-small", type: "button", onclick: () => void this.copySeed() }, "Copy seed"))]
+          : []),
         ...(this.net ? [this.buildNetBar()] : []),
         this.statusEl,
         this.board.element,
@@ -209,22 +210,22 @@ class GameController implements NetGameHandle {
   }
 
   private statusText(): string {
-    if (this.resigned) return `${markGlyph(this.resigned)} resigned. ${markGlyph(other(this.resigned))} wins.`;
+    if (this.resigned) return `${this.resigned} resigned. ${other(this.resigned)} wins.`;
     const st = this.mod.status(this.state);
-    if (st.status === "won") return `${markGlyph(st.winner!)} wins!`;
+    if (st.status === "won") return `${st.winner!} wins!`;
     if (st.status === "draw") return "It's a draw.";
     if (st.status === "tie") return "It's a tie.";
     if (this.net) {
       const mine = this.state.toMove === this.net.myMark;
       if (this.config.variant === "cube" && (this.state as CubeState).phase === "rotate") {
-        return mine ? `${markGlyph(this.state.toMove)} scored! Turn a layer of the cube.` : "Waiting for your friend to turn a layer.";
+        return mine ? `${this.state.toMove} scored! Turn a layer of the cube.` : "Waiting for your friend to turn a layer.";
       }
-      const turn = mine ? `Your move (${markGlyph(this.state.toMove)}).` : `Waiting for your friend (${markGlyph(this.state.toMove)}).`;
+      const turn = mine ? `Your move (${this.state.toMove}).` : `Waiting for your friend (${this.state.toMove}).`;
       return this.config.variant === "ultimate" ? `${turn} ${whereToPlay(this.state as UltimateState)}` : turn;
     }
     if (this.computer.thinking || this.computerToMove) return "Computer is thinking…";
     if (this.config.variant === "cube") return cubeStatus(this.state as CubeState);
-    const turn = this.vsComputer ? `Your move (${markGlyph(this.human)}).` : `${markGlyph(this.state.toMove)} to move.`;
+    const turn = this.vsComputer ? `Your move (${this.human}).` : `${this.state.toMove} to move.`;
     return this.config.variant === "ultimate" ? `${turn} ${whereToPlay(this.state as UltimateState)}` : turn;
   }
 
@@ -322,6 +323,7 @@ class GameController implements NetGameHandle {
       return;
     }
     this.computer.cancel();
+    this.board.reset();
     this.resigned = null;
     do {
       const last = this.state.moves.length - 1;
@@ -338,7 +340,7 @@ class GameController implements NetGameHandle {
     const who = this.net ? this.net.myMark : this.vsComputer ? this.human : this.state.toMove;
     const choice = await openDialog({
       title: "Resign this game?",
-      body: [`${markGlyph(who)} will lose.`],
+      body: [`${who} will lose.`],
       actions: [
         { label: "Keep playing", value: "no" },
         { label: "Confirm resign", value: "yes", primary: true },
@@ -368,6 +370,7 @@ class GameController implements NetGameHandle {
       speed: settings.replaySpeed,
       onSpeed: (speed: typeof settings.replaySpeed) => updateSettings({ replaySpeed: speed }),
       autoplay,
+      notation: settings.cubeNotation,
       onClose: () => this.start(),
     };
     this.replay = mountReplay(this.container, this.resigned ? { ...options, resigned: this.resigned } : options);
@@ -403,10 +406,10 @@ class GameController implements NetGameHandle {
 
   private async copySeed(): Promise<void> {
     try {
-      await navigator.clipboard.writeText(this.config.seed);
+      await navigator.clipboard.writeText(this.config.seed ?? "");
       toast("Seed copied.");
     } catch {
-      toast(`Seed: ${this.config.seed}`);
+      toast(`Seed: ${this.config.seed ?? ""}`);
     }
   }
 
@@ -414,17 +417,17 @@ class GameController implements NetGameHandle {
     if (this.resultShown) return;
     this.resultShown = true;
     const st = this.mod.status(this.state);
-    const title = this.resigned ? `${markGlyph(this.resigned)} resigned` : st.status === "won" ? `${markGlyph(st.winner!)} wins!` : st.status === "tie" ? "It's a tie" : "It's a draw";
+    const title = this.resigned ? `${this.resigned} resigned` : st.status === "won" ? `${st.winner!} wins!` : st.status === "tie" ? "It's a tie" : "It's a draw";
     const winner = this.resigned ? other(this.resigned) : st.winner;
     if (winner) celebrate(); // nothing at all when the player has asked for reduced motion
     let body: string;
     if (this.config.variant === "cube" && !this.resigned) {
       const lines = (this.state as CubeState).lines;
-      body = `Final lines: ${markGlyph("X")} ${lines.X}, ${markGlyph("O")} ${lines.O}.`;
+      body = `Final lines: ${"X"} ${lines.X}, ${"O"} ${lines.O}.`;
     } else if (!winner) body = "Nobody won this one.";
     else if (this.net) body = winner === this.net.myMark ? "You won." : "Your friend won.";
     else if (this.vsComputer) body = winner === this.human ? "You won." : "The computer won.";
-    else body = `${markGlyph(winner)} won.`;
+    else body = `${winner} won.`;
     const choice = await openDialog({
       title,
       body: [body],
@@ -436,8 +439,10 @@ class GameController implements NetGameHandle {
     });
     if (choice === "again") {
       this.computer.cancel();
-      const seed = newSeed(this.config.variant, this.config.variant === "classic" ? this.config.size : undefined);
-      new GameController(this.container, { ...this.config, seed }, this.exit).start();
+      // A new game against the computer gets a new seed; a game without a computer has none.
+      const next: GameConfig = { ...this.config };
+      if (this.config.mode === "computer") next.seed = newSeed(this.config.variant, this.config.size, this.config.winLength);
+      new GameController(this.container, next, this.exit).start();
     } else if (choice === "new") {
       this.leave();
     } else if (choice === "replay") {

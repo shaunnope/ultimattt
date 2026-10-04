@@ -1,28 +1,32 @@
-// Cube tic tac toe (from the 1D Tic-Tac-Toe game "Rubik's-Tac-Toe"): six 3×3 boards, one per
-// face of a cube. Every completed line on any face scores a point for its owner. A move that
-// scores must be followed, by the same player, by turning one layer of the cube, which carries
-// marks between faces and can make or break lines. The game ends when all 54 cells are filled and
-// no turn is pending; the player with more lines wins.
+// Cube tic tac toe (from the 1D Tic-Tac-Toe game "Rubik's-Tac-Toe"): six N×N boards (N = 3 to 5), one per
+// face of a cube. Every window of K in a row on any face scores a point for its owner (a run longer than K
+// scores one point per window). A move that scores must be followed, by the same player, by turning one
+// layer of the cube, which carries marks between faces and can make or break lines. The game ends when
+// every cell is filled and no turn is pending; the player with more lines wins.
 //
 // Pure: no DOM, storage, network or clock.
 //
-// Geometry. 54 stickers, index = face*9 + row*3 + col, faces U, D, F, B, L, R (0..5), each viewed
+// Geometry. 6·N² stickers, index = face*N² + row*N + col, faces U, D, F, B, L, R (0..5), each viewed
 // from outside with up = +y (U: up = -z, D: up = +z). Axes: x right, y up, z towards the viewer.
+// Coordinates are doubled integers so they stay whole for any N: along a face the sticker at col c sits at
+// 2c-(N-1), and on the outer plane at ±(N-1). Layer l (0..N-1) is the plane at 2l-(N-1).
 // A layer turn is a true 3D rotation, so orientation can never go wrong:
 //   dir +1 = +90° by the right-hand rule about +axis (anticlockwise seen from the positive end),
-//   dir -1 = -90°, dir 2 = 180°; layer l turns the stickers whose coordinate on the axis is l-1.
-// Checked against the original game's own turn logic in tests/fixtures/cube-golden.json.
+//   dir -1 = -90°, dir 2 = 180°; layer l turns the stickers whose coordinate on the axis is 2l-(N-1).
+// For N=3 this is the 001 geometry scaled by two; tests/fixtures/cube-golden.json checks it against
+// the original game's own turn logic.
 
 import type { Axis, Cell, CubeHint, CubeMove, CubeRotate, GameConfig, HintSet, Legality, Mark, Move, RotateDir, StateBase, Status } from "./types.ts";
 import { OK, cellOf, other, refuse } from "./types.ts";
 import { hashString } from "./seed.ts";
+import { lines as windows } from "./classic.ts";
 
 export const FACES = ["U", "D", "F", "B", "L", "R"] as const;
 
 export type Phase = "place" | "rotate";
 
 export interface CubeState extends StateBase {
-  /** 54 stickers; 0 empty, 1 X, 2 O */
+  /** 6·N² stickers; 0 empty, 1 X, 2 O */
   stickers: Cell[];
   /** "rotate" means the player to move has just scored and must turn a layer next */
   phase: Phase;
@@ -37,19 +41,38 @@ export const REASONS = ["invalid-move", "game-over", "out-of-range", "occupied",
 
 type Vec = readonly [number, number, number];
 
-function geometry(face: number, row: number, col: number): { p: Vec; n: Vec } {
+function geometry(size: number, face: number, row: number, col: number): { p: Vec; n: Vec } {
+  const m = size - 1;
+  const c = 2 * col - m;
+  const r = 2 * row - m;
   switch (face) {
-    case 0: return { p: [col - 1, 1, row - 1], n: [0, 1, 0] };
-    case 1: return { p: [col - 1, -1, 1 - row], n: [0, -1, 0] };
-    case 2: return { p: [col - 1, 1 - row, 1], n: [0, 0, 1] };
-    case 3: return { p: [1 - col, 1 - row, -1], n: [0, 0, -1] };
-    case 4: return { p: [-1, 1 - row, col - 1], n: [-1, 0, 0] };
-    default: return { p: [1, 1 - row, 1 - col], n: [1, 0, 0] };
+    case 0: return { p: [c, m, r], n: [0, 1, 0] };
+    case 1: return { p: [c, -m, -r], n: [0, -1, 0] };
+    case 2: return { p: [c, -r, m], n: [0, 0, 1] };
+    case 3: return { p: [-c, -r, -m], n: [0, 0, -1] };
+    case 4: return { p: [-m, -r, c], n: [-1, 0, 0] };
+    default: return { p: [m, -r, -c], n: [1, 0, 0] };
   }
 }
 
-const GEOM = Array.from({ length: 54 }, (_, i) => geometry(Math.floor(i / 9), Math.floor((i % 9) / 3), i % 3));
-const INDEX_OF = new Map(GEOM.map((g, i) => [`${g.p.join(",")}|${g.n.join(",")}`, i]));
+interface Geom {
+  geom: { p: Vec; n: Vec }[];
+  indexOf: Map<string, number>;
+}
+
+const geomCache = new Map<number, Geom>();
+
+function geomFor(size: number): Geom {
+  const cached = geomCache.get(size);
+  if (cached) return cached;
+  const n2 = size * size;
+  const geom = Array.from({ length: 6 * n2 }, (_, i) => geometry(size, Math.floor(i / n2), Math.floor((i % n2) / size), i % size));
+  const indexOf = new Map(geom.map((g, i) => [`${g.p.join(",")}|${g.n.join(",")}`, i]));
+  const made = { geom, indexOf };
+  geomCache.set(size, made);
+  return made;
+}
+
 const AXIS_INDEX: Record<Axis, number> = { x: 0, y: 1, z: 2 };
 const AXES: Axis[] = ["x", "y", "z"];
 const DIRS: RotateDir[] = [1, -1, 2];
@@ -70,41 +93,42 @@ function turned(v: Vec, axis: Axis, quarters: number): Vec {
 const tableCache = new Map<string, number[]>();
 
 /** table[dst] = src: after the turn, the sticker at `dst` is the one that was at `src`. */
-export function rotateTable(axis: Axis, layer: 0 | 1 | 2, dir: RotateDir): number[] {
-  const key = `${axis}${layer}${dir}`;
+export function rotateTable(size: number, axis: Axis, layer: number, dir: RotateDir): number[] {
+  const key = `${size}${axis}${layer}${dir}`;
   const cached = tableCache.get(key);
   if (cached) return cached;
   const quarters = dir === 1 ? 1 : dir === -1 ? 3 : 2;
   const a = AXIS_INDEX[axis];
-  const table = Array.from({ length: 54 }, (_, i) => i);
-  GEOM.forEach(({ p, n }, src) => {
-    if (p[a] !== layer - 1) return;
-    const dst = INDEX_OF.get(`${turned(p, axis, quarters).join(",")}|${turned(n, axis, quarters).join(",")}`)!;
+  const { geom, indexOf } = geomFor(size);
+  const plane = 2 * layer - (size - 1);
+  const table = Array.from({ length: geom.length }, (_, i) => i);
+  geom.forEach(({ p, n }, src) => {
+    if (p[a] !== plane) return;
+    const dst = indexOf.get(`${turned(p, axis, quarters).join(",")}|${turned(n, axis, quarters).join(",")}`)!;
     table[dst] = src;
   });
   tableCache.set(key, table);
   return table;
 }
 
-export function rotateStickers<T>(stickers: readonly T[], axis: Axis, layer: 0 | 1 | 2, dir: RotateDir): T[] {
-  const table = rotateTable(axis, layer, dir);
+export function rotateStickers<T>(stickers: readonly T[], size: number, axis: Axis, layer: number, dir: RotateDir): T[] {
+  const table = rotateTable(size, axis, layer, dir);
   return table.map((src) => stickers[src]!);
 }
 
-/** The stickers a layer turn carries: an outer layer is a ring of 12 plus its whole face (21); a middle layer is 12. */
-export function layerStickers(axis: Axis, layer: 0 | 1 | 2): number[] {
+/** The stickers a layer turn carries: an outer layer is a ring plus its whole face; an inner layer is the ring only. */
+export function layerStickers(size: number, axis: Axis, layer: number): number[] {
   const a = AXIS_INDEX[axis];
-  return GEOM.flatMap((g, i) => (g.p[a] === layer - 1 ? [i] : []));
+  const plane = 2 * layer - (size - 1);
+  return geomFor(size).geom.flatMap((g, i) => (g.p[a] === plane ? [i] : []));
 }
 
-/** The 27 turns: 3 axes × 3 layers × {quarter, quarter back, half}. */
-export function rotations(): CubeRotate[] {
+/** The 9N turns: 3 axes × N layers × {quarter, quarter back, half}. */
+export function rotations(size: number): CubeRotate[] {
   const out: CubeRotate[] = [];
-  for (const axis of AXES) for (const layer of [0, 1, 2] as const) for (const dir of DIRS) out.push({ t: "rotate", axis, layer, dir });
+  for (const axis of AXES) for (let layer = 0; layer < size; layer++) for (const dir of DIRS) out.push({ t: "rotate", axis, layer, dir });
   return out;
 }
-
-const FACE_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
 
 export interface CubeLine {
   face: number;
@@ -112,35 +136,38 @@ export interface CubeLine {
   owner: Mark;
 }
 
-/** Every line on the cube, with its owner. */
-export function cubeLines(stickers: readonly Cell[]): CubeLine[] {
+/** Every line on the cube, with its owner: one per window of exactly winLength cells held by one player. */
+export function cubeLines(stickers: readonly Cell[], size: number, winLength: number): CubeLine[] {
   const out: CubeLine[] = [];
+  const n2 = size * size;
+  const faceLines = windows(size, winLength);
   for (let face = 0; face < 6; face++) {
-    for (const cells of FACE_LINES) {
-      const v = stickers[face * 9 + cells[0]!]!;
-      if (v !== 0 && cells.every((c) => stickers[face * 9 + c] === v)) out.push({ face, cells, owner: v === 1 ? "X" : "O" });
+    for (const cells of faceLines) {
+      const v = stickers[face * n2 + cells[0]!]!;
+      if (v !== 0 && cells.every((c) => stickers[face * n2 + c] === v)) out.push({ face, cells, owner: v === 1 ? "X" : "O" });
     }
   }
   return out;
 }
 
-export function countLines(stickers: readonly Cell[]): { X: number; O: number } {
+export function countLines(stickers: readonly Cell[], size: number, winLength: number): { X: number; O: number } {
   const count = { X: 0, O: 0 };
-  for (const line of cubeLines(stickers)) count[line.owner]++;
+  for (const line of cubeLines(stickers, size, winLength)) count[line.owner]++;
   return count;
 }
 
 export function newGame(config: GameConfig): CubeState {
+  const total = 6 * config.size * config.size;
   return {
     config,
     moves: [],
     toMove: "X",
     status: "playing",
     winner: null,
-    stickers: Array<Cell>(54).fill(0),
+    stickers: Array<Cell>(total).fill(0),
     phase: "place",
     lines: { X: 0, O: 0 },
-    empty: 54,
+    empty: total,
     pendingRotateFor: null,
   };
 }
@@ -151,7 +178,7 @@ export function status(state: CubeState): { status: Status; winner: Mark | null 
 
 function isRotate(move: Move): move is CubeRotate {
   const m = move as CubeRotate;
-  return m.t === "rotate" && AXES.includes(m.axis) && [0, 1, 2].includes(m.layer) && DIRS.includes(m.dir);
+  return m.t === "rotate" && AXES.includes(m.axis) && typeof m.layer === "number" && DIRS.includes(m.dir);
 }
 
 function isPlace(move: Move): move is Extract<CubeMove, { t: "place" }> {
@@ -160,25 +187,29 @@ function isPlace(move: Move): move is Extract<CubeMove, { t: "place" }> {
 }
 
 export function isLegal(state: CubeState, move: Move): Legality {
+  const { size } = state.config;
+  const n2 = size * size;
   if (!isRotate(move) && !isPlace(move)) return refuse("invalid-move");
   if (state.status !== "playing") return refuse("game-over");
   if (isPlace(move)) {
     if (state.phase === "rotate") return refuse("rotate-pending");
     const { face, cell } = move;
-    if (!Number.isInteger(face) || face < 0 || face > 5 || !Number.isInteger(cell) || cell < 0 || cell > 8) return refuse("out-of-range");
-    if (state.stickers[face * 9 + cell] !== 0) return refuse("occupied");
+    if (!Number.isInteger(face) || face < 0 || face > 5 || !Number.isInteger(cell) || cell < 0 || cell >= n2) return refuse("out-of-range");
+    if (state.stickers[face * n2 + cell] !== 0) return refuse("occupied");
     return OK;
   }
   if (state.phase !== "rotate") return refuse("no-rotation-due");
+  if (!Number.isInteger(move.layer) || move.layer < 0 || move.layer >= size) return refuse("out-of-range");
   return OK;
 }
 
 export function legalMoves(state: CubeState): CubeMove[] {
   if (state.status !== "playing") return [];
-  if (state.phase === "rotate") return rotations();
+  if (state.phase === "rotate") return rotations(state.config.size);
+  const n2 = state.config.size * state.config.size;
   const out: CubeMove[] = [];
   state.stickers.forEach((v, i) => {
-    if (v === 0) out.push({ t: "place", face: Math.floor(i / 9), cell: i % 9 });
+    if (v === 0) out.push({ t: "place", face: Math.floor(i / n2), cell: i % n2 });
   });
   return out;
 }
@@ -194,11 +225,12 @@ function settle(state: CubeState): CubeState {
 export function apply(state: CubeState, move: Move): CubeState {
   const legal = isLegal(state, move);
   if (!legal.ok) throw new Error(legal.reason);
+  const { size, winLength } = state.config;
   const moves = [...state.moves, move];
   if (isPlace(move)) {
     const stickers = state.stickers.slice();
-    stickers[move.face * 9 + move.cell] = cellOf(state.toMove);
-    const lines = countLines(stickers);
+    stickers[move.face * size * size + move.cell] = cellOf(state.toMove);
+    const lines = countLines(stickers, size, winLength);
     const scored = lines[state.toMove] > state.lines[state.toMove];
     return settle({
       ...state,
@@ -212,12 +244,12 @@ export function apply(state: CubeState, move: Move): CubeState {
     });
   }
   const rotation = move as CubeRotate;
-  const stickers = rotateStickers(state.stickers, rotation.axis, rotation.layer, rotation.dir);
+  const stickers = rotateStickers(state.stickers, size, rotation.axis, rotation.layer, rotation.dir);
   return settle({
     ...state,
     moves,
     stickers,
-    lines: countLines(stickers),
+    lines: countLines(stickers, size, winLength),
     phase: "place",
     pendingRotateFor: null,
     toMove: other(state.toMove),
@@ -244,14 +276,17 @@ export function hash(state: CubeState): number {
 export function hints(state: CubeState, mark: Mark): HintSet<CubeHint> {
   const out: HintSet<CubeHint> = { win: [], block: [] };
   if (state.status !== "playing" || state.phase !== "place") return out;
+  const { size, winLength } = state.config;
+  const n2 = size * size;
+  const faceLines = windows(size, winLength);
   const mine = cellOf(mark);
   const theirs = cellOf(other(mark));
   state.stickers.forEach((value, i) => {
     if (value !== 0) return;
-    const face = Math.floor(i / 9);
-    const cell = i % 9;
+    const face = Math.floor(i / n2);
+    const cell = i % n2;
     const completes = (who: Cell) =>
-      FACE_LINES.some((line) => line.includes(cell) && line.every((c) => c === cell || state.stickers[face * 9 + c] === who));
+      faceLines.some((line) => line.includes(cell) && line.every((c) => c === cell || state.stickers[face * n2 + c] === who));
     if (completes(mine)) out.win.push({ face, cell });
     if (completes(theirs)) out.block.push({ face, cell });
   });

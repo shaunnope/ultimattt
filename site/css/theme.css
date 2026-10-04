@@ -1,50 +1,76 @@
-/* Design tokens. Light, dark and auto. State is never carried by colour alone:
-   marks differ by shape and boards add outlines and patterns. */
+/* Design tokens. Light, dark and auto: the page sets data-mode on <html> before it paints (see index.html).
+   Every colour in the app comes from here; scripts/check-theme-tokens.mjs fails on a colour literal in any other
+   stylesheet. State is never carried by colour alone: marks differ by shape and boards add outlines and patterns.
+   The base tokens take their values from the shared look chosen for this app (the --bg ... --success set). */
 
 :root,
 :root[data-mode="light"] {
   color-scheme: light;
-  --brand: #ccffcc;
-  --bg: #eef4f0;
-  --surface: #ffffff;
-  --surface-2: #f3f7f4;
-  --line: #b9c7bf;
-  --ink: #121815;
-  --muted: #4d5a53;
-  --brand-ink: #1f6b3d;
-  --on-brand: #121815;
-  --x-ink: #1f6b3d;
-  --o-ink: #8a3b00;
-  --focus: #0b57d0;
-  --ok: #0f7234;
+  --bg: #faf8f3;
+  --fg: #1a1a1a;
+  --surface: #f1efe8;
+  --border: #dcdce2;
+  --accent: #3b5bdb;
+  --accent-muted: #e4e9fb;
+  --accent-contrast: #ffffff;
+  --success: #2ecc71;
+
+  --muted: color-mix(in srgb, var(--fg) 72%, var(--bg));
+  --focus: var(--accent);
+  --error: #b3261e;
   --warn: #8a4b00;
-  --error: #b91c1c;
-  --claim-x: rgba(31, 107, 61, 0.16);
-  --claim-o: rgba(138, 59, 0, 0.16);
-  --playable: rgba(11, 87, 208, 0.14);
-  --shadow: 0 6px 22px rgba(20, 40, 30, 0.12);
-  --radius: 14px;
+
+  /* X and O. The default palette's light values; theme.ts replaces them with the chosen palette's. */
+  --mark-x: #3b5bdb;
+  --mark-o: #c2410c;
+  --claim-x: color-mix(in srgb, var(--mark-x) 18%, transparent);
+  --claim-o: color-mix(in srgb, var(--mark-o) 18%, transparent);
+  --playable: color-mix(in srgb, var(--accent) 16%, transparent);
+
+  --shadow: 0 6px 22px rgba(20, 20, 30, 0.1);
+  --scrim: rgba(0, 0, 0, 0.45);
+  --hatch: rgba(0, 0, 0, 0.14);
+  --radius: 0.6rem;
+  --radius-small: 0.5rem;
+
+  /* The six faces of the Cube, one soft tint each */
+  --face-0: #dbe7ff;
+  --face-1: #fff2b8;
+  --face-2: #d3f5d8;
+  --face-3: #ffd9d0;
+  --face-4: #f1dcff;
+  --face-5: #ffe3bd;
+
+  /* A QR code is always dark on light, whatever the appearance */
+  --qr-bg: #ffffff;
+  --qr-fg: #000000;
 }
 
 :root[data-mode="dark"] {
   color-scheme: dark;
-  --bg: #0c100e;
-  --surface: #161d19;
-  --surface-2: #1d2621;
-  --line: #44534b;
-  --ink: #eef2ef;
-  --muted: #a6b3ac;
-  --brand-ink: #bff5cf;
-  --x-ink: #7be3a0;
-  --o-ink: #ffb27a;
-  --focus: #8ab4ff;
-  --ok: #4ade80;
+  --bg: #14161c;
+  --fg: #f0f0f2;
+  --surface: #1d2028;
+  --border: #2e323d;
+  --accent: #6a8cff;
+  --accent-muted: #262c42;
+  --accent-contrast: #0c0e13;
+
+  --error: #ff8a80;
   --warn: #fbbf24;
-  --error: #fca5a5;
-  --claim-x: rgba(123, 227, 160, 0.2);
-  --claim-o: rgba(255, 178, 122, 0.2);
-  --playable: rgba(138, 180, 255, 0.2);
+
+  --mark-x: #6a8cff;
+  --mark-o: #fb923c;
+
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --hatch: rgba(255, 255, 255, 0.16);
+
+  --face-0: #28344f;
+  --face-1: #4a4322;
+  --face-2: #23402c;
+  --face-3: #4a2d28;
+  --face-4: #3b2b4d;
+  --face-5: #4a3a22;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,10 +5,10 @@
 import type { GameConfig, Mark, Move } from "../core/types.ts";
 import { other } from "../core/types.ts";
 import type { ReplaySpeed } from "../core/settings.ts";
+import type { NotationStyle } from "../core/notation.ts";
 import { replayFrames } from "../core/replay.ts";
 import { createBoard } from "./boards.ts";
 import { describeMove } from "./replay-text.ts";
-import { markGlyph } from "./glyph.ts";
 import { announce, h } from "./ui.ts";
 
 export interface ReplayOptions {
@@ -22,9 +22,10 @@ export interface ReplayOptions {
   autoplay: boolean;
   onClose(): void;
   closeLabel?: string;
+  /** How Cube turns are named in the move list. Display only. */
+  notation?: NotationStyle;
   /** More buttons beside Close, such as "Play this seed" */
   actions?: HTMLElement[];
-  glyph?: (mark: Mark) => string;
 }
 
 export interface ReplayHandle {
@@ -44,8 +45,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   let playing = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const boardOpts = opts.glyph ? { readOnly: true, glyph: opts.glyph } : { readOnly: true };
-  const board = createBoard(config, () => undefined, boardOpts);
+  const board = createBoard(config, () => undefined, { readOnly: true, notation: opts.notation ?? "words" });
   const statusEl = h("div", { id: "game-status", class: "status-line" });
 
   const playButton = h("button", { type: "button", class: "btn", "aria-label": "Play" }, "Play");
@@ -58,7 +58,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
 
   const list = h("ol", { class: "move-list", "aria-label": "Moves" });
   const items = moves.map((move, i) => {
-    const button = h("button", { type: "button", class: "move-item" }, describeMove(config, move, frames[i + 1]!.mover!, i + 1));
+    const button = h("button", { type: "button", class: "move-item" }, describeMove(config, move, frames[i + 1]!.mover!, i + 1, opts.notation ?? "words"));
     button.addEventListener("click", () => {
       pause();
       setIndex(i + 1);
@@ -69,9 +69,9 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   });
 
   function outcome(): string {
-    if (opts.resigned) return ` ${markGlyph(opts.resigned)} resigned. ${markGlyph(other(opts.resigned))} wins.`;
+    if (opts.resigned) return ` ${opts.resigned} resigned. ${other(opts.resigned)} wins.`;
     const state = frames[total]!.state;
-    if (state.status === "won") return ` ${markGlyph(state.winner!)} wins!`;
+    if (state.status === "won") return ` ${state.winner!} wins!`;
     if (state.status === "draw") return " It's a draw.";
     if (state.status === "tie") return " It's a tie.";
     return "";
@@ -153,10 +153,10 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   });
 
   const close = h("button", { type: "button", class: "btn", onclick: () => opts.onClose() }, opts.closeLabel ?? "Close replay");
-  const title = config.variant === "classic" ? `Classic ${config.size}×${config.size}` : config.variant === "ultimate" ? "Ultimate" : "Cube";
+  const title = `${config.variant === "classic" ? "Classic" : config.variant === "ultimate" ? "Ultimate" : "Cube"} ${config.size}×${config.size}, ${config.winLength} in a row`;
   container.replaceChildren(
     h("section", { class: "screen replay", "aria-label": "Replay" },
-      h("div", { class: "game-head" }, h("span", { class: "game-title" }, "Replay"), h("span", { class: "game-sub" }, `${title}, seed ${config.seed}`)),
+      h("div", { class: "game-head" }, h("span", { class: "game-title" }, "Replay"), h("span", { class: "game-sub", id: "replay-rules" }, config.seed ? `${title}, seed ${config.seed}` : title)),
       statusEl,
       board.element,
       controls,

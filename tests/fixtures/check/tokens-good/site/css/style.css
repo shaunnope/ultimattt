@@ -1,0 +1,4 @@
+/* colours in comments are fine: #ffffff rgb(0,0,0) white */
+body { background: var(--bg); color: var(--fg); border: 1px solid transparent; outline-color: currentColor; }
+.card { box-shadow: 0 2px 4px color-mix(in srgb, var(--fg) 20%, transparent); }
+.white-space-note { content: "red herring"; }
