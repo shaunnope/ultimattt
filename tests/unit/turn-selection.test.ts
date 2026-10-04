@@ -115,3 +115,61 @@ test("the machine never mutates the state it is given", () => {
   step(previewing, { type: "confirm" });
   assert.equal(JSON.stringify(previewing), before);
 });
+
+// ---- the same layer, another direction: the layer swings straight there (003) ----
+
+const Rinv = turn("x", 2, 1);
+const R2 = turn("x", 2, 2);
+const code = (r: CubeRotate) => `${r.axis}${r.layer}${r.dir}`;
+
+test("selecting the other direction of the previewed layer retargets instead of reversing first", () => {
+  const previewing = run([{ type: "select", rotation: R }, { type: "done" }]).state;
+  const out = step(previewing, { type: "select", rotation: Rinv });
+  assert.deepEqual(out.state, { status: "animating", rotation: Rinv, phase: "retarget", queued: null });
+  assert.deepEqual(out.effects, [{ kind: "retarget", from: R, to: Rinv }]);
+  assert.deepEqual(step(previewing, { type: "select", rotation: R2 }).effects, [{ kind: "retarget", from: R, to: R2 }]);
+});
+
+test("when a retarget ends the new turn is being previewed, and confirm commits it", () => {
+  const previewing = run([{ type: "select", rotation: R }, { type: "done" }]).state;
+  const retargeting = step(previewing, { type: "select", rotation: Rinv }).state;
+  const done = step(retargeting, { type: "done" });
+  assert.deepEqual(done.state, { status: "previewing", rotation: Rinv, queued: null, phase: null });
+  assert.deepEqual(done.effects, []);
+  assert.deepEqual(step(done.state, { type: "confirm" }).effects, [{ kind: "commit", rotation: Rinv }]);
+});
+
+test("cancel after a retarget reverses the new turn, never the first", () => {
+  const { state } = run([{ type: "select", rotation: R }, { type: "done" }, { type: "select", rotation: Rinv }, { type: "done" }]);
+  assert.deepEqual(step(state, { type: "cancel" }).effects, [{ kind: "reverse", rotation: Rinv }]);
+});
+
+test("input during a retarget is ignored, like during any other animation", () => {
+  const previewing = run([{ type: "select", rotation: R }, { type: "done" }]).state;
+  const retargeting = step(previewing, { type: "select", rotation: Rinv }).state;
+  for (const event of [{ type: "select", rotation: U }, { type: "cancel" }, { type: "confirm" }] as TurnEvent[]) {
+    assert.deepEqual(step(retargeting, event), { state: retargeting, effects: [] }, event.type);
+  }
+});
+
+test("a different layer still reverses then plays, and the same turn is a no-op", () => {
+  const previewing = run([{ type: "select", rotation: R }, { type: "done" }]).state;
+  assert.deepEqual(step(previewing, { type: "select", rotation: turn("x", 1, -1) }).effects, [{ kind: "reverse", rotation: R }]);
+  assert.deepEqual(step(previewing, { type: "select", rotation: { ...R } }), { state: previewing, effects: [] });
+});
+
+test("reset during a retarget discards the preview", () => {
+  const previewing = run([{ type: "select", rotation: R }, { type: "done" }]).state;
+  const retargeting = step(previewing, { type: "select", rotation: Rinv }).state;
+  assert.deepEqual(step(retargeting, { type: "reset" }), { state: IDLE, effects: [{ kind: "discard" }] });
+});
+
+test("a long run of same-layer changes ends on the last turn selected", () => {
+  const turns = [R, Rinv, R2, R, R2, Rinv];
+  const events: TurnEvent[] = [{ type: "select", rotation: turns[0]! }, { type: "done" }];
+  for (const t of turns.slice(1)) events.push({ type: "select", rotation: t }, { type: "done" });
+  const { state, effects } = run(events);
+  assert.deepEqual(state, { status: "previewing", rotation: turns.at(-1)!, queued: null, phase: null });
+  assert.ok(effects.every((e) => !e.startsWith("reverse")), effects.join());
+  assert.equal(code(turns.at(-1)!), "x21");
+});

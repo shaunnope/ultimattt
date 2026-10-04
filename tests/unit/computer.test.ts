@@ -18,7 +18,7 @@ class FakeWorker implements WorkerLike {
   }
 }
 
-const config: GameConfig = { variant: "classic", size: 3, winLength: 3, mode: "computer", level: 3, seed: "C33-BXK4-M9TR" };
+const config: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 3, seed: "C33-BXK4-M9TR" };
 const mv = (cell: number): Move => ({ t: "place", cell });
 
 function setup() {

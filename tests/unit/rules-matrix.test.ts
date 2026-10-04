@@ -46,7 +46,7 @@ const windowCount = (grid: readonly number[], n: number, k: number, value: numbe
 const mark = (m: Mark): 1 | 2 => (m === "X" ? 1 : 2);
 
 function configFor(variant: Variant, size: 3 | 4 | 5, winLength: number): GameConfig {
-  return { variant, size, winLength, mode: "local" };
+  return { variant, size, winLength, scoring: "lines", lockFaces: false, mode: "local" };
 }
 
 test("Classic: win, draw and game-over match the run definition for every combination", () => {

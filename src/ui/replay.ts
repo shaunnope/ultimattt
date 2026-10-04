@@ -7,7 +7,9 @@ import { other } from "../core/types.ts";
 import type { ReplaySpeed } from "../core/settings.ts";
 import type { NotationStyle } from "../core/notation.ts";
 import { replayFrames } from "../core/replay.ts";
+import type { CubeState } from "../core/cube.ts";
 import { createBoard } from "./boards.ts";
+import { lockEndText, optionsNote } from "./cube-labels.ts";
 import { describeMove } from "./replay-text.ts";
 import { announce, h } from "./ui.ts";
 
@@ -71,9 +73,11 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   function outcome(): string {
     if (opts.resigned) return ` ${opts.resigned} resigned. ${other(opts.resigned)} wins.`;
     const state = frames[total]!.state;
-    if (state.status === "won") return ` ${state.winner!} wins!`;
+    const lockNote = config.variant === "cube" ? lockEndText(state as CubeState) : "";
+    const note = lockNote ? ` ${lockNote}` : "";
+    if (state.status === "won") return ` ${state.winner!} wins!${note}`;
     if (state.status === "draw") return " It's a draw.";
-    if (state.status === "tie") return " It's a tie.";
+    if (state.status === "tie") return ` It's a tie.${note}`;
     return "";
   }
 
@@ -153,7 +157,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   });
 
   const close = h("button", { type: "button", class: "btn", onclick: () => opts.onClose() }, opts.closeLabel ?? "Close replay");
-  const title = `${config.variant === "classic" ? "Classic" : config.variant === "ultimate" ? "Ultimate" : "Cube"} ${config.size}×${config.size}, ${config.winLength} in a row`;
+  const title = `${config.variant === "classic" ? "Classic" : config.variant === "ultimate" ? "Ultimate" : "Cube"} ${config.size}×${config.size}, ${config.winLength} in a row${optionsNote(config)}`;
   container.replaceChildren(
     h("section", { class: "screen replay", "aria-label": "Replay" },
       h("div", { class: "game-head" }, h("span", { class: "game-title" }, "Replay"), h("span", { class: "game-sub", id: "replay-rules" }, config.seed ? `${title}, seed ${config.seed}` : title)),

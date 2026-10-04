@@ -1,6 +1,6 @@
 // Words and view angles for the Cube. Pure: the 3D view and the flat view both use these.
 
-import type { CubeRotate } from "../core/types.ts";
+import type { CubeRotate, Scoring } from "../core/types.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerName, turnName } from "../core/notation.ts";
 
@@ -43,8 +43,21 @@ export function frontFace(rx: number, ry: number): number {
   return best;
 }
 
+/** The heading over the score: what is being counted. */
+export const scoreLabel = (scoring: Scoring): string => (scoring === "faces" ? "Faces" : "Lines");
+
+/** Why a game ended early, when the lock option ended it: the board still has room, but only on locked faces. */
+export function lockEndText(state: CubeState): string {
+  return state.config.lockFaces && state.status !== "playing" && state.empty > 0 ? "No open face left to play on." : "";
+}
+
+/** The Cube options in play, for a game's title: "" when both are off. */
+export function optionsNote(config: { scoring: Scoring; lockFaces: boolean }): string {
+  return [config.scoring === "faces" ? "faces scoring" : "", config.lockFaces ? "locked faces" : ""].filter(Boolean).map((t) => `, ${t}`).join("");
+}
+
 export function cubeStatus(state: CubeState): string {
-  if (state.status !== "playing") return "";
+  if (state.status !== "playing") return lockEndText(state);
   if (state.phase === "rotate") return `${state.toMove} scored! Turn a layer of the cube.`;
   return `${state.toMove} to move.`;
 }

@@ -14,21 +14,21 @@ import { replayFrames } from "./replay.ts";
 import type { AnyGameState } from "./variants.ts";
 import { moduleFor } from "./variants.ts";
 
-export const PROTOCOL_VERSION = 2 as const;
+export const PROTOCOL_VERSION = 3 as const;
 
 export type Message =
-  | { v: 2; type: "hello" }
-  | { v: 2; type: "welcome"; config: GameConfig; moves: string }
-  | { v: 2; type: "reject"; reason: "full" | "version" }
-  | { v: 2; type: "move"; n: number; move: Move }
-  | { v: 2; type: "applied"; n: number; move: Move; hash: number }
-  | { v: 2; type: "refused"; n: number; reason: string }
-  | { v: 2; type: "undo-ask"; n: number }
-  | { v: 2; type: "undo-answer"; n: number; ok: boolean }
-  | { v: 2; type: "resign" }
-  | { v: 2; type: "ping" }
-  | { v: 2; type: "pong" }
-  | { v: 2; type: "bye" };
+  | { v: 3; type: "hello" }
+  | { v: 3; type: "welcome"; config: GameConfig; moves: string }
+  | { v: 3; type: "reject"; reason: "full" | "version" }
+  | { v: 3; type: "move"; n: number; move: Move }
+  | { v: 3; type: "applied"; n: number; move: Move; hash: number }
+  | { v: 3; type: "refused"; n: number; reason: string }
+  | { v: 3; type: "undo-ask"; n: number }
+  | { v: 3; type: "undo-answer"; n: number; ok: boolean }
+  | { v: 3; type: "resign" }
+  | { v: 3; type: "ping" }
+  | { v: 3; type: "pong" }
+  | { v: 3; type: "bye" };
 
 export type NetEvent =
   | { type: "synced" }
@@ -60,24 +60,24 @@ export function parseMessage(raw: unknown): Message | { error: string } {
     case "ping":
     case "pong":
     case "bye":
-      return { v: 2, type: raw.type };
+      return { v: 3, type: raw.type };
     case "welcome": {
       const config = parseConfig(raw.config);
       if (!config || typeof raw.moves !== "string") return { error: "bad welcome" };
-      return { v: 2, type: "welcome", config, moves: raw.moves };
+      return { v: 3, type: "welcome", config, moves: raw.moves };
     }
     case "reject":
-      return raw.reason === "full" || raw.reason === "version" ? { v: 2, type: "reject", reason: raw.reason } : { error: "bad reject" };
+      return raw.reason === "full" || raw.reason === "version" ? { v: 3, type: "reject", reason: raw.reason } : { error: "bad reject" };
     case "move":
-      return isCount(raw.n) && isMove(raw.move) ? { v: 2, type: "move", n: raw.n, move: raw.move } : { error: "bad move" };
+      return isCount(raw.n) && isMove(raw.move) ? { v: 3, type: "move", n: raw.n, move: raw.move } : { error: "bad move" };
     case "applied":
-      return isCount(raw.n) && isMove(raw.move) && typeof raw.hash === "number" ? { v: 2, type: "applied", n: raw.n, move: raw.move, hash: raw.hash } : { error: "bad applied" };
+      return isCount(raw.n) && isMove(raw.move) && typeof raw.hash === "number" ? { v: 3, type: "applied", n: raw.n, move: raw.move, hash: raw.hash } : { error: "bad applied" };
     case "refused":
-      return isCount(raw.n) && typeof raw.reason === "string" ? { v: 2, type: "refused", n: raw.n, reason: raw.reason } : { error: "bad refused" };
+      return isCount(raw.n) && typeof raw.reason === "string" ? { v: 3, type: "refused", n: raw.n, reason: raw.reason } : { error: "bad refused" };
     case "undo-ask":
-      return isCount(raw.n) ? { v: 2, type: "undo-ask", n: raw.n } : { error: "bad undo-ask" };
+      return isCount(raw.n) ? { v: 3, type: "undo-ask", n: raw.n } : { error: "bad undo-ask" };
     case "undo-answer":
-      return isCount(raw.n) && typeof raw.ok === "boolean" ? { v: 2, type: "undo-answer", n: raw.n, ok: raw.ok } : { error: "bad undo-answer" };
+      return isCount(raw.n) && typeof raw.ok === "boolean" ? { v: 3, type: "undo-answer", n: raw.n, ok: raw.ok } : { error: "bad undo-answer" };
     default:
       return { error: "unknown message" };
   }
@@ -85,7 +85,7 @@ export function parseMessage(raw: unknown): Message | { error: string } {
 
 /** The host takes one guest. A second one is told the game is full. */
 export function admitGuest(hasGuest: boolean): Message | null {
-  return hasGuest ? { v: 2, type: "reject", reason: "full" } : null;
+  return hasGuest ? { v: 3, type: "reject", reason: "full" } : null;
 }
 
 /**
@@ -141,11 +141,11 @@ export class NetSession {
   }
 
   hello(): Message {
-    return { v: 2, type: "hello" };
+    return { v: 3, type: "hello" };
   }
 
   private welcome(): Message {
-    return { v: 2, type: "welcome", config: this.config, moves: encodeMoves(this.config.variant, this.state!.moves) };
+    return { v: 3, type: "welcome", config: this.config, moves: encodeMoves(this.config.variant, this.state!.moves) };
   }
 
   private truncate(target: number): void {
@@ -160,7 +160,7 @@ export class NetSession {
   receive(raw: unknown): Reaction {
     // A hello from another version of the app gets a reason, not silence.
     if (isObject(raw) && raw.type === "hello" && raw.v !== PROTOCOL_VERSION) {
-      return this.role === "host" ? { send: [{ v: 2, type: "reject", reason: "version" }], events: [] } : none();
+      return this.role === "host" ? { send: [{ v: 3, type: "reject", reason: "version" }], events: [] } : none();
     }
     const message = parseMessage(raw);
     if ("error" in message) return none();
@@ -186,7 +186,7 @@ export class NetSession {
         this.resigned = other(this.myMark);
         return { send: [], events: [{ type: "resigned", by: this.resigned }] };
       case "ping":
-        return { send: [{ v: 2, type: "pong" }], events: [] };
+        return { send: [{ v: 3, type: "pong" }], events: [] };
       case "pong":
         return none();
       case "bye":
@@ -212,7 +212,7 @@ export class NetSession {
   /** Host: check a guest's move against the rules and the turn, apply it, and say so. */
   private onGuestMove(message: Extract<Message, { type: "move" }>): Reaction {
     const state = this.state!;
-    const refuse = (reason: string): Reaction => ({ send: [{ v: 2, type: "refused", n: message.n, reason }], events: [] });
+    const refuse = (reason: string): Reaction => ({ send: [{ v: 3, type: "refused", n: message.n, reason }], events: [] });
     if (this.resigned) return refuse("game-over");
     if (message.n !== state.moves.length) return refuse("out-of-sync");
     if (state.toMove !== other(this.myMark)) return refuse("not-your-turn");
@@ -224,7 +224,7 @@ export class NetSession {
   private applyHere(move: Move, by: Mark): Reaction {
     const n = this.state!.moves.length;
     this.state = this.mod.apply(this.state!, move);
-    return { send: [{ v: 2, type: "applied", n, move, hash: this.mod.hash(this.state) }], events: [{ type: "applied", move, by }] };
+    return { send: [{ v: 3, type: "applied", n, move, hash: this.mod.hash(this.state) }], events: [{ type: "applied", move, by }] };
   }
 
   /** Guest: take the host's move, and check we ended up in the same position. */
@@ -254,7 +254,7 @@ export class NetSession {
     const legal = this.mod.isLegal(state, move);
     if (!legal.ok) return { ...none(), error: legal.reason };
     if (this.role === "host") return this.applyHere(move, this.myMark);
-    return { send: [{ v: 2, type: "move", n: state.moves.length, move }], events: [] };
+    return { send: [{ v: 3, type: "move", n: state.moves.length, move }], events: [] };
   }
 
   askUndo(): Reaction & { error?: string } {
@@ -264,7 +264,7 @@ export class NetSession {
     const target = undoTarget(this.config, state.moves, this.myMark);
     if (target === null) return { ...none(), error: "nothing-to-undo" };
     this.pendingUndo = { by: this.myMark, target };
-    return { send: [{ v: 2, type: "undo-ask", n: target }], events: [] };
+    return { send: [{ v: 3, type: "undo-ask", n: target }], events: [] };
   }
 
   private onUndoAsk(n: number): Reaction {
@@ -272,7 +272,7 @@ export class NetSession {
     const asker = other(this.myMark);
     if (undoTarget(this.config, this.state.moves, asker) !== n) return none();
     // Two asks at once: ours stands, theirs is declined.
-    if (this.pendingUndo) return { send: [{ v: 2, type: "undo-answer", n, ok: false }], events: [] };
+    if (this.pendingUndo) return { send: [{ v: 3, type: "undo-answer", n, ok: false }], events: [] };
     this.pendingUndo = { by: asker, target: n };
     return { send: [], events: [{ type: "undo-asked", by: asker, target: n }] };
   }
@@ -282,7 +282,7 @@ export class NetSession {
     const pending = this.pendingUndo;
     if (!pending || pending.by === this.myMark || !this.state) return none();
     this.pendingUndo = null;
-    const send: Message[] = [{ v: 2, type: "undo-answer", n: pending.target, ok }];
+    const send: Message[] = [{ v: 3, type: "undo-answer", n: pending.target, ok }];
     if (!ok) return { send, events: [] };
     this.truncate(pending.target);
     return { send, events: [{ type: "undo-done", target: pending.target }] };
@@ -300,6 +300,6 @@ export class NetSession {
   resign(): Reaction & { error?: string } {
     if (!this.state || this.resigned || this.state.status !== "playing") return { ...none(), error: "game-over" };
     this.resigned = this.myMark;
-    return { send: [{ v: 2, type: "resign" }], events: [{ type: "resigned", by: this.myMark }] };
+    return { send: [{ v: 3, type: "resign" }], events: [{ type: "resigned", by: this.myMark }] };
   }
 }

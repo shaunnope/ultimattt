@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { replayFrames } from "../../src/core/replay.ts";
 import { describeMove } from "../../src/ui/replay-text.ts";
 import { fromMoves } from "../../src/core/variants.ts";
+import { legalMoves, apply as applyCube, newGame as newCube } from "../../src/core/cube.ts";
 import { recordFromGame, configFromRecord, packLink, unpackLink } from "../../src/core/record.ts";
 import { applySeedToSetup, DEFAULT_SETUP } from "../../src/ui/setup.ts";
 import type { CubeMove, GameConfig, Move } from "../../src/core/types.ts";
 
-const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, mode: "local" };
-const cube: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
+const cube: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 const place = (cell: number): Move => ({ t: "place", cell });
 const CUBE_MOVES: CubeMove[] = [
   { t: "place", face: 2, cell: 0 }, { t: "place", face: 0, cell: 0 }, { t: "place", face: 2, cell: 1 },
@@ -35,7 +36,7 @@ test("in the Cube the same player places a scoring mark and then turns a layer",
 
 test("moves are described in words, per variant", () => {
   assert.equal(describeMove(classic, place(5), "X", 3), "3. X: row 2, column 3");
-  const ultimate: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "local" };
+  const ultimate: GameConfig = { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
   assert.equal(describeMove(ultimate, { t: "place", board: 4, cell: 2 }, "O", 2), "2. O: centre board, row 1, column 3");
   assert.equal(describeMove(cube, { t: "place", face: 2, cell: 4 }, "X", 1), "1. X: front face, row 2, column 2");
   assert.equal(describeMove(cube, { t: "rotate", axis: "y", layer: 2, dir: 1 }, "X", 6), "6. X: turn the top layer to the right");
@@ -43,7 +44,7 @@ test("moves are described in words, per variant", () => {
 });
 
 test("a finished game becomes a record and back, for every kind of game", () => {
-  const computer: GameConfig = { variant: "classic", size: 4, winLength: 4, mode: "computer", level: 4, humanMark: "O", seed: "C44-BXK4-M9TR" };
+  const computer: GameConfig = { variant: "classic", size: 4, winLength: 4, scoring: "lines", lockFaces: false, mode: "computer", level: 4, humanMark: "O", seed: "C44-BXK4-M9TR" };
   for (const [config, moves, resigned] of [
     [classic, [0, 4].map(place), undefined],
     [computer, [0, 5].map(place), "O"],
@@ -80,4 +81,25 @@ test("a bad seed is explained, not guessed at", () => {
     const result = applySeedToSetup(DEFAULT_SETUP, bad);
     assert.ok("error" in result, bad);
   }
+});
+
+test("a lock game's record replays to the same final state and status, including an early end", () => {
+  const lockConfig: GameConfig = { ...cube, scoring: "faces", lockFaces: true };
+  // A game played out by the rules: always the first legal move, which ends once no open face has room.
+  let s = newCube(lockConfig);
+  const moves: CubeMove[] = [];
+  const first = (state: typeof s): CubeMove => legalMoves(state)[0]!;
+  while (s.status === "playing") {
+    const m = first(s);
+    moves.push(m);
+    s = applyCube(s, m);
+  }
+  const record = recordFromGame(lockConfig, moves);
+  assert.deepEqual(record.rules, { variant: "cube", size: 3, winLength: 3, scoring: "faces", lockFaces: true });
+  const back = unpackLink(packLink(record, 1));
+  assert.ok(!("error" in back));
+  if ("error" in back) return;
+  const replayed = fromMoves(configFromRecord(back), back.moves);
+  assert.deepEqual(replayed, s);
+  assert.equal(replayFrames(configFromRecord(back), back.moves).at(-1)!.state.status, s.status);
 });

@@ -6,7 +6,7 @@ import type { ClassicState } from "../../src/core/classic.ts";
 import { rngFor } from "../../src/core/seed.ts";
 import type { ClassicMove, GameConfig, Level } from "../../src/core/types.ts";
 
-const config = (size: 3 | 4 | 5, seed: string, winLength = size === 3 ? 3 : 4): GameConfig => ({ variant: "classic", size, winLength, mode: "computer", seed });
+const config = (size: 3 | 4 | 5, seed: string, winLength = size === 3 ? 3 : 4): GameConfig => ({ variant: "classic", size, winLength, scoring: "lines", lockFaces: false, mode: "computer", seed });
 const place = (cell: number): ClassicMove => ({ t: "place", cell });
 const pick = (state: ClassicState, level: Level, seed: string): number =>
   (chooseMove("classic", state, level, rngFor(seed, state.moves.length)) as ClassicMove).cell;

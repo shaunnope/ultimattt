@@ -2,7 +2,7 @@
 // Mark colours and turn notation are display preferences of this device; they never reach game state,
 // seeds, links or the network.
 
-import type { Level, Mark, Mode, Variant } from "./types.ts";
+import type { Level, Mark, Mode, Scoring, Variant } from "./types.ts";
 import { clampWinLength } from "./rules.ts";
 import { DEFAULT_PALETTE, paletteById } from "./palette.ts";
 
@@ -16,6 +16,9 @@ export interface SetupChoice {
   variant: Variant;
   size: 3 | 4 | 5;
   winLength: number;
+  /** Cube only; "lines" and false everywhere else */
+  scoring: Scoring;
+  lockFaces: boolean;
   mode: Mode;
   level: Level;
   markChoice: Mark | "random";
@@ -59,10 +62,13 @@ export function normalizeSetup(raw: unknown): SetupChoice | null {
   if (c.markChoice !== "X" && c.markChoice !== "O" && c.markChoice !== "random") return null;
   const variant = c.variant as Variant;
   const size = c.size as 3 | 4 | 5;
+  const scoring = c.scoring === "faces" ? "faces" : "lines";
   return {
     variant,
     size,
     winLength: clampWinLength(variant, size, typeof c.winLength === "number" ? c.winLength : Number.NaN),
+    scoring,
+    lockFaces: c.lockFaces === true,
     mode: c.mode as Mode,
     level: c.level as Level,
     markChoice: c.markChoice as Mark | "random",

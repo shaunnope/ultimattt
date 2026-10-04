@@ -381,3 +381,38 @@ test("a Cube turn previewed on one device is not seen on the other until it is c
   await expect(b.locator("#cube-score")).toContainText("X: 0");
   await expect(b.locator("#game-status")).toContainText(/your move/i);
 });
+
+test("a protocol 2 guest (a build from before the Cube options) is refused with a message to update", async ({ browser, relay }) => {
+  const { page: a } = await relay.device(browser);
+  const code = await host(a, "Cube");
+  const { page: old } = await relay.device(browser);
+  await old.goto("./");
+  await old.evaluate(() => {
+    const send = (window as unknown as { __relaySend: (m: { kind: string; data?: { v?: number; type?: string } }) => void }).__relaySend;
+    (window as unknown as { __relaySend: unknown }).__relaySend = (m: { kind: string; data?: { v?: number; type?: string } }) => {
+      if (m.kind === "data" && m.data?.type === "hello") m.data.v = 2;
+      return send(m);
+    };
+  });
+  await old.locator("#join-code").fill(code);
+  await old.getByRole("button", { name: "Join game" }).click();
+  await expect(old.locator("#toasts, .net-error, [role=alert]").first()).toContainText(/both devices need the latest version/i);
+});
+
+test("a Cube game with the lock and faces scoring is the same on both devices", async ({ browser, relay }) => {
+  const { page: a } = await relay.device(browser);
+  const { page: b } = await relay.device(browser);
+  await a.goto("./");
+  await choose(a, "Cube");
+  await choose(a, "A friend on another device");
+  await a.locator("#opt-lock").check();
+  await a.locator("#opt-faces").check();
+  await choose(a, "X");
+  await a.getByRole("button", { name: "Host game" }).click();
+  const code = (await a.locator("#join-code-display").innerText()).trim();
+  await joinWith(b, code);
+  await expect(a.locator(".cube-board")).toBeVisible();
+  await expect(b.locator(".cube-board")).toBeVisible();
+  await expect(b.locator("#cube-score")).toContainText("Faces");
+  await expect(b.locator("#game-title")).toContainText(/locked faces/);
+});

@@ -4,7 +4,7 @@ import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, pla
 import type { UltimateState } from "../../src/core/ultimate.ts";
 import type { Cell, GameConfig, UltimateMove } from "../../src/core/types.ts";
 
-const config: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "local" };
+const config: GameConfig = { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 const mv = (board: number, cell: number): UltimateMove => ({ t: "place", board, cell });
 const play = (moves: [number, number][]): UltimateState => moves.reduce((s, [b, c]) => apply(s, mv(b, c)), newGame(config));
 
@@ -161,7 +161,7 @@ test("hash is stable, and differs between positions", () => {
 
 // ---- N×N small boards on an N×N grid, with K in a row at both levels ----
 
-const big = (size: 4 | 5, winLength = 3): GameConfig => ({ variant: "ultimate", size, winLength, mode: "local" });
+const big = (size: 4 | 5, winLength = 3): GameConfig => ({ variant: "ultimate", size, winLength, scoring: "lines", lockFaces: false, mode: "local" });
 const playBig = (cfg: GameConfig, moves: [number, number][]): UltimateState => moves.reduce((st, [b, c]) => apply(st, mv(b, c)), newGame(cfg));
 const emptyN = (n: number): Cell[] => Array<Cell>(n * n).fill(0);
 

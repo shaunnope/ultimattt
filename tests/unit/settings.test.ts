@@ -40,9 +40,9 @@ test("lastSetup keeps a valid win length for its size", () => {
 test("lastSetup repairs a win length that does not fit its size or is missing", () => {
   const base = { variant: "classic", size: 3, mode: "local", level: 3, markChoice: "random" };
   assert.equal(normalizeSetup({ ...base, winLength: 5 })?.winLength, 3);
-  assert.equal(normalizeSetup({ ...base, size: 5, variant: "ultimate", winLength: 2 })?.winLength, 3);
+  assert.equal(normalizeSetup({ ...base, size: 5, variant: "ultimate", winLength: 2 })?.winLength, 4);
   assert.equal(normalizeSetup({ ...base, size: 5 })?.winLength, 4);
-  assert.equal(normalizeSetup({ ...base, size: 4, variant: "cube", winLength: "x" })?.winLength, 3);
+  assert.equal(normalizeSetup({ ...base, size: 4, variant: "cube", winLength: "x" })?.winLength, 4);
 });
 
 test("lastSetup is still null for anything else that is off", () => {
@@ -54,6 +54,6 @@ test("lastSetup is still null for anything else that is off", () => {
 });
 
 test("the last choices survive a round trip", () => {
-  const setup = { variant: "ultimate", size: 4, winLength: 3, mode: "computer", level: 4, markChoice: "O" } as const;
+  const setup = { variant: "cube", size: 4, winLength: 3, scoring: "faces", lockFaces: true, mode: "local", level: 4, markChoice: "O" } as const;
   assert.deepEqual(normalizeSettings({ lastSetup: setup }).lastSetup, setup);
 });

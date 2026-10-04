@@ -10,6 +10,8 @@ const config = (variant: "classic" | "ultimate" | "cube", hostMark: "X" | "O" = 
   variant,
   size,
   winLength,
+  scoring: "lines",
+  lockFaces: false,
   mode: "network",
   humanMark: hostMark,
 });
@@ -62,8 +64,8 @@ function playRandomGame(p: Pair, seed: number): void {
 }
 
 test("messages are checked: wrong version, unknown type and malformed bodies are refused", () => {
-  assert.deepEqual(parseMessage({ v: PROTOCOL_VERSION, type: "ping" }), { v: 2, type: "ping" });
-  for (const bad of [null, "x", 5, {}, { v: 1, type: "ping" }, { v: 2 }, { v: 2, type: "nope" }, { v: 2, type: "move" }, { v: 2, type: "move", n: "1", move: {} }, { v: 2, type: "applied", n: 1, move: { t: "place", cell: 1 } }, { v: 2, type: "undo-answer", n: 1 }, { v: 2, type: "welcome", config: {}, moves: "" }]) {
+  assert.deepEqual(parseMessage({ v: PROTOCOL_VERSION, type: "ping" }), { v: 3, type: "ping" });
+  for (const bad of [null, "x", 5, {}, { v: 1, type: "ping" }, { v: 3 }, { v: 3, type: "nope" }, { v: 3, type: "move" }, { v: 3, type: "move", n: "1", move: {} }, { v: 3, type: "applied", n: 1, move: { t: "place", cell: 1 } }, { v: 3, type: "undo-answer", n: 1 }, { v: 3, type: "welcome", config: {}, moves: "" }]) {
     assert.ok("error" in (parseMessage(bad) as object), JSON.stringify(bad));
   }
 });
@@ -82,11 +84,11 @@ test("joining: hello brings a welcome with the game's setup and moves; the guest
 test("a hello from another version is rejected, and a second guest is turned away", () => {
   const host = NetSession.host(config("classic"));
   const reaction = host.receive({ v: 99, type: "hello" });
-  assert.deepEqual(reaction.send, [{ v: 2, type: "reject", reason: "version" }]);
-  assert.deepEqual(admitGuest(true), { v: 2, type: "reject", reason: "full" });
+  assert.deepEqual(reaction.send, [{ v: 3, type: "reject", reason: "version" }]);
+  assert.deepEqual(admitGuest(true), { v: 3, type: "reject", reason: "full" });
   assert.equal(admitGuest(false), null);
   const guest = NetSession.guest();
-  const rejected = guest.receive({ v: 2, type: "reject", reason: "full" });
+  const rejected = guest.receive({ v: 3, type: "reject", reason: "full" });
   assert.deepEqual(rejected.events, [{ type: "rejected", reason: "full" }]);
 });
 
@@ -109,7 +111,7 @@ test("you cannot move on the other player's turn, and a forged move is refused b
   assert.equal(early.error, "not-your-turn");
   assert.deepEqual(early.send, []);
   // a guest that ignores its own check still gets refused
-  p.push("guest", [{ v: 2, type: "move", n: 0, move: { t: "place", cell: 4 } }]);
+  p.push("guest", [{ v: 3, type: "move", n: 0, move: { t: "place", cell: 4 } }]);
   p.pump();
   assert.ok(p.log.some((l) => l.message.type === "refused" && (l.message as { reason: string }).reason === "not-your-turn"));
   assert.equal(p.host.state!.moves.length, 0);
@@ -122,9 +124,9 @@ test("an illegal move or one with the wrong move number is refused and changes n
   const first = p.host.move({ t: "place", cell: 0 });
   p.push("host", first.send);
   p.pump();
-  p.push("guest", [{ v: 2, type: "move", n: 1, move: { t: "place", cell: 0 } }]); // occupied
+  p.push("guest", [{ v: 3, type: "move", n: 1, move: { t: "place", cell: 0 } }]); // occupied
   p.pump();
-  p.push("guest", [{ v: 2, type: "move", n: 7, move: { t: "place", cell: 5 } }]); // out of step
+  p.push("guest", [{ v: 3, type: "move", n: 7, move: { t: "place", cell: 5 } }]); // out of step
   p.pump();
   const refusals = p.log.filter((l) => l.message.type === "refused").map((l) => (l.message as { reason: string }).reason);
   assert.deepEqual(refusals, ["occupied", "out-of-sync"]);
@@ -207,7 +209,7 @@ test("you can only ask to take back your own move, and two asks at once do not b
   assert.equal(b.error, undefined);
   // each side's ask reaches the other while it has its own outstanding: both are declined
   const fromHost = p.guest.receive(a.send[0]!);
-  assert.deepEqual(fromHost.send, [{ v: 2, type: "undo-answer", n: (a.send[0] as { n: number }).n, ok: false }]);
+  assert.deepEqual(fromHost.send, [{ v: 3, type: "undo-answer", n: (a.send[0] as { n: number }).n, ok: false }]);
 });
 
 test("Cube: taking back a move after a layer turn takes back the turn and the mark together", () => {
@@ -250,7 +252,7 @@ test("Cube: a scoring placement and its layer turn are two moves by the same pla
   play("O", { t: "place", face: 0, cell: 1 });
   play("X", { t: "place", face: 2, cell: 2 }); // scores: X must now turn a layer
   assert.equal(p.guest.move({ t: "place", face: 1, cell: 0 }).error, "not-your-turn");
-  p.push("guest", [{ v: 2, type: "move", n: p.host.state!.moves.length, move: { t: "place", face: 1, cell: 0 } }]);
+  p.push("guest", [{ v: 3, type: "move", n: p.host.state!.moves.length, move: { t: "place", face: 1, cell: 0 } }]);
   p.pump();
   assert.equal(p.host.state!.moves.length, 5);
   play("X", { t: "rotate", axis: "y", layer: 0, dir: 1 });
@@ -275,23 +277,23 @@ test("a guest that comes back gets the whole game and carries on", () => {
 
 test("liveness and leaving: ping is answered, bye is reported", () => {
   const host = NetSession.host(config("classic"));
-  assert.deepEqual(host.receive({ v: 2, type: "ping" }).send, [{ v: 2, type: "pong" }]);
-  assert.deepEqual(host.receive({ v: 2, type: "pong" }).send, []);
-  assert.deepEqual(host.receive({ v: 2, type: "bye" }).events, [{ type: "left" }]);
+  assert.deepEqual(host.receive({ v: 3, type: "ping" }).send, [{ v: 3, type: "pong" }]);
+  assert.deepEqual(host.receive({ v: 3, type: "pong" }).send, []);
+  assert.deepEqual(host.receive({ v: 3, type: "bye" }).events, [{ type: "left" }]);
 });
 
 test("messages that make no sense here are ignored: no reply, no change", () => {
   const p = pair(config("classic", "X"));
   p.connect();
   const before = JSON.stringify(p.host.state);
-  for (const odd of [{ v: 2, type: "applied", n: 0, move: { t: "place", cell: 4 }, hash: 1 }, { v: 2, type: "welcome", config: p.host.config, moves: "" }, { v: 2, type: "undo-answer", n: 0, ok: true }, "garbage", null]) {
+  for (const odd of [{ v: 3, type: "applied", n: 0, move: { t: "place", cell: 4 }, hash: 1 }, { v: 3, type: "welcome", config: p.host.config, moves: "" }, { v: 3, type: "undo-answer", n: 0, ok: true }, "garbage", null]) {
     const r = p.host.receive(odd);
     assert.deepEqual(r.send, []);
     assert.deepEqual(r.events, []);
   }
   assert.equal(JSON.stringify(p.host.state), before);
-  assert.deepEqual(p.guest.receive({ v: 2, type: "move", n: 0, move: { t: "place", cell: 1 } }).send, []);
-  assert.deepEqual(p.guest.receive({ v: 2, type: "hello" }).send, []);
+  assert.deepEqual(p.guest.receive({ v: 3, type: "move", n: 0, move: { t: "place", cell: 1 } }).send, []);
+  assert.deepEqual(p.guest.receive({ v: 3, type: "hello" }).send, []);
 });
 
 test("display preferences never travel: messages hold only game data", () => {
@@ -321,22 +323,22 @@ test("a saved game that does not play through the rules cannot be resumed", () =
   assert.throws(() => NetSession.host(cfg, [{ t: "place", cell: 0 }, { t: "place", cell: 0 }]), /occupied/);
 });
 
-test("protocol version is 2 and every message carries it", () => {
-  assert.equal(PROTOCOL_VERSION, 2);
+test("protocol version is 3 and every message carries it", () => {
+  assert.equal(PROTOCOL_VERSION, 3);
   const p = pair(config("classic"));
   p.connect();
   p.push("host", p.host.move({ t: "place", cell: 4 }).send);
   p.pump();
   assert.ok(p.log.length >= 3);
-  for (const { message } of p.log) assert.equal(message.v, 2);
+  for (const { message } of p.log) assert.equal(message.v, 3);
 });
 
 test("a version 1 hello is rejected with the version reason, a version 1 message is ignored", () => {
   const host = NetSession.host(config("classic"));
-  assert.deepEqual(host.receive({ v: 1, type: "hello" }).send, [{ v: 2, type: "reject", reason: "version" }]);
+  assert.deepEqual(host.receive({ v: 1, type: "hello" }).send, [{ v: 3, type: "reject", reason: "version" }]);
   const guest = NetSession.guest();
   assert.deepEqual(guest.receive({ v: 1, type: "welcome", config: config("classic"), moves: "" }), { send: [], events: [] });
-  assert.deepEqual(guest.receive({ v: 2, type: "reject", reason: "version" }).events, [{ type: "rejected", reason: "version" }]);
+  assert.deepEqual(guest.receive({ v: 3, type: "reject", reason: "version" }).events, [{ type: "rejected", reason: "version" }]);
 });
 
 test("welcome carries the win length and no seed, and the guest reads them back", () => {
@@ -352,7 +354,7 @@ test("welcome carries the win length and no seed, and the guest reads them back"
 test("a welcome with a bad win length is ignored", () => {
   const guest = NetSession.guest();
   const bad = { ...config("classic", "X", 4, 4), winLength: 5 };
-  assert.deepEqual(guest.receive({ v: 2, type: "welcome", config: bad, moves: "" }), { send: [], events: [] });
+  assert.deepEqual(guest.receive({ v: 3, type: "welcome", config: bad, moves: "" }), { send: [], events: [] });
   assert.equal(guest.state, null);
 });
 
@@ -370,4 +372,20 @@ test("a whole game of larger boards and shorter win lengths stays in step on bot
     assert.notEqual(p.guest.state!.status, "playing");
     assert.equal(moduleFor(cfg).hash(p.host.state!), moduleFor(cfg).hash(p.guest.state!));
   }
+});
+
+test("a version 2 hello (an older build) is answered with the version reason", () => {
+  const host = NetSession.host(config("cube"));
+  assert.deepEqual(host.receive({ v: 2, type: "hello" }).send, [{ v: 3, type: "reject", reason: "version" }]);
+});
+
+test("a welcome carrying a Cube config with scoring and lock round-trips through parseMessage", () => {
+  const cfg: GameConfig = { ...config("cube", "X", 4, 3), scoring: "faces", lockFaces: true };
+  const p = pair(cfg);
+  p.connect();
+  const welcome = p.log.find((l) => l.message.type === "welcome")!.message as Extract<Message, { type: "welcome" }>;
+  assert.equal(welcome.config.scoring, "faces");
+  assert.equal(welcome.config.lockFaces, true);
+  assert.deepEqual(parseMessage(JSON.parse(JSON.stringify(welcome))), welcome);
+  assert.deepEqual(p.guest.config, cfg);
 });

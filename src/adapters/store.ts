@@ -1,7 +1,7 @@
 // The save file: settings and the game in progress, in localStorage (or memory when that is
 // unavailable). The game is stored as its config and its moves; the position is always rebuilt by
 // playing the moves through the rules, so a save can never disagree with them.
-// Schema 2 (schema 1 saves are migrated on read). An unknown or corrupt save is never overwritten: it is copied aside first.
+// Schema 3 (schema 1 and 2 saves are migrated on read). An unknown or corrupt save is never overwritten: it is copied aside first.
 
 import type { GameConfig, Mark, Move } from "../core/types.ts";
 import { parseConfig } from "../core/config.ts";
@@ -28,7 +28,7 @@ export interface SavedGame {
 }
 
 export interface SaveFile {
-  schema: 2;
+  schema: 3;
   settings: Settings;
   game: SavedGame | null;
 }
@@ -36,7 +36,7 @@ export interface SaveFile {
 export type ParseResult = { ok: true; save: SaveFile } | { ok: false; reason: "unknown-schema" | "corrupt" };
 
 export function defaultSave(): SaveFile {
-  return { schema: 2, settings: { ...DEFAULT_SETTINGS }, game: null };
+  return { schema: 3, settings: { ...DEFAULT_SETTINGS }, game: null };
 }
 
 export function savedGameFrom(config: GameConfig, moves: readonly Move[], startedAt: number, resigned?: Mark, hostCode?: string, joinCode?: string): SavedGame {
@@ -79,6 +79,16 @@ export function migrate1to2(save: Record<string, unknown>): Record<string, unkno
   return { ...save, schema: 2, settings, game };
 }
 
+/** Schema 2 to 3: a game and the remembered setup get the Cube options at their defaults (lines, no lock). Pure. */
+export function migrate2to3(save: Record<string, unknown>): Record<string, unknown> {
+  const withOptions = (raw: unknown): unknown => (isObject(raw) ? { scoring: "lines", lockFaces: false, ...raw } : raw);
+  const settings: Record<string, unknown> = isObject(save.settings) ? { ...save.settings } : {};
+  if (settings.lastSetup !== undefined && settings.lastSetup !== null) settings.lastSetup = withOptions(settings.lastSetup);
+  let game: unknown = save.game ?? null;
+  if (isObject(game)) game = { ...game, config: withOptions(game.config) };
+  return { ...save, schema: 3, settings, game };
+}
+
 const isMark = (v: unknown): v is Mark => v === "X" || v === "O";
 
 function readGame(raw: unknown): SavedGame | null {
@@ -105,15 +115,14 @@ export function parseSave(text: string | null): ParseResult {
   const obj = raw as Record<string, unknown>;
   if (typeof obj.schema !== "number") return { ok: false, reason: "corrupt" };
   let current: Record<string, unknown> = obj;
-  if (obj.schema === 1) {
-    try {
-      current = migrate1to2(obj);
-    } catch {
-      return { ok: false, reason: "unknown-schema" };
-    }
+  try {
+    if (current.schema === 1) current = migrate1to2(current);
+    if (current.schema === 2) current = migrate2to3(current);
+  } catch {
+    return { ok: false, reason: "unknown-schema" };
   }
-  if (current.schema !== 2) return { ok: false, reason: "unknown-schema" };
-  return { ok: true, save: { schema: 2, settings: normalizeSettings(current.settings), game: readGame(current.game) } };
+  if (current.schema !== 3) return { ok: false, reason: "unknown-schema" };
+  return { ok: true, save: { schema: 3, settings: normalizeSettings(current.settings), game: readGame(current.game) } };
 }
 
 const NOTICE = "Your saved game could not be read, so a new one was started. The old save was kept aside.";

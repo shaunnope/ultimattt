@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rotationLabel, layerName, FACE_NAMES, faceViewAngles, frontFace, cubeStatus } from "../../src/ui/cube-labels.ts";
+import { rotationLabel, layerName, FACE_NAMES, faceViewAngles, frontFace, cubeStatus, scoreLabel, lockEndText, optionsNote } from "../../src/ui/cube-labels.ts";
 import { rotations, newGame, apply } from "../../src/core/cube.ts";
 import { turnName } from "../../src/core/notation.ts";
-import type { CubeMove, GameConfig } from "../../src/core/types.ts";
+import type { Cell, CubeMove, GameConfig } from "../../src/core/types.ts";
 
 test("every one of the 9N rotations has its own, readable label", () => {
   for (const size of [3, 4, 5]) {
@@ -50,7 +50,7 @@ test("each face has a name and a view that brings it to the front", () => {
   assert.deepEqual(faceViewAngles(1), { rx: 90, ry: 0 });
 });
 
-const config: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+const config: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 const place = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const play = (moves: CubeMove[]) => moves.reduce((s, m) => apply(s, m), newGame(config));
 
@@ -70,4 +70,29 @@ test("frontFace names the face turned towards the viewer for a view", () => {
   assert.equal(frontFace(-25, -30), 2);
   // turning most of the way round shows the back
   assert.equal(frontFace(0, 170), 3);
+});
+
+test("the score label says Lines or Faces for the scoring mode", () => {
+  assert.equal(scoreLabel("lines"), "Lines");
+  assert.equal(scoreLabel("faces"), "Faces");
+});
+
+test("a game the lock ended says no open face is left; an ordinary end or a game in progress says nothing", () => {
+  assert.equal(lockEndText(newGame({ ...config, lockFaces: true })), "");
+  const stickers: Cell[] = Array.from({ length: 6 }, (_, f) => (f === 2 ? ([1, 1, 1, 2, 0, 2, 2, 1, 2] as Cell[]) : ([1, 2, 1, 1, 2, 2, 2, 1, 1] as Cell[]))).flat();
+  const ended = { ...newGame({ ...config, lockFaces: true }), stickers, status: "won" as const, winner: "X" as const, empty: 1 };
+  assert.equal(lockEndText(ended), "No open face left to play on.");
+  assert.equal(lockEndText({ ...ended, empty: 0 }), "");
+  assert.equal(lockEndText({ ...ended, status: "playing", winner: null }), "");
+});
+
+test("the status line of a game the lock ended is not blank", () => {
+  const ended = { ...newGame({ ...config, lockFaces: true }), status: "won" as const, winner: "X" as const, empty: 1 };
+  assert.match(cubeStatus(ended), /No open face left/);
+});
+
+test("the options note names what is on, and says nothing when both are off", () => {
+  assert.equal(optionsNote({ scoring: "lines", lockFaces: false }), "");
+  assert.equal(optionsNote({ scoring: "faces", lockFaces: false }), ", faces scoring");
+  assert.equal(optionsNote({ scoring: "faces", lockFaces: true }), ", faces scoring, locked faces");
 });

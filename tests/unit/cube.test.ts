@@ -4,7 +4,7 @@ import { newGame, legalMoves, isLegal, apply, status, undo, fromMoves, hash, rot
 import type { CubeState } from "../../src/core/cube.ts";
 import type { Cell, CubeMove, GameConfig } from "../../src/core/types.ts";
 
-const config: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+const config: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 const place = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const rotate = (axis: "x" | "y" | "z", layer: number, dir: 1 | -1 | 2): CubeMove => ({ t: "rotate", axis, layer, dir });
 const F = 2; // faces: U0 D1 F2 B3 L4 R5
@@ -220,7 +220,7 @@ test("a turn on a layer beyond the cube is refused", () => {
 
 // ---- N = 4 and 5, and win lengths below N ----
 
-const sized = (size: 3 | 4 | 5, winLength: number): GameConfig => ({ variant: "cube", size, winLength, mode: "local" });
+const sized = (size: 3 | 4 | 5, winLength: number): GameConfig => ({ variant: "cube", size, winLength, scoring: "lines", lockFaces: false, mode: "local" });
 const at = (size: number, face: number, row: number, col: number) => face * size * size + row * size + col;
 const blank = (size: number): Cell[] => Array<Cell>(6 * size * size).fill(0);
 

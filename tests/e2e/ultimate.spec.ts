@@ -49,7 +49,7 @@ test("a claimed board shows its owner, and being sent there frees the choice", a
 test("a full game played from the computer's own moves ends with the same result as the rules", async ({ page }) => {
   // Build a whole game in the test (Master as X against Beginner as O), replay the clicks, and compare.
   const seed = "ULT-BXK4-M9TR";
-  const config: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "computer", seed };
+  const config: GameConfig = { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", seed };
   let s = newGame(config);
   const moves: [number, number][] = [];
   while (status(s).status === "playing") {

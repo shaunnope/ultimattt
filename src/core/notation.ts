@@ -4,9 +4,9 @@
 //
 // Notation: R, U and F turn clockwise as seen looking at that face, which with the 001 convention (dir +1 is +90° by
 // the right-hand rule about +axis) is dir -1; L, D and B are dir +1. A prime means the opposite way, a 2 a half turn.
-// On a 3×3 the middle slices are M (turns like L), E (like D) and S (like F). On 4×4 and 5×5 an inner layer is numbered
-// from the nearer side, taking the high side (R, U, F) when its number is no more than N/2 and the low side otherwise:
-// 2R and 2L on a 4×4, and on a 5×5 the middle layer is 3L, 3D, 3B.
+// Every name is one layer, never a wide turn. The middle layer of any odd cube (3×3 and 5×5) is a slice: M (turns like
+// L), E (like D) and S (like F). Any other inner layer is numbered by its depth from the nearer face, taking the high
+// side (R, U, F) when it is nearer that side: on a 4×4 the layers across are L 2L 2R R, and on a 5×5 L 2L M 2R R.
 
 import type { Axis, CubeRotate, RotateDir } from "./types.ts";
 
@@ -47,9 +47,9 @@ function base(axis: Axis, layer: number, size: number): Base {
   const { low, high, slice } = LETTERS[axis];
   if (layer === 0) return { label: low, way: 1 };
   if (layer === size - 1) return { label: high, way: -1 };
-  if (size === 3) return { label: slice, way: SLICE_WAY[axis] };
+  if (size % 2 === 1 && layer === (size - 1) / 2) return { label: slice, way: SLICE_WAY[axis] };
   const depthHigh = size - layer;
-  if (depthHigh <= size / 2) return { label: `${depthHigh}${high}`, way: -1 };
+  if (depthHigh < layer + 1) return { label: `${depthHigh}${high}`, way: -1 };
   return { label: `${layer + 1}${low}`, way: 1 };
 }
 
@@ -97,7 +97,7 @@ export function layerLabel(axis: Axis, layer: number, size: number, style: Notat
 
 /** Read a turn written in cube notation, or give an error. The text must be exactly what turnName would write for that size. */
 export function parseTurnName(text: string, size: number): CubeRotate | { error: string } {
-  const m = /^([2-5]?)([LRUDFBMES])(['2]?)$/.exec(String(text ?? ""));
+  const m = /^([2-3]?)([LRUDFBMES])(['2]?)$/.exec(String(text ?? ""));
   if (!m) return { error: `"${text}" is not a turn.` };
   for (const axis of AXES) {
     for (let layer = 0; layer < size; layer++) {

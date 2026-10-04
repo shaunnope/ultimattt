@@ -8,7 +8,7 @@ import type { CubeState } from "../../src/core/cube.ts";
 import { countLines } from "../../src/core/cube.ts";
 import type { Cell, ClassicMove, CubeMove, GameConfig } from "../../src/core/types.ts";
 
-const classicConfig = (size: 3 | 4 | 5): GameConfig => ({ variant: "classic", size, winLength: size === 3 ? 3 : 4, mode: "local" });
+const classicConfig = (size: 3 | 4 | 5): GameConfig => ({ variant: "classic", size, winLength: size === 3 ? 3 : 4, scoring: "lines", lockFaces: false, mode: "local" });
 const place = (cell: number): ClassicMove => ({ t: "place", cell });
 const play = (size: 3 | 4 | 5, cells: number[]) => cells.reduce((s, c) => classicApply(s, place(c)), classicGame(classicConfig(size)));
 
@@ -38,7 +38,7 @@ test("Classic: nothing to show on an empty board or once the game is over", () =
   assert.deepEqual(classicHints(over, "O"), { win: [], block: [] });
 });
 
-const ultimateConfig: GameConfig = { variant: "ultimate", size: 3, winLength: 3, mode: "local" };
+const ultimateConfig: GameConfig = { variant: "ultimate", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 
 function ultimateWith(boards: Record<number, Cell[]>, patch: Partial<UltimateState> = {}): UltimateState {
   const base = ultimateGame(ultimateConfig);
@@ -64,7 +64,7 @@ test("Ultimate: a claimed board shows nothing", () => {
   assert.deepEqual(ultimateHints(s, "O").block, []);
 });
 
-const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, mode: "local" };
+const cubeConfig: GameConfig = { variant: "cube", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
 const cplace = (face: number, cell: number): CubeMove => ({ t: "place", face, cell });
 const cubeFrom = (moves: CubeMove[]) => moves.reduce((s, m) => cubeApply(s, m), cubeGame(cubeConfig));
 

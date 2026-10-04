@@ -21,7 +21,12 @@ export function parseConfig(raw: unknown): GameConfig | null {
   }
   const mode = c.mode as Mode;
   if (variant === "cube" && mode === "computer") return null;
-  const config: GameConfig = { variant, size, winLength, mode };
+  const scoring = c.scoring === undefined ? "lines" : c.scoring;
+  const lockFaces = c.lockFaces === undefined ? false : c.lockFaces;
+  if (scoring !== "lines" && scoring !== "faces") return null;
+  if (typeof lockFaces !== "boolean") return null;
+  if (variant !== "cube" && (scoring !== "lines" || lockFaces)) return null;
+  const config: GameConfig = { variant, size, winLength, scoring, lockFaces, mode };
   if (mode === "computer") {
     if (typeof c.seed !== "string") return null;
     config.seed = c.seed;

@@ -4,7 +4,7 @@ import { boardName, whereToPlay, cellPosition } from "../../src/ui/board-ultimat
 import { newGame, apply } from "../../src/core/ultimate.ts";
 import type { GameConfig, UltimateMove } from "../../src/core/types.ts";
 
-const config = (size: 3 | 4 | 5 = 3): GameConfig => ({ variant: "ultimate", size, winLength: 3, mode: "local" });
+const config = (size: 3 | 4 | 5 = 3): GameConfig => ({ variant: "ultimate", size, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" });
 const mv = (board: number, cell: number): UltimateMove => ({ t: "place", board, cell });
 
 test("every small board has its own name, by position", () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refusalMessage } from "../../src/ui/messages.ts";
+import { refusalMessage, VERSION_MISMATCH } from "../../src/ui/messages.ts";
 import { REASONS as CLASSIC_REASONS } from "../../src/core/classic.ts";
 import { REASONS as ULTIMATE_REASONS } from "../../src/core/ultimate.ts";
 import { REASONS as CUBE_REASONS } from "../../src/core/cube.ts";
@@ -27,4 +27,16 @@ test("an unknown key falls back to a generic message", () => {
 test("messages name the cause", () => {
   assert.match(refusalMessage("occupied"), /taken/i);
   assert.match(refusalMessage("game-over"), /over/i);
+});
+
+test("a refused version says both devices need the latest version", () => {
+  assert.match(VERSION_MISMATCH, /both devices/i);
+  assert.match(VERSION_MISMATCH, /latest version/i);
+});
+
+test("a refused placement on a locked face names the lock and says what to do", () => {
+  const text = refusalMessage("face-locked");
+  assert.match(text, /lock/i);
+  assert.match(text, /turn a layer|another face/i);
+  assert.notEqual(text, refusalMessage("definitely-not-a-reason"));
 });

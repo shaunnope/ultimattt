@@ -8,7 +8,7 @@ import { generateCode, joinLink } from "../core/pairing.ts";
 import { loadSave, saveGame } from "../adapters/store.ts";
 import { Guest, Host, type Status } from "../adapters/net.ts";
 import { mountNetGame, type NetGameHandle, type NetHooks } from "./game.ts";
-import { refusalMessage } from "./messages.ts";
+import { refusalMessage, VERSION_MISMATCH } from "./messages.ts";
 import { qrToSvg } from "./qr.ts";
 import { h, toast } from "./ui.ts";
 
@@ -298,7 +298,7 @@ export function joinGame(container: HTMLElement, code: string, exit: () => void)
         const reason = (raw as { reason?: string }).reason;
         rejected = true;
         forgetHostedGame(); // the answer is no: a reload must not ask again
-        show(reason === "full" ? "This game already has two players." : "The other device needs the latest version of the app. Reload the page to update it.", true);
+        show(reason === "full" ? "This game already has two players." : VERSION_MISMATCH, true);
         return;
       }
       run.receive(raw);
