@@ -2,7 +2,7 @@
 
 const NS = "http://www.w3.org/2000/svg";
 
-const PATHS = {
+export const ICON_PATHS = {
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
   undo: "M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
   flag: "M4 22V4M4 4h13l-2 4 2 4H4",
@@ -22,18 +22,24 @@ const PATHS = {
   "turn-right": "M5 12h14M12 5l7 7-7 7",
   "turn-clockwise": "M21 12a9 9 0 1 1-3-6.7M21 4v5h-5",
   "turn-anticlockwise": "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
+  // A padlock: body and shackle
+  lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
   "turn-half": "M20 8a8 8 0 0 0-14-3M4 4v5h5M4 16a8 8 0 0 0 14 3M20 20v-5h-5",
 } as const;
 
-export type IconName = keyof typeof PATHS;
+export type IconName = keyof typeof ICON_PATHS;
+
+/** Every icon is drawn with round caps and joins, whatever the CSS around it says. */
+export const ICON_STROKE = { "stroke-linecap": "round", "stroke-linejoin": "round" } as const;
 
 export function icon(name: IconName): SVGSVGElement {
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
+  for (const [name2, value] of Object.entries(ICON_STROKE)) svg.setAttribute(name2, value);
   const path = document.createElementNS(NS, "path");
-  path.setAttribute("d", PATHS[name]);
+  path.setAttribute("d", ICON_PATHS[name]);
   svg.append(path);
   return svg;
 }

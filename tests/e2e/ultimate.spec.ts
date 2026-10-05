@@ -85,3 +85,8 @@ test("the computer replies in under a second on a throttled CPU, even with a fre
   await expect(page.locator("button.cell .mark")).toHaveCount(1, { timeout: 5000 });
   expect(Date.now() - started).toBeLessThan(1000);
 });
+
+test("the Ultimate game title names no scoring kind", async ({ page }) => {
+  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await expect(page.locator("#game-title")).not.toContainText(/lines scoring|faces scoring/);
+});

@@ -47,3 +47,11 @@ export async function turnLayer(page: Page, label: string, how: "click" | "tap" 
   if (how === "tap") await confirmTurnButton(page).tap();
   else await confirmTurnButton(page).click();
 }
+
+/** Assert the current-player pill highlights this mark's segment (the plain turn prompt lives in the pill, not the status line). */
+export async function expectTurn(page: Page, mark: "X" | "O"): Promise<void> {
+  await expect(page.locator(`#turn-pill [data-mark="${mark}"]`)).toHaveAttribute("aria-current", "true");
+}
+
+/** The Twist score of a player, read from the pill. */
+export const pillScore = (page: Page, mark: "X" | "O") => page.locator(`#turn-pill [data-mark="${mark}"] .pill-score`);

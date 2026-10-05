@@ -60,7 +60,7 @@ test("a schema 2 save with a Cube game opens as lines with no lock, and is writt
   await page.reload();
   await expect(page.locator(".cube-board")).toBeVisible();
   await expect(page.locator("#toasts")).not.toContainText(/could not be read/i);
-  await expect(page.locator("#cube-score")).toContainText("Lines");
+  await expect(page.locator("#game-title")).toContainText("lines scoring");
   await expect(page.locator('button.sticker[data-locked="true"]')).toHaveCount(0);
   await expect(page.locator("#game-title")).not.toContainText(/locked|faces scoring/);
   await page.locator("button.sticker").first().dispatchEvent("click"); // any move makes the app write the save back
@@ -89,5 +89,5 @@ test("002 replay links (rules=B33, rules=U43) still replay", async ({ page }) =>
     await expect(page.getByRole("list", { name: "Moves" }).getByRole("listitem"), name).toHaveCount(name.startsWith("cube") ? 1 : 2);
   }
   await page.goto(`./${read2<{ link: string }[]>("links.json")[0]!.link}`);
-  await expect(page.locator("#cube-score")).toContainText("Lines");
+  await expect(page.locator("#replay-rules")).toContainText("lines scoring");
 });

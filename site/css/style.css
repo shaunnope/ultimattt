@@ -34,6 +34,10 @@ a { color: var(--accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
   padding: 10px 16px; max-width: 40rem; margin: 0 auto;
 }
+.app-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.app-logo { width: 36px; height: 36px; flex: none; color: var(--fg); }
+.start-logo { display: grid; place-items: center; }
+.start-logo .app-logo { width: 72px; height: 72px; }
 .app-title { font-size: 1.4rem; font-weight: 700; }
 .header-actions { display: flex; gap: 8px; }
 
@@ -259,3 +263,33 @@ dialog .dialog-body { margin-bottom: 14px; display: grid; gap: 8px; }
 .help-cell .mark { width: 78%; height: 78%; stroke-width: 12; }
 /* The cell to point at is outlined with a dashed ring, not only a colour */
 .help-cell[data-point="true"] { outline: 3px dashed var(--fg); outline-offset: 1px; background: var(--accent-muted); }
+
+/* ---- current-player pill: X then O, the mover highlighted; Twist adds each score ---- */
+.turn-pill {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr; width: min(100%, 360px); margin: 0 auto; padding: 4px;
+  border: 2px solid var(--border); border-radius: 999px; background: var(--surface); isolation: isolate;
+}
+.pill-seg {
+  position: relative; z-index: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 4px 10px; border-radius: 999px; font-weight: 600; font-variant-numeric: tabular-nums; border: 2px solid transparent;
+}
+.pill-seg svg { width: 1.6em; height: 1.6em; flex: none; }
+.pill-score { font-size: 1.25rem; font-weight: 700; }
+.pill-caption { font-size: 0.8rem; color: var(--muted); }
+.pill-seg[data-active] { font-weight: 800; border-color: var(--fg); }
+.pill-seg[data-active] .pill-caption { color: var(--fg); }
+.pill-seg[data-winner] { font-weight: 800; border-color: var(--fg); border-style: double; border-width: 4px; padding: 2px 8px; }
+.pill-thumb {
+  position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px;
+  background: var(--accent-muted); transform: translateX(0); transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.turn-pill[data-active="O"] .pill-thumb { transform: translateX(100%); }
+.turn-pill[data-active=""] .pill-thumb { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pill-thumb { transition: none; }
+}
+@media (forced-colors: active) {
+  .turn-pill { border-color: CanvasText; }
+  .pill-thumb { background: Highlight; forced-color-adjust: none; }
+  .pill-seg[data-active] { border-color: HighlightText; background: Highlight; color: HighlightText; }
+}

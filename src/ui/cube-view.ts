@@ -11,6 +11,7 @@ import type { CubeLine } from "../core/cube.ts";
 import { layerStickers, rotateStickers } from "../core/cube.ts";
 import { settleAngle, targetAngle, type Quarters } from "../core/turn-path.ts";
 import { FACE_NAMES, faceInView, faceViewAngles, frontFace } from "./cube-labels.ts";
+import { icon } from "./icons.ts";
 import { createMark, markName } from "./mark.ts";
 import { h } from "./ui.ts";
 
@@ -52,8 +53,10 @@ export interface CubeView {
   discardPreview(): void;
   /** Point out winning stickers (a dot) and stickers to block (a dashed ring). */
   setHints(win: readonly number[], block: readonly number[]): void;
-  /** Mark these faces as locked (lock option): a striped pattern, a "Locked" label, and empty stickers aria-disabled. */
+  /** Mark these faces as locked (lock option): a striped pattern, a padlock badge, and empty stickers aria-disabled. */
   setLocked(faces: readonly number[]): void;
+  /** Mark the sticker holding the latest placement (data-last); null clears. Touches only the old and the new sticker. */
+  setLast(index: number | null): void;
   /** Outline the stickers of a layer (null clears). */
   outline(axis: Axis, layer: number | null): void;
   /** Cancel an animation and settle immediately. */
@@ -105,6 +108,7 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
   /** The previewed layer's cumulative angle in degrees (+90 per quarter); 0 when no preview is held */
   let angle = 0;
   let locked: ReadonlySet<number> = new Set();
+  let lastIndex: number | null = null;
 
   const describe = (i: number, value: Cell) => {
     const face = Math.floor(i / n2);
@@ -113,9 +117,9 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
     return `${FACE_NAMES[face]} face, row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}, ${state}`;
   };
 
-  /** One "Locked" badge per face, shown only while that face is locked. Not announced: the stickers say it. */
+  /** One padlock badge per face, shown only while that face is locked. An icon only, never announced: the stickers say "locked face". */
   const lockLabels = FACE_NAMES.map((_, face) => {
-    const label = h("div", { class: "face-locked-label", "aria-hidden": "true", hidden: true }, h("span", null, "Locked"));
+    const label = h("div", { class: "face-locked-label", "aria-hidden": "true", hidden: true }, h("span", { class: "lock-icon" }, icon("lock")));
     label.style.setProperty("--face", FACE_TRANSFORM[face]!);
     return label;
   });
@@ -526,6 +530,12 @@ export function createCubeView(opts: CubeViewOptions): CubeView {
       buttons.forEach((b) => b.removeAttribute("data-hint"));
       for (const i of block) buttons[i]?.setAttribute("data-hint", "block");
       for (const i of win) buttons[i]?.setAttribute("data-hint", "win");
+    },
+    setLast(index) {
+      if (index === lastIndex) return;
+      if (lastIndex !== null) delete buttons[lastIndex]?.dataset.last;
+      lastIndex = index;
+      if (index !== null && buttons[index]) buttons[index]!.dataset.last = "true";
     },
     outline(axis, layer) {
       // Only touch the stickers whose state changes, so a layer that stays highlighted is never cleared and redrawn.

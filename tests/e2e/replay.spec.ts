@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { startGame, choose, turnLayer } from "./helpers.ts";
+import { startGame, choose, turnLayer, pillScore } from "./helpers.ts";
 
 // UI contract used by these tests:
 //  - a game against the computer shows its seed in #game-seed, with a "Copy seed" button; other games have no seed
@@ -75,7 +75,7 @@ test("a Cube replay includes its layer turns", async ({ page }) => {
   await openReplay(page);
   await expect(page.getByRole("list", { name: "Moves" })).toContainText("turn the bottom layer to the right");
   await slider(page).fill("6");
-  await expect(page.locator("#cube-score")).toContainText("X: 1");
+  await expect(pillScore(page, "X")).toHaveText("1");
 });
 
 test("Share replay copies a link; opened in a fresh browser, even offline, it plays the same game without saving anything", async ({ page, browser, context }) => {
@@ -283,7 +283,7 @@ test("a layer-turn step in a Twist replay does not change the view", async ({ pa
   await expect(page.locator(".cube-scene")).toBeVisible();
   const before = await sceneView(page);
   await slider(page).fill("6");
-  await expect(page.locator("#cube-score")).toContainText("X: 1");
+  await expect(pillScore(page, "X")).toHaveText("1");
   expect(await sceneView(page)).toEqual(before);
 });
 

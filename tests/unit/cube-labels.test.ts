@@ -58,9 +58,9 @@ const play = (moves: CubeMove[]) => moves.reduce((s, m) => apply(s, m), newGame(
 const say = (state: ReturnType<typeof newGame>): string =>
   statusText({ variant: "cube", status: "playing", winner: null, toMove: state.toMove, phase: state.phase, mode: "one-device", resigned: null, thinking: false, lockNote: "", where: "" });
 
-test("the status line says whose move it is, and asks for a layer turn after a score", () => {
-  assert.equal(say(newGame(config)), "X to move.");
-  assert.equal(say(play([place(2, 4)])), "O to move.");
+test("a plain Twist turn has no status text (the pill shows it), and a score asks for a layer turn", () => {
+  assert.equal(say(newGame(config)), "");
+  assert.equal(say(play([place(2, 4)])), "");
   const scored = play([place(2, 0), place(0, 0), place(2, 1), place(0, 1), place(2, 2)]);
   assert.equal(say(scored), "X scored! Turn a layer of the cube.");
 });
@@ -95,10 +95,18 @@ test("the status line of a game the lock ended is not blank", () => {
   assert.match(lockEndText(ended), /No open face left/);
 });
 
-test("the options note names what is on, and says nothing when both are off", () => {
-  assert.equal(optionsNote({ scoring: "lines", lockFaces: false }), "");
-  assert.equal(optionsNote({ scoring: "faces", lockFaces: false }), ", faces scoring");
-  assert.equal(optionsNote({ scoring: "faces", lockFaces: true }), ", faces scoring, locked faces");
+test("the options note always names the scoring kind for Twist, and adds locked faces when on", () => {
+  assert.equal(optionsNote({ variant: "cube", scoring: "lines", lockFaces: false }), ", lines scoring");
+  assert.equal(optionsNote({ variant: "cube", scoring: "faces", lockFaces: false }), ", faces scoring");
+  assert.equal(optionsNote({ variant: "cube", scoring: "faces", lockFaces: true }), ", faces scoring, locked faces");
+  assert.equal(optionsNote({ variant: "cube", scoring: "lines", lockFaces: true }), ", lines scoring, locked faces");
+});
+
+test("the options note says nothing for Classic and Ultimate, whatever the scoring field holds", () => {
+  for (const variant of ["classic", "ultimate"] as const) {
+    assert.equal(optionsNote({ variant, scoring: "lines", lockFaces: false }), "");
+    assert.equal(optionsNote({ variant, scoring: "faces", lockFaces: false }), "");
+  }
 });
 
 test("FACE_LETTERS name the six faces U, D, F, B, L, R in the same order as FACE_NAMES", async () => {

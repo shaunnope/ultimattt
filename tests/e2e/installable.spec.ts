@@ -50,3 +50,28 @@ test("the page declares what the browser needs to treat it as an app", async ({ 
   await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.lang)).toBe("en");
 });
+
+test("the logo is in the header and on the start screen, decorative, and every icon is an image of the stated size", async ({ page }) => {
+  await page.goto("./");
+  const logos = page.locator(".app-logo");
+  await expect(logos.first()).toBeVisible();
+  await expect(page.locator(".app-header .app-logo")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".start-logo .app-logo")).toBeVisible(); // the start screen shows it too
+  await expect(page.locator(".app-header .app-logo [data-mark=X]")).toHaveCount(1);
+  await expect(page.locator(".app-header .app-logo [data-mark=O]")).toHaveCount(1);
+  const manifestUrl = new URL((await page.locator('link[rel="manifest"]').getAttribute("href"))!, page.url()).toString();
+  const manifest = await (await page.request.get(manifestUrl)).json();
+  for (const icon of manifest.icons as { src: string; sizes: string }[]) {
+    const res = await page.request.get(new URL(icon.src, manifestUrl).toString());
+    expect(res.status(), icon.src).toBe(200);
+    expect(res.headers()["content-type"], icon.src).toMatch(/image\/png/);
+    const body = await res.body();
+    const [w, h] = icon.sizes.split("x").map(Number);
+    expect([body.readUInt32BE(16), body.readUInt32BE(20)], icon.src).toEqual([w, h]);
+  }
+  // the favicon link resolves, and the page lists the PNG as a fallback
+  const icons = await page.locator('link[rel="icon"]').evaluateAll((els) => els.map((e) => (e as HTMLLinkElement).href));
+  expect(icons.some((href) => href.endsWith("icons/logo.svg"))).toBe(true);
+  expect(icons.some((href) => href.endsWith("icons/icon-192.png"))).toBe(true);
+  for (const href of icons) expect((await page.request.get(href)).status(), href).toBe(200);
+});

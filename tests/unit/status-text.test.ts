@@ -5,35 +5,37 @@ import { statusText, type StatusContext } from "../../src/ui/status-text.ts";
 const base: StatusContext = { variant: "classic", status: "playing", winner: null, toMove: "X", mode: "one-device", resigned: null, thinking: false, lockNote: "", where: "" };
 const say = (over: Partial<StatusContext>): string => statusText({ ...base, ...over });
 
-test("against the computer the player's own turn reads Your move with their mark", () => {
-  assert.equal(say({ mode: "computer", humanMark: "X" }), "Your move (X).");
-  assert.equal(say({ mode: "computer", humanMark: "O", toMove: "O" }), "Your move (O).");
+test("against the computer the player's own turn has no text: the pill shows it", () => {
+  assert.equal(say({ mode: "computer", humanMark: "X" }), "");
+  assert.equal(say({ mode: "computer", humanMark: "O", toMove: "O" }), "");
 });
 
 test("the computer's turn says it is thinking", () => {
   assert.equal(say({ mode: "computer", humanMark: "X", toMove: "O", thinking: true }), "Computer is thinking…");
 });
 
-test("on one device the mover is named: X to move", () => {
-  assert.equal(say({}), "X to move.");
-  assert.equal(say({ toMove: "O" }), "O to move.");
+test("on one device a plain turn has no text", () => {
+  assert.equal(say({}), "");
+  assert.equal(say({ toMove: "O" }), "");
 });
 
-test("on two devices the player sees Your move, or waits for their friend, each with a mark", () => {
-  assert.equal(say({ mode: "two-device", myMark: "X" }), "Your move (X).");
+test("on two devices your own turn has no text, and waiting for your friend is still said", () => {
+  assert.equal(say({ mode: "two-device", myMark: "X" }), "");
   assert.equal(say({ mode: "two-device", myMark: "O" }), "Waiting for your friend (X).");
 });
 
-test("Ultimate adds where to play", () => {
-  assert.equal(say({ variant: "ultimate", where: "Play in the centre board." }), "X to move. Play in the centre board.");
-  assert.equal(say({ variant: "ultimate", mode: "computer", humanMark: "X", where: "Play in any open board." }), "Your move (X). Play in any open board.");
+test("Ultimate keeps only where to play", () => {
+  assert.equal(say({ variant: "ultimate", where: "Play in the centre board." }), "Play in the centre board.");
+  assert.equal(say({ variant: "ultimate", mode: "computer", humanMark: "X", where: "Play in any open board." }), "Play in any open board.");
+  assert.equal(say({ variant: "ultimate", mode: "two-device", myMark: "O", where: "Play in any open board." }), "Waiting for your friend (X). Play in any open board.");
+  assert.equal(say({ variant: "ultimate" }), "");
 });
 
 test("Twist after a score asks for a layer turn, and the other device waits for it", () => {
   assert.equal(say({ variant: "cube", phase: "rotate" }), "X scored! Turn a layer of the cube.");
   assert.equal(say({ variant: "cube", phase: "rotate", mode: "two-device", myMark: "X" }), "X scored! Turn a layer of the cube.");
   assert.equal(say({ variant: "cube", phase: "rotate", mode: "two-device", myMark: "O" }), "Waiting for your friend to turn a layer.");
-  assert.equal(say({ variant: "cube", phase: "place" }), "X to move.");
+  assert.equal(say({ variant: "cube", phase: "place" }), "");
 });
 
 test("results: winner, draw, tie, resignation, and the note for a game that ended on locked faces", () => {

@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { createServer } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import { startGame } from "./helpers.ts";
+import { startGame, expectTurn } from "./helpers.ts";
 
 // UI contract used by these tests:
 //  - a service worker is registered for the site, and the page works offline once it controls it
@@ -54,7 +54,7 @@ test("a game in progress comes back after a reload, in every variant", async ({ 
   await page.reload();
   await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
-  await expect(page.locator("#game-status")).toContainText("X to move");
+  await expectTurn(page, "X");
 
   await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
   await page.locator('button[data-board="4"][data-cell="2"]').click();
@@ -66,7 +66,7 @@ test("a game in progress comes back after a reload, in every variant", async ({ 
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').dispatchEvent("click");
   await page.reload();
   await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toHaveAttribute("data-mark", "X");
-  await expect(page.locator("#game-status")).toContainText("O to move");
+  await expectTurn(page, "O");
 });
 
 test("a reload while the computer is to move makes it move again", async ({ page }) => {
@@ -74,7 +74,7 @@ test("a reload while the computer is to move makes it move again", async ({ page
   await expect(mark(page, "X")).toHaveCount(1, { timeout: 5000 });
   await page.reload();
   await expect(mark(page, "X")).toHaveCount(1);
-  await expect(page.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(page, "O");
 });
 
 test("leaving a game with New game forgets it", async ({ page }) => {
@@ -133,5 +133,18 @@ test("a new version shows the update bar, and updating keeps the game", async ({
     await expect(bar).toBeHidden();
   } finally {
     await site.close();
+  }
+});
+
+test("offline, the logo still shows and every icon is served from the cache", async ({ page, context }) => {
+  await page.goto("./");
+  await controlled(page);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator(".app-header .app-logo")).toBeVisible();
+  const hrefs = ["icons/logo.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
+  for (const href of hrefs) {
+    const status = await page.evaluate(async (path) => (await fetch(path)).status, href);
+    expect(status, href).toBe(200);
   }
 });
