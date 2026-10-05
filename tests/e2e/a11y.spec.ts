@@ -29,6 +29,32 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
     });
 
+    test("header with the logo", async ({ page }) => {
+      await page.goto("./");
+      await expect(page.locator(".app-header .app-logo")).toBeVisible();
+      await clean(page, "header with logo");
+      // non-text contrast: the logo's ink against the page behind the header is at least 3:1
+      const [ink, back] = await page.evaluate(() => {
+        // a canvas turns any computed colour (rgb, color-mix, oklch) into plain RGB
+        const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+        const rgb = (value: string) => {
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = value;
+          ctx.fillRect(0, 0, 1, 1);
+          return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+        };
+        const logo = document.querySelector(".app-header .app-logo")!;
+        const page = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+        return [rgb(getComputedStyle(logo).color), rgb(page)];
+      });
+      const lum = (c: number[]) => {
+        const [r, g, b] = c.map((v) => { const x = v! / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+      };
+      const [hi, lo] = [Math.max(lum(ink!), lum(back!)), Math.min(lum(ink!), lum(back!))];
+      expect((hi + 0.05) / (lo + 0.05)).toBeGreaterThanOrEqual(3);
+    });
+
     test("start screen", async ({ page }) => {
       await page.goto("./");
       await clean(page, "start screen");

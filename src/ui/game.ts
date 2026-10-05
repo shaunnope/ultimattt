@@ -13,7 +13,8 @@ import { Computer, defaultWorker } from "./computer.ts";
 import { createBoard, type BoardView } from "./boards.ts";
 import { whereToPlay } from "./board-ultimate.ts";
 import { lockEndText, optionsNote, scoreLabel } from "./cube-labels.ts";
-import { statusText } from "./status-text.ts";
+import { createPill, type Pill } from "./pill.ts";
+import { pillModel, statusText } from "./status-text.ts";
 import { refusalMessage } from "./messages.ts";
 import { mountReplay, type ReplayHandle } from "./replay.ts";
 import { LEVEL_NAMES } from "./setup.ts";
@@ -72,6 +73,7 @@ class GameController implements NetGameHandle {
   private resigned: Mark | null = null;
   private board!: BoardView;
   private statusEl!: HTMLElement;
+  private pill!: Pill;
   private undoBtn!: HTMLButtonElement;
   private resignBtn!: HTMLButtonElement;
   private replayBtn!: HTMLButtonElement;
@@ -175,6 +177,7 @@ class GameController implements NetGameHandle {
     const notation = loadSave().save.settings.cubeNotation;
     this.board = createBoard(this.config, (move) => this.onMove(move), { notation, ...(net ? { mayMove: (state: AnyGameState) => state.toMove === net.myMark } : {}) });
     this.statusEl = h("div", { id: "game-status", class: "status-line" });
+    this.pill = createPill();
     this.undoBtn = h("button", { class: "btn", type: "button", onclick: () => this.undo() }, "Undo");
     this.resignBtn = h("button", { class: "btn", type: "button", onclick: () => void this.resign() }, "Resign");
     this.replayBtn = h("button", { class: "btn", type: "button", onclick: () => this.showReplay(true) }, "Replay");
@@ -191,6 +194,7 @@ class GameController implements NetGameHandle {
           ? [h("div", { class: "seed-row" }, h("span", { id: "game-seed", class: "game-sub" }, `Seed: ${this.config.seed}`), h("button", { class: "btn btn-small", type: "button", onclick: () => void this.copySeed() }, "Copy seed"))]
           : []),
         ...(this.net ? [this.buildNetBar()] : []),
+        this.pill.element,
         this.statusEl,
         this.board.element,
         h("div", { class: "game-controls" }, this.undoBtn, this.resignBtn, this.replayBtn, this.shareBtn, newGame)),
@@ -209,6 +213,25 @@ class GameController implements NetGameHandle {
     this.exit();
   }
 
+  private get playMode(): "one-device" | "computer" | "two-device" {
+    return this.net ? "two-device" : this.vsComputer ? "computer" : "one-device";
+  }
+
+  private pillModel() {
+    const st = this.mod.status(this.state);
+    return pillModel({
+      variant: this.config.variant,
+      status: st.status,
+      winner: st.winner,
+      toMove: this.state.toMove,
+      ...(this.config.variant === "cube" ? { scores: (this.state as CubeState).scores } : {}),
+      mode: this.playMode,
+      ...(this.net ? { myMark: this.net.myMark } : {}),
+      ...(this.vsComputer ? { humanMark: this.human } : {}),
+      resigned: this.resigned,
+    });
+  }
+
   private statusText(): string {
     const st = this.mod.status(this.state);
     return statusText({
@@ -217,7 +240,7 @@ class GameController implements NetGameHandle {
       winner: st.winner,
       toMove: this.state.toMove,
       ...(this.config.variant === "cube" ? { phase: (this.state as CubeState).phase } : {}),
-      mode: this.net ? "two-device" : this.vsComputer ? "computer" : "one-device",
+      mode: this.playMode,
       ...(this.net ? { myMark: this.net.myMark } : {}),
       ...(this.vsComputer ? { humanMark: this.human } : {}),
       resigned: this.resigned,
@@ -247,9 +270,12 @@ class GameController implements NetGameHandle {
     const showHints = loadSave().save.settings.hints && !this.over && !this.computerToMove;
     this.board.setHints(showHints ? hintsFor(this.config, this.state, this.state.toMove) : NO_HINTS);
     const text = message ?? this.statusText();
+    const pill = this.pillModel();
+    this.pill.update(pill);
     this.statusEl.textContent = text;
+    this.statusEl.hidden = text === "";
     this.statusEl.dataset.tone = this.errorTone ? "error" : "";
-    announce(text);
+    announce(text || pill.spoken);
     this.undoBtn.disabled = !this.canUndo();
     this.resignBtn.disabled = this.over;
     this.replayBtn.hidden = !this.over;

@@ -1,18 +1,17 @@
-// The Cube board: the cube itself (3D or flat), a view bar, the line count, and, after a scoring move, the layer-turn
+// The Cube board: the cube itself (3D or flat), a view bar, and, after a scoring move, the layer-turn
 // picker. Marks are placed by pressing a sticker. Turning a layer is select → preview → confirm: pressing a turn button
 // animates the layer to its new position and holds it there; Confirm makes the move; pressing outside the cube and the
 // controls, or Escape, turns it back and leaves the turn pending. The rules of that flow are the pure state machine in
 // core/turn-selection.ts; this file only animates what it asks for. Input is ignored while a turn animates.
 
 import type { Axis, CubeHint, CubeRotate, HintSet, Move } from "../core/types.ts";
-import { cubeLines, lockedFaces } from "../core/cube.ts";
+import { cubeLines, lastPlacedSticker, lockedFaces } from "../core/cube.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerLabel, layerPhrase, turnName, turnsFor, type NotationStyle } from "../core/notation.ts";
 import { IDLE, step, type TurnEvent, type TurnSelection } from "../core/turn-selection.ts";
-import { FACE_NAMES, rotationLabel, scoreLabel } from "./cube-labels.ts";
+import { FACE_NAMES, rotationLabel } from "./cube-labels.ts";
 import { createCubeView } from "./cube-view.ts";
 import { icon, type IconName } from "./icons.ts";
-import { createMark } from "./mark.ts";
 import { h } from "./ui.ts";
 
 export interface CubeBoardOptions {
@@ -61,14 +60,6 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   const size = opts.size;
   let notation: NotationStyle = opts.notation ?? "words";
   const view = createCubeView({ size, onSticker: (face, cell) => opts.onMove({ t: "place", face, cell }) });
-  const score = h("div", { id: "cube-score", class: "cube-score", "aria-live": "polite" });
-  /** "Lines · X: 1 · O: 0": what is counted, then each player by mark shape and letter, so colour is never the only cue. */
-  const drawScore = (label: string, x: number, o: number): void => {
-    const player = (mark: "X" | "O", n: number) => h("span", { class: "score-player" }, createMark(mark), `${mark}: ${n}`);
-    score.replaceChildren(label, " · ", player("X", x), " · ", player("O", o));
-  };
-  drawScore(scoreLabel("lines"), 0, 0);
-
   // ---- view bar ----
   const faceButtons = FACE_NAMES.map((name, face) =>
     h("button", { type: "button", class: "btn btn-small", "aria-label": `Show ${name} face`, onclick: () => view.showFace(face) }, SHORT[face]),
@@ -262,7 +253,7 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
   };
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("keydown", onKeyDown, true);
-  const element = h("div", { class: "cube-board", "data-size": size }, score, viewBar, view.element, picker);
+  const element = h("div", { class: "cube-board", "data-size": size }, viewBar, view.element, picker);
 
   buildPicker();
 
@@ -271,8 +262,8 @@ export function createCubeBoard(opts: CubeBoardOptions): CubeBoardView {
 
   function show(state: CubeState, fresh?: number): void {
     view.update(state.stickers, cubeLines(state.stickers, size, state.config.winLength), fresh);
+    view.setLast(lastPlacedSticker(state));
     view.setLocked(state.config.lockFaces ? lockedFaces(state.stickers, size, state.config.winLength) : []);
-    drawScore(scoreLabel(state.config.scoring), state.scores.X, state.scores.O);
     const rotating = state.phase === "rotate" && state.status === "playing" && !opts.readOnly && (opts.mayMove?.(state) ?? true);
     picker.hidden = !rotating;
     element.dataset.phase = rotating ? "rotate" : "place";

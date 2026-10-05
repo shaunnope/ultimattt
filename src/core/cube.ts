@@ -302,6 +302,24 @@ export function undo(state: CubeState): CubeState {
   return fromMoves(state.config, state.moves.slice(0, last.t === "rotate" ? -2 : -1));
 }
 
+/** The sticker holding the latest placement, after every later layer turn has carried it: null before the first placement.
+ *  Derived from the move list, so undo, saves, links and replay all agree and nothing extra is stored. */
+export function lastPlacedSticker(state: CubeState): number | null {
+  const { size } = state.config;
+  let index: number | null = null;
+  for (const move of state.moves) {
+    if (isPlace(move)) index = move.face * size * size + move.cell;
+    else if (index !== null) {
+      const turn = move as CubeRotate;
+      const at = index;
+      const table = rotateTable(size, turn.axis, turn.layer, turn.dir);
+      // table[dst] = src: the mark that was at `at` is now at the dst whose src is `at`
+      index = table.indexOf(at);
+    }
+  }
+  return index;
+}
+
 export function hash(state: CubeState): number {
   return hashString(state.stickers.join("") + state.phase + state.toMove);
 }

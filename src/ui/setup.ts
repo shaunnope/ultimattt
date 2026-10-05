@@ -18,6 +18,12 @@ export const LEVEL_NAMES: Record<Level, string> = {
   5: "Master",
 };
 
+/** The header's logo, copied for the start screen so the artwork lives in one place (index.html). Decorative. */
+function startLogo(): HTMLElement[] {
+  const logo = typeof document === "undefined" ? null : document.querySelector(".app-header .app-logo");
+  return logo ? [h("div", { class: "start-logo", "aria-hidden": "true" }, logo.cloneNode(true))] : [];
+}
+
 export type SetupState = SetupChoice;
 
 export const DEFAULT_SETUP: SetupState = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "computer", level: 3, markChoice: "random" };
@@ -327,6 +333,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
   container.replaceChildren(
     h("section", { class: "screen", "aria-labelledby": "setup-title" },
       h("h2", { id: "setup-title", class: "sr-only" }, "New game"),
+      ...startLogo(),
       h("div", { class: "card" }, variantGroup),
       h("div", { class: "card" }, sizeHost, winHost),
       h("div", { class: "card" }, modeHost, levelField, markGroup),

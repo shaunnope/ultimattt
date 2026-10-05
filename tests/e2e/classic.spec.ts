@@ -1,9 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { expectTurn } from "./helpers.ts";
 
 // UI contract used by these tests:
 //  - start screen: radios labelled by text, #level select, "Start game" button
 //  - board: role="grid" with buttons [data-cell="i"]; winning cells get data-win="true"
-//  - #game-status shows the turn or result; result dialog has "Play again" and "New game"
+//  - #turn-pill shows the turn (the mover has aria-current), #game-status the result; result dialog has "Play again" and "New game"
 //  - "Undo" and "Resign" buttons
 
 // Pick a card on the start screen by its title (the bold line of its label).
@@ -32,7 +33,7 @@ async function playCells(page: Page, cells: number[]) {
 
 test("3×3 two players: X wins with a row and the line is highlighted", async ({ page }) => {
   await start(page, { opponent: "A friend on this device" });
-  await expect(page.locator("#game-status")).toContainText("X");
+  await expectTurn(page, "X");
   await playCells(page, [0, 3, 1, 4, 2]);
   await expect(page.locator("#game-status")).toContainText("X wins");
   for (const c of [0, 1, 2]) await expect(cell(page, c)).toHaveAttribute("data-win", "true");
@@ -137,4 +138,9 @@ test("New game returns to the start screen", async ({ page }) => {
   await playCells(page, [0, 3, 1, 4, 2]);
   await page.getByRole("dialog").getByRole("button", { name: "New game" }).click();
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
+});
+
+test("the Classic game title names no scoring kind", async ({ page }) => {
+  await start(page, { opponent: "A friend on this device" });
+  await expect(page.locator("#game-title")).not.toContainText(/lines scoring|faces scoring/);
 });

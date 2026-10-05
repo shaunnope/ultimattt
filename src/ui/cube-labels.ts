@@ -1,6 +1,6 @@
 // Words and view angles for the Cube. Pure: the 3D view and the flat view both use these.
 
-import type { CubeRotate, Scoring } from "../core/types.ts";
+import type { CubeRotate, Scoring, Variant } from "../core/types.ts";
 import type { CubeState } from "../core/cube.ts";
 import { layerName, turnName } from "../core/notation.ts";
 
@@ -54,9 +54,11 @@ export function lockEndText(state: CubeState): string {
   return state.config.lockFaces && state.status !== "playing" && state.empty > 0 ? "No open face left to play on." : "";
 }
 
-/** The Cube options in play, for a game's title: "" when both are off. */
-export function optionsNote(config: { scoring: Scoring; lockFaces: boolean }): string {
-  return [config.scoring === "faces" ? "faces scoring" : "", config.lockFaces ? "locked faces" : ""].filter(Boolean).map((t) => `, ${t}`).join("");
+/** The Twist options in play, for a game's title: the scoring kind always names itself in Twist, locked faces only when on.
+ *  "" for Classic and Ultimate. */
+export function optionsNote(config: { variant: Variant; scoring: Scoring; lockFaces: boolean }): string {
+  if (config.variant !== "cube") return "";
+  return [`${config.scoring} scoring`, config.lockFaces ? "locked faces" : ""].filter(Boolean).map((t) => `, ${t}`).join("");
 }
 
 /** A face counts as in view when it turns towards the viewer enough to read: the depth of its outward normal is at least

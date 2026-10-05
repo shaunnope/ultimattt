@@ -1,5 +1,5 @@
 import { test as base, expect, type Browser, type Page } from "@playwright/test";
-import { choose, turnLayer } from "./helpers.ts";
+import { choose, turnLayer, expectTurn, pillScore } from "./helpers.ts";
 import { Relay } from "./relay.ts";
 
 // Two-device play is tested with every device in its own browser context (its own storage, as a real second
@@ -71,7 +71,7 @@ test("the waiting screen shows the code, a join link and a QR code, and Cancel s
 
 test("host and guest play a Classic game to a result, and both screens agree at every move", async ({ browser, relay }) => {
   const { a, b } = await pair(browser, relay);
-  await expect(a.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(a, "X");
   await expect(b.locator("#game-status")).toContainText(/waiting for your friend/i);
   const moves: [Page, number][] = [[a, 0], [b, 3], [a, 1], [b, 4], [a, 2]];
   for (const [page, c] of moves) {
@@ -90,7 +90,7 @@ test("an Ultimate game works across devices, and resigning ends it for both", as
   const sq = (page: Page, board: number, c: number) => page.locator(`button[data-board="${board}"][data-cell="${c}"]`);
   await sq(a, 4, 2).click();
   await expect(sq(b, 4, 2)).toHaveAttribute("data-mark", "X");
-  await expect(b.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(b, "O");
   await sq(b, 2, 0).click();
   await expect(sq(a, 2, 0)).toHaveAttribute("data-mark", "O");
   await b.getByRole("button", { name: "Resign" }).click();
@@ -117,8 +117,8 @@ test("a Cube game works across devices: the scoring player turns a layer before 
   await b.locator('button.sticker[data-face="1"][data-cell="0"]').dispatchEvent("click");
   await expect(st(a, 1, 0)).toHaveAttribute("data-mark", "");
   await turnLayer(a, "Turn the bottom layer to the right");
-  await expect(b.locator("#game-status")).toContainText(/your move/i);
-  await expect(b.locator("#cube-score")).toContainText("X: 1");
+  await expectTurn(b, "O");
+  await expect(pillScore(b, "X")).toHaveText("1");
 });
 
 test("you cannot move on your friend's turn", async ({ browser, relay }) => {
@@ -142,7 +142,7 @@ test("taking a move back asks the other player, who can agree or say no", async 
   await b.getByRole("dialog").getByRole("button", { name: "Allow" }).click();
   await expect(marks(a, "X")).toHaveCount(0);
   await expect(marks(b, "X")).toHaveCount(0);
-  await expect(a.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(a, "X");
 });
 
 test("a lost connection is shown to both, and the guest can reconnect and carry on", async ({ browser, relay }) => {
@@ -261,7 +261,7 @@ test("the host can reload the page: the game and the code come back, the guest r
   await expect(marks(a, "O")).toHaveCount(1);
   await expect(a.locator("#net-status")).toContainText(/connected/i);
   await expect(b.locator("#net-status")).toContainText(/connected/i);
-  await expect(a.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(a, "X");
   await cell(a, 2).click();
   await expect(cell(b, 2)).toHaveAttribute("data-mark", "X");
 });
@@ -275,7 +275,7 @@ test("a guest who joins after the host reloaded gets the whole game", async ({ b
   await joinWith(newcomer, code);
   await expect(newcomer.locator(".board")).toBeVisible();
   await expect(marks(newcomer, "X")).toHaveCount(1);
-  await expect(newcomer.locator("#game-status")).toContainText(/your move/i);
+  await expectTurn(newcomer, "O");
 });
 
 test("leaving a hosted game, or finishing one, means a reload does not resume it", async ({ browser, relay }) => {
@@ -378,8 +378,8 @@ test("a Cube turn previewed on one device is not seen on the other until it is c
   expect(await marksOf(b)).toEqual(before);
   await expect(b.locator("#game-status")).toContainText(/waiting|friend/i);
   await a.getByRole("button", { name: "Confirm turn" }).click();
-  await expect(b.locator("#cube-score")).toContainText("X: 0");
-  await expect(b.locator("#game-status")).toContainText(/your move/i);
+  await expect(pillScore(b, "X")).toHaveText("0");
+  await expectTurn(b, "O");
 });
 
 test("a protocol 2 guest (a build from before the Cube options) is refused with a message to update", async ({ browser, relay }) => {
@@ -413,6 +413,6 @@ test("a Cube game with the lock and faces scoring is the same on both devices", 
   await joinWith(b, code);
   await expect(a.locator(".cube-board")).toBeVisible();
   await expect(b.locator(".cube-board")).toBeVisible();
-  await expect(b.locator("#cube-score")).toContainText("Faces");
+  await expect(b.locator("#game-title")).toContainText(/faces scoring/);
   await expect(b.locator("#game-title")).toContainText(/locked faces/);
 });

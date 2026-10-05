@@ -10,6 +10,8 @@ import { replayFrames } from "../core/replay.ts";
 import { variantName } from "../core/variants.ts";
 import type { CubeState } from "../core/cube.ts";
 import { createBoard } from "./boards.ts";
+import { createPill } from "./pill.ts";
+import { pillModel } from "./status-text.ts";
 import { lockEndText, optionsNote } from "./cube-labels.ts";
 import { describeMove } from "./replay-text.ts";
 import { announce, h } from "./ui.ts";
@@ -50,7 +52,8 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
 
   const stepMs = () => Math.max(MIN_STEP_MS, STEP_MS / speed);
   const board = createBoard(config, () => undefined, { readOnly: true, notation: opts.notation ?? "words", stepMs });
-  const statusEl = h("div", { id: "game-status", class: "status-line" });
+  const statusEl = h("div", { id: "game-status", class: "status-line", hidden: true });
+  const pill = createPill();
 
   const playButton = h("button", { type: "button", class: "btn", "aria-label": "Play" }, "Play");
   const backButton = h("button", { type: "button", class: "btn", "aria-label": "Step back" }, "◀");
@@ -93,9 +96,22 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
       else item.removeAttribute("aria-current");
     });
     items[index - 1]?.scrollIntoView?.({ block: "nearest" });
-    const text = `Move ${index} of ${total}.${index === total ? outcome() : ""}`;
-    statusEl.textContent = text;
-    announce(text);
+    // A plain turn is shown by the pill alone; the status line holds only the result.
+    const result = index === total ? outcome().trim() : "";
+    const state = frames[index]!.state;
+    const model = pillModel({
+      variant: config.variant,
+      status: state.status,
+      winner: state.winner,
+      toMove: state.toMove,
+      ...(config.variant === "cube" ? { scores: (state as CubeState).scores } : {}),
+      mode: "one-device",
+      resigned: index === total && opts.resigned ? opts.resigned : null,
+    });
+    pill.update(model);
+    statusEl.textContent = result;
+    statusEl.hidden = result === "";
+    announce(`Move ${index} of ${total}. ${result || model.spoken}`);
     backButton.disabled = index === 0;
     forwardButton.disabled = index === total;
     renderPlayButton();
@@ -164,6 +180,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   container.replaceChildren(
     h("section", { class: "screen replay", "aria-label": "Replay" },
       h("div", { class: "game-head" }, h("span", { class: "game-title" }, "Replay"), h("span", { class: "game-sub", id: "replay-rules" }, config.seed ? `${title}, seed ${config.seed}` : title)),
+      pill.element,
       statusEl,
       board.element,
       controls,

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { startGame } from "./helpers.ts";
+import { startGame, expectTurn } from "./helpers.ts";
 
 test("the menu has a Help link that opens the help page in one interaction, with real headings in order", async ({ page }) => {
   await page.goto("./");
@@ -38,7 +38,7 @@ test("help opened in the middle of a game leaves the game untouched", async ({ p
   await page.locator("#help-back").click();
   await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
-  await expect(page.locator("#game-status")).toContainText("X to move");
+  await expectTurn(page, "X");
   expect(await page.evaluate(() => localStorage.getItem("ttt.save"))).toBe(before);
 });
 
