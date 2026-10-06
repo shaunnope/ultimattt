@@ -23,7 +23,8 @@ import { loadSave, saveGame, savedGameFrom, updateSettings } from "../adapters/s
 import { NO_HINTS, hintsFor } from "./hints.ts";
 import { SETTINGS_EVENT } from "./settings.ts";
 import { celebrate } from "./confetti.ts";
-import { announce, h, openDialog, toast } from "./ui.ts";
+import { icon } from "./icons.ts";
+import { announce, h, openDialog, setBanner, toast } from "./ui.ts";
 
 const COMPUTER_MIN_DELAY_MS = 250;
 
@@ -126,7 +127,7 @@ class GameController implements NetGameHandle {
   private renderConnection(): void {
     if (!this.netStatusEl || !this.reconnectBtn) return;
     const view = this.connection;
-    this.netStatusEl.textContent = view.state === "connected" ? "Connected" : view.message;
+    this.netStatusEl.replaceChildren(icon(view.state === "connected" ? "check" : "info"), view.state === "connected" ? "Connected" : view.message);
     this.netStatusEl.dataset.tone = view.state === "connected" ? "" : "error";
     this.reconnectBtn.hidden = !(view.state === "lost" && view.canReconnect);
   }
@@ -179,7 +180,7 @@ class GameController implements NetGameHandle {
     this.statusEl = h("div", { id: "game-status", class: "status-line" });
     this.pill = createPill();
     this.undoBtn = h("button", { class: "btn", type: "button", onclick: () => this.undo() }, "Undo");
-    this.resignBtn = h("button", { class: "btn", type: "button", onclick: () => void this.resign() }, "Resign");
+    this.resignBtn = h("button", { class: "btn btn-destructive", type: "button", onclick: () => void this.resign() }, "Resign");
     this.replayBtn = h("button", { class: "btn", type: "button", onclick: () => this.showReplay(true) }, "Replay");
     this.shareBtn = h("button", { class: "btn", type: "button", onclick: () => void this.shareReplay() }, "Share replay");
     const newGame = h("button", { class: "btn", type: "button", onclick: () => this.leave() }, "New game");
@@ -196,7 +197,7 @@ class GameController implements NetGameHandle {
         ...(this.net ? [this.buildNetBar()] : []),
         this.pill.element,
         this.statusEl,
-        this.board.element,
+        h("div", { class: "card board-card" }, this.board.element),
         h("div", { class: "game-controls" }, this.undoBtn, this.resignBtn, this.replayBtn, this.shareBtn, newGame)),
     );
     this.render();
@@ -272,9 +273,8 @@ class GameController implements NetGameHandle {
     const text = message ?? this.statusText();
     const pill = this.pillModel();
     this.pill.update(pill);
-    this.statusEl.textContent = text;
+    setBanner(this.statusEl, text, this.errorTone ? "error" : "info");
     this.statusEl.hidden = text === "";
-    this.statusEl.dataset.tone = this.errorTone ? "error" : "";
     announce(text || pill.spoken);
     this.undoBtn.disabled = !this.canUndo();
     this.resignBtn.disabled = this.over;
@@ -441,7 +441,7 @@ class GameController implements NetGameHandle {
     if (this.resultShown) return;
     this.resultShown = true;
     const st = this.mod.status(this.state);
-    const title = this.resigned ? `${this.resigned} resigned` : st.status === "won" ? `${st.winner!} wins!` : st.status === "tie" ? "It's a tie" : "It's a draw";
+    const title = this.resigned ? `${this.resigned} resigned` : st.status === "won" ? `${st.winner!} wins` : st.status === "tie" ? "It's a tie" : "It's a draw";
     const winner = this.resigned ? other(this.resigned) : st.winner;
     if (winner) celebrate(); // nothing at all when the player has asked for reduced motion
     let body: string;
@@ -455,6 +455,7 @@ class GameController implements NetGameHandle {
     else body = `${winner} won.`;
     const choice = await openDialog({
       title,
+      ...(winner ? { icon: "check" as const } : {}),
       body: [body],
       actions: [
         { label: "Watch replay", value: "replay", primary: true },

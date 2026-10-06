@@ -583,7 +583,7 @@ test("the Twist pill shows each player's score, with no Lines or Faces label, an
   await expect(pillScore(page, "X")).toHaveText("1");
   await expect(pillScore(page, "O")).toHaveText("0");
   await expectTurn(page, "X"); // the scorer keeps the highlight through the layer turn
-  await expect(page.locator("#game-status")).toHaveText("X scored! Turn a layer of the cube.");
+  await expect(page.locator("#game-status")).toHaveText("X scored. Turn a layer of the cube.");
 });
 
 for (const scheme of ["light", "dark"] as const) {

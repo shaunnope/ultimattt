@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-Version change: (unratified template) → 1.0.0
+Version change: 1.0.0 → 1.1.0 (MINOR: materially expanded guidance)
+Modified sections: Technical Constraints (adds the design spec requirement)
+Templates updated: .specify/templates/plan-template.md (design line in Constitution Check)
+Earlier: (unratified template) → 1.0.0
 Modified principles: none renamed (all placeholders filled)
 Added principles: I. Test-First (NON-NEGOTIABLE); II. Progressive Web App First;
   III. Offline-Capable by Default; IV. Simplicity; V. Pure, Testable Game Logic
@@ -58,6 +61,8 @@ before UI work depends on it.
   a throttled 4G connection (first load), and near-instant on repeat loads.
 - Accessibility: all controls MUST be keyboard operable and have accessible names; state
   MUST NOT be conveyed by color alone.
+- UI MUST follow `docs/pwa-design-spec.md`. Departures are recorded in the plan's
+  complexity tracking.
 
 ## Development Workflow & Quality Gates
 
@@ -77,4 +82,4 @@ PATCH for clarifications. Compliance MUST be verified in every plan and PR revie
 MUST be justified in the plan's complexity tracking or corrected. Principle I is
 non-negotiable and MUST NOT be waived.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-03 | **Last Amended**: 2026-10-03
+**Version**: 1.1.0 | **Ratified**: 2026-10-03 | **Last Amended**: 2026-10-07

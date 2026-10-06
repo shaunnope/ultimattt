@@ -235,7 +235,7 @@ test("with no connection the two-device options are unavailable, and the other m
   await page.reload();
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await context.setOffline(true);
-  await expect(page.getByText(/needs an internet connection/i)).toBeVisible();
+  await expect(page.getByText(/you are offline/i)).toBeVisible();
   await expect(page.locator("input#mode-network")).toBeDisabled();
   await expect(page.getByRole("button", { name: "Join game" })).toBeDisabled();
   await choose(page, "A friend on this device");

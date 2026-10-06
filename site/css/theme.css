@@ -1,83 +1,97 @@
-/* Design tokens. Light, dark and auto: the page sets data-mode on <html> before it paints (see index.html).
-   Every colour in the app comes from here; scripts/check-theme-tokens.mjs fails on a colour literal in any other
-   stylesheet. State is never carried by colour alone: marks differ by shape and boards add outlines and patterns.
-   The base tokens take their values from the shared look chosen for this app (the --bg ... --success set). */
+/* Design tokens, following docs/pwa-design-spec.md. Light and dark are the only themes; the page sets data-mode on
+   <html> before it paints (see index.html), and CSS selects on data-mode only. Every colour in the app comes from here:
+   scripts/check-theme-tokens.mjs fails on a colour literal anywhere else, or in this file outside a --token declaration,
+   and scripts/check-contrast.mjs measures the declared pairs in both modes. State is never carried by colour alone:
+   marks differ by shape and boards add outlines and patterns. */
 
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: "Nunito", "Segoe UI", system-ui, sans-serif; }
+html, body { min-height: 100%; }
+button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; font-weight: 600; }
+button:disabled { cursor: not-allowed; opacity: .6; }
+:link, :visited { color: var(--brand-ink); }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
+
+/* mode: surfaces, text, status, and the content colours that differ by mode */
 :root,
 :root[data-mode="light"] {
   color-scheme: light;
-  --bg: #faf8f3;
-  --fg: #1a1a1a;
-  --surface: #f1efe8;
-  --border: #dcdce2;
-  --accent: #3b5bdb;
-  --accent-muted: #e4e9fb;
-  --accent-contrast: #ffffff;
-  --success: #2ecc71;
+  --bg: #f6f4ee; --surface: rgba(255,255,255,.58); --surface-strong: rgba(255,255,255,.82); --surface-border: rgba(255,255,255,.65);
+  --brand: #d4ddff;
+  --ink: #1a1a1a; --muted: #5c5a54; --brand-ink: #3149c4;
+  --ok: #17733a; --warn: #9c4a06; --error: #b8232b; --busy: #5f6b7d;
+  --backdrop: rgba(14,16,22,.35); --shadow-glass: 0 10px 30px rgba(22,26,40,.1); --shadow-lift: 0 4px 16px rgba(22,26,40,.18);
 
-  --muted: color-mix(in srgb, var(--fg) 72%, var(--bg));
-  --focus: var(--accent);
-  --error: #b3261e;
-  --warn: #8a4b00;
-
-  /* X and O. The default palette's light values; theme.ts replaces them with the chosen palette's. */
+  /* content colours: X and O (the chosen palette's values replace these at runtime) and the six Twist faces */
   --mark-x: #3b5bdb;
   --mark-o: #c2410c;
-  --claim-x: color-mix(in srgb, var(--mark-x) 18%, transparent);
-  --claim-o: color-mix(in srgb, var(--mark-o) 18%, transparent);
-  --playable: color-mix(in srgb, var(--accent) 16%, transparent);
-
-  --shadow: 0 6px 22px rgba(20, 20, 30, 0.1);
-  --scrim: rgba(0, 0, 0, 0.45);
-  --hatch: rgba(0, 0, 0, 0.14);
-  --radius: 0.6rem;
-  --radius-small: 0.5rem;
-
-  /* The six faces of the Cube, one soft tint each */
   --face-0: #dbe7ff;
   --face-1: #fff2b8;
   --face-2: #d3f5d8;
   --face-3: #ffd9d0;
   --face-4: #f1dcff;
   --face-5: #ffe3bd;
-
-  /* A QR code is always dark on light, whatever the appearance */
-  --qr-bg: #ffffff;
-  --qr-fg: #000000;
+  --hatch: rgba(0, 0, 0, 0.14);
 }
 
 :root[data-mode="dark"] {
   color-scheme: dark;
-  --bg: #14161c;
-  --fg: #f0f0f2;
-  --surface: #1d2028;
-  --border: #2e323d;
-  --accent: #6a8cff;
-  --accent-muted: #262c42;
-  --accent-contrast: #0c0e13;
+  --bg: #121419; --surface: rgba(255,255,255,.06); --surface-strong: rgba(255,255,255,.11); --surface-border: rgba(255,255,255,.14);
+  --brand: #d4ddff;
+  --ink: #f0f0f2; --muted: #a3a7b2; --brand-ink: #b3c3ff;
+  --ok: #4ade80; --warn: #fbbf24; --error: #ffa4a4; --busy: #94a3b8;
+  --backdrop: rgba(0,0,0,.5); --shadow-glass: 0 10px 34px rgba(0,0,0,.5); --shadow-lift: 0 4px 16px rgba(0,0,0,.45);
 
-  --error: #ff8a80;
-  --warn: #fbbf24;
-
-  --mark-x: #6a8cff;
+  --mark-x: #7f9bff;
   --mark-o: #fb923c;
-
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
-  --hatch: rgba(255, 255, 255, 0.16);
-
   --face-0: #28344f;
   --face-1: #4a4322;
   --face-2: #23402c;
   --face-3: #4a2d28;
   --face-4: #3b2b4d;
   --face-5: #4a3a22;
+  --hatch: rgba(255, 255, 255, 0.16);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
+/* derived: same rule in both modes */
+:root {
+  --on-brand: #1a1a1a;
+  --page: color-mix(in srgb, var(--brand) 10%, var(--bg));
+  --brand-fill: color-mix(in srgb, var(--brand) 55%, var(--surface-strong));
+  --brand-fill-strong: color-mix(in srgb, var(--brand) 75%, var(--surface-strong));
+  --muted-strong: color-mix(in srgb, var(--ink) 70%, transparent);
+  --edge: color-mix(in srgb, var(--ink) 50%, transparent);
+  --track: color-mix(in srgb, var(--ink) 12%, transparent);
+  --ok-tint: color-mix(in srgb, var(--ok) 14%, transparent);
+  --warn-tint: color-mix(in srgb, var(--warn) 14%, transparent);
+  --error-tint: color-mix(in srgb, var(--error) 14%, transparent);
+  --seam: var(--page);
+  --rim: var(--edge);
+
+  --radius-content: 4px; --radius-seg: 10px; --radius-btn: 12px; --radius-control: 14px; --radius-card: 16px; --radius-glass: 20px; --radius-pill: 999px;
+  --duration-quick: 150ms; --duration-open: 220ms; --duration-close: 180ms; --duration-bar: 300ms;
+  /* The Twist cube's layer and face turns are game motion, exempt from the 220ms cap (spec FR-016) */
+  --duration-turn: 400ms;
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+
+  /* fixed-meaning tokens: they carry game meaning and never take a tint or an opacity */
+  --claim-x: color-mix(in srgb, var(--mark-x) 18%, transparent);
+  --claim-o: color-mix(in srgb, var(--mark-o) 18%, transparent);
+  --playable: color-mix(in srgb, var(--brand-ink) 16%, transparent);
+  /* A QR code is always dark on light, whatever the appearance */
+  --qr-bg: #ffffff;
+  --qr-fg: #000000;
 }
+
+body { background-color: var(--page); color: var(--ink); transition: background-color .25s ease, color .25s ease; overflow-x: hidden; }
+
+/* Glass surfaces (design spec section 5) without the backdrop blur: the page behind is one flat colour, so blurring it changes
+   nothing, and a blur under a moving board costs frames on a slow phone (Complexity Tracking, specs/006-pwa-design-rework/plan.md). */
+.glass, .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius-glass); box-shadow: var(--shadow-glass); }
+
+.page { width: 100%; max-width: 720px; margin: 0 auto; padding: 14px; padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: max(14px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 480px) { .page { padding: 10px; } }

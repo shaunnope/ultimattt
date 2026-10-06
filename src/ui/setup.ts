@@ -8,7 +8,7 @@ import { clampWinLength, defaultWinLength, winLengthOptions } from "../core/rule
 import { isValidCode, normaliseCode } from "../core/pairing.ts";
 import type { SetupChoice } from "../core/settings.ts";
 import { loadSave, updateSettings } from "../adapters/store.ts";
-import { h } from "./ui.ts";
+import { h, setBanner } from "./ui.ts";
 
 export const LEVEL_NAMES: Record<Level, string> = {
   1: "Beginner",
@@ -20,7 +20,7 @@ export const LEVEL_NAMES: Record<Level, string> = {
 
 /** The header's logo, copied for the start screen so the artwork lives in one place (index.html). Decorative. */
 function startLogo(): HTMLElement[] {
-  const logo = typeof document === "undefined" ? null : document.querySelector(".app-header .app-logo");
+  const logo = typeof document === "undefined" ? null : document.querySelector(".topbar .app-logo");
   return logo ? [h("div", { class: "start-logo", "aria-hidden": "true" }, logo.cloneNode(true))] : [];
 }
 
@@ -121,7 +121,7 @@ function radioGroup<T extends string | number>(
     input.addEventListener("change", () => onChange(opt.value));
     grid.append(h("div", { class: "choice" }, input, h("label", { for: id }, h("strong", null, opt.title), opt.blurb ? h("small", null, opt.blurb) : null)));
   }
-  return h("fieldset", { "data-group": name }, h("legend", null, legend), grid);
+  return h("fieldset", { "data-group": name, role: "radiogroup" }, h("legend", null, legend), grid);
 }
 
 function select(group: HTMLElement, value: string | number): void {
@@ -149,12 +149,13 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
   const joinError = h("p", { id: "join-error", class: "field-error", role: "alert" });
   joinError.hidden = true;
   const joinButton = h("button", { class: "btn", type: "button" }, "Join game");
-  const offlineNote = h("p", { class: "hint-text" }, "Playing on two devices needs an internet connection.");
+  const offlineNote = h("p", { id: "offline-note" });
+  setBanner(offlineNote, "You are offline. Check your connection to play on two devices.", "warn");
   offlineNote.hidden = true;
   joinButton.addEventListener("click", () => {
     const code = normaliseCode(joinInput.value);
     if (!isValidCode(code)) {
-      joinError.textContent = "A game code is six letters and digits, like BXK4M9.";
+      setBanner(joinError, "A game code is six letters and digits, like BXK4M9.", "error");
       joinError.hidden = false;
       joinInput.focus();
       return;
@@ -170,7 +171,7 @@ export function renderSetup(container: HTMLElement, opts: SetupOptions): void {
   const seedError = h("p", { id: "seed-error", class: "field-error", role: "alert" });
   seedError.hidden = true;
   const showSeedError = (text: string) => {
-    seedError.textContent = text;
+    setBanner(seedError, text, "error");
     seedError.hidden = text === "";
     seedInput.setAttribute("aria-invalid", text === "" ? "false" : "true");
   };

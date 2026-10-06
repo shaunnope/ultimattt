@@ -14,7 +14,8 @@ import { createPill } from "./pill.ts";
 import { pillModel } from "./status-text.ts";
 import { lockEndText, optionsNote } from "./cube-labels.ts";
 import { describeMove } from "./replay-text.ts";
-import { announce, h } from "./ui.ts";
+import { icon } from "./icons.ts";
+import { announce, h, setBanner } from "./ui.ts";
 
 export interface ReplayOptions {
   config: GameConfig;
@@ -55,13 +56,14 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
   const statusEl = h("div", { id: "game-status", class: "status-line", hidden: true });
   const pill = createPill();
 
-  const playButton = h("button", { type: "button", class: "btn", "aria-label": "Play" }, "Play");
-  const backButton = h("button", { type: "button", class: "btn", "aria-label": "Step back" }, "◀");
-  const forwardButton = h("button", { type: "button", class: "btn", "aria-label": "Step forward" }, "▶");
+  const playButton = h("button", { type: "button", class: "btn", "aria-label": "Play" }, icon("play"), "Play");
+  const backButton = h("button", { type: "button", class: "icon-btn", "aria-label": "Step back" }, icon("back"));
+  const forwardButton = h("button", { type: "button", class: "icon-btn", "aria-label": "Step forward" }, icon("forward"));
+  const readout = h("span", { id: "replay-readout", class: "replay-readout num" });
   const slider = h("input", { type: "range", min: 0, max: total, step: 1, value: index, "aria-label": "Replay position", class: "replay-slider" });
   const speedSelect = h("select", { id: "replay-speed" }, ...SPEEDS.map((s) => h("option", { value: String(s), selected: s === speed }, `${s}×`)));
   const speedField = h("label", { class: "replay-speed" }, "Speed", speedSelect);
-  const controls = h("div", { class: "replay-controls", role: "group", "aria-label": "Replay controls" }, playButton, backButton, forwardButton, slider, speedField);
+  const controls = h("div", { class: "replay-controls", role: "group", "aria-label": "Replay controls" }, playButton, backButton, forwardButton, readout, slider, speedField);
 
   const list = h("ol", { class: "move-list", "aria-label": "Moves" });
   const items = moves.map((move, i) => {
@@ -81,7 +83,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
     const state = frames[total]!.state;
     const lockNote = config.variant === "cube" ? lockEndText(state as CubeState) : "";
     const note = lockNote ? ` ${lockNote}` : "";
-    if (state.status === "won") return ` ${state.winner!} wins!${note}`;
+    if (state.status === "won") return ` ${state.winner!} wins.${note}`;
     if (state.status === "draw") return " It's a draw.";
     if (state.status === "tie") return ` It's a tie.${note}`;
     return "";
@@ -109,8 +111,9 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
       resigned: index === total && opts.resigned ? opts.resigned : null,
     });
     pill.update(model);
-    statusEl.textContent = result;
+    setBanner(statusEl, result, "info");
     statusEl.hidden = result === "";
+    readout.textContent = `Move ${index} of ${total}`;
     announce(`Move ${index} of ${total}. ${result || model.spoken}`);
     backButton.disabled = index === 0;
     forwardButton.disabled = index === total;
@@ -119,7 +122,7 @@ export function mountReplay(container: HTMLElement, opts: ReplayOptions): Replay
 
   function renderPlayButton(): void {
     const label = playing ? "Pause" : "Play";
-    playButton.textContent = label;
+    playButton.replaceChildren(icon(playing ? "pause" : "play"), label);
     playButton.setAttribute("aria-label", label);
   }
 

@@ -109,25 +109,25 @@ test("Classic rules comes first, states the win length per board size, and its e
 
 const REM = 16;
 
-test("help at 320 px has a side gutter, no sideways scroll, and examples that stay inside the page", async ({ page }) => {
+test("help at 320 px has a side gutter (10px under 480px, per the design spec), no sideways scroll, and examples that stay inside the page", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto("./#/help");
   await expect(page.locator(".help")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   const box = (await page.locator(".help").boundingBox())!;
-  expect(box.x).toBeGreaterThanOrEqual(16);
-  expect(box.x + box.width).toBeLessThanOrEqual(320 - 16 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(10);
+  expect(box.x + box.width).toBeLessThanOrEqual(320 - 10 + 1);
   for (const example of await page.locator(".help-example").all()) {
     const b = (await example.boundingBox())!;
     expect(b.x + b.width).toBeLessThanOrEqual(320);
   }
 });
 
-test("help on a wide screen keeps a reading column no wider than 42rem, centred", async ({ page }) => {
+test("help on a wide screen keeps one centred page column, no wider than 720px (design spec section 4)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("./#/help");
   const box = (await page.locator(".help").boundingBox())!;
-  expect(box.width).toBeLessThanOrEqual(42 * REM + 1);
+  expect(box.width).toBeLessThanOrEqual(720 + 1);
   expect(box.width).toBeGreaterThanOrEqual(30 * REM);
   expect(Math.abs(box.x + box.width / 2 - 640)).toBeLessThanOrEqual(2);
 });
@@ -149,7 +149,7 @@ test("help sections are visibly separated and evenly spaced, with headings clear
   const gaps = boxes.slice(1).map((b, i) => Math.round(b.top - boxes[i]!.bottom));
   expect(new Set(gaps).size, `gaps ${gaps}`).toBe(1);
   const sizes = await page.evaluate(() => ({ h2: parseFloat(getComputedStyle(document.querySelector(".help h2")!).fontSize), p: parseFloat(getComputedStyle(document.querySelector(".help p")!).fontSize) }));
-  expect(sizes.h2).toBeGreaterThanOrEqual(sizes.p * 1.25);
+  expect(sizes.h2).toBeGreaterThanOrEqual(sizes.p * 1.2); // heading 18px over body 15px in the type scale
 });
 
 test("every help control shows a focus ring and has an accessible name", async ({ page }) => {

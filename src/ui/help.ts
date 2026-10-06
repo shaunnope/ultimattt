@@ -1,10 +1,9 @@
-// The help page: static text from help-content.ts in a centred column, with a Back control. It is loaded only when
+// The help page: static text from help-content.ts in a centred column. The top bar's Back button (app.ts) leaves it, and a Back control closes it. It is loaded only when
 // the player opens it (hash route #/help, see app.ts) and is part of the precache, so it works offline. Examples are
 // drawn with the same mark renderer as the boards, so they follow light and dark, and each carries a text alternative.
 
 import { HELP_SECTIONS, type HelpBlock, type HelpBoard, type HelpSection } from "./help-content.ts";
 import { createMark } from "./mark.ts";
-import { icon } from "./icons.ts";
 import { h } from "./ui.ts";
 
 function drawBoard(board: HelpBoard): HTMLElement {
@@ -42,11 +41,8 @@ export interface HelpOptions {
 
 /** Draw the help page into `container`. */
 export function renderHelp(container: HTMLElement, opts: HelpOptions): void {
-  const back = h("button", { type: "button", class: "btn", id: "help-back" }, icon("back"), " Back");
-  back.addEventListener("click", () => opts.onBack());
   container.replaceChildren(
-    h("article", { class: "help", "aria-label": "Help" },
-      h("div", { class: "help-top" }, back),
+    h("article", { class: "help card", "aria-label": "Help" },
       ...HELP_SECTIONS.map(drawSection),
       h("div", { class: "help-top" }, h("button", { type: "button", class: "btn", onclick: () => opts.onBack() }, "Back to the game"))),
   );

@@ -6,6 +6,7 @@ import type { Level, Mark, Mode, Scoring, Variant } from "./types.ts";
 import { clampWinLength } from "./rules.ts";
 import { DEFAULT_PALETTE, paletteById } from "./palette.ts";
 
+/** The saved appearance. "auto" is what the interface calls System: the spelling stays so every earlier save opens (see ui/theme.ts). */
 export type Theme = "auto" | "light" | "dark";
 export type ReplaySpeed = 0.5 | 1 | 2 | 4;
 /** How Cube turns are named: in plain words, or in cube-solving notation (R, U', 2L, ...) */

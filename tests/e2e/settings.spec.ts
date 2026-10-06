@@ -5,8 +5,8 @@ import { choose, startGame } from "./helpers.ts";
 
 // UI contract used by these tests:
 //  - a "Settings" button in the header opens a dialog named "Settings" with "Show hints",
-//    "Replay a finished game automatically", an "Appearance" select (Auto, Light, Dark),
-//    "Icon for X" and "Icon for O", and "Done"; changes apply at once and are remembered
+//    "Replay a finished game automatically", the mark colours and "Twist turn names", and "Done"; changes apply
+//    at once and are remembered. Appearance (Light, Dark, System) is its own dialog: see theme-dialog.spec.ts
 //  - with hints on, the player's winning cells get data-hint="win" (a dot) and the cells they must
 //    block get data-hint="block" (a dashed ring)
 
@@ -91,29 +91,6 @@ test("with automatic replay off, dismissing the result leaves the board", async 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("group", { name: "Replay controls" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Replay", exact: true })).toBeVisible();
-});
-
-test("appearance: Dark, Light, and Auto following the system, remembered across reloads", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.goto("./");
-  const mode = () => page.evaluate(() => document.documentElement.getAttribute("data-mode"));
-  expect(await mode()).toBe("light");
-  let dialog = await openSettings(page);
-  await dialog.getByLabel("Appearance").selectOption("dark");
-  expect(await mode()).toBe("dark");
-  await closeSettings(page);
-  await page.reload();
-  expect(await mode()).toBe("dark");
-  dialog = await openSettings(page);
-  await expect(dialog.getByLabel("Appearance")).toHaveValue("dark");
-  await dialog.getByLabel("Appearance").selectOption("light");
-  expect(await mode()).toBe("light");
-  await page.emulateMedia({ colorScheme: "dark" });
-  expect(await mode()).toBe("light"); // fixed light ignores the system
-  await dialog.getByLabel("Appearance").selectOption("auto");
-  expect(await mode()).toBe("dark");
-  await page.emulateMedia({ colorScheme: "light" });
-  await expect.poll(mode).toBe("light");
 });
 
 test("the pre-paint theme script and the app agree (scripts/check-theme.mjs)", async () => {

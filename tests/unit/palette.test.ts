@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PALETTES, DEFAULT_PALETTE, paletteById, markColors, contrast } from "../../src/core/palette.ts";
+// @ts-expect-error plain .mjs scripts, no types
+import { resolveTokens } from "../../scripts/check-contrast.mjs";
+// @ts-expect-error plain .mjs scripts, no types
+import { composite, evalColour } from "../../scripts/lib/colour.mjs";
 
 const theme = readFileSync(join(import.meta.dirname, "..", "..", "site", "css", "theme.css"), "utf8");
 
@@ -53,16 +57,44 @@ test("a colour-blind safe palette is present", () => {
   assert.match(safe.label, /colou?r-blind/i);
 });
 
-test("every X and O colour reaches 3:1 on --bg and --surface of its own appearance", () => {
+/** A token's colour with its translucent layers laid over the ones below, as a hex string (the page, a card, a control). */
+function flatten(mode: "light" | "dark", ...layers: string[]): string {
+  const tokens = resolveTokens(theme, mode) as Record<string, string>;
+  const lookup = (name: string) => tokens[name];
+  let backdrop = evalColour(`var(${layers[0]})`, lookup);
+  for (const layer of layers.slice(1)) backdrop = composite(evalColour(`var(${layer})`, lookup), backdrop);
+  const hex = (v: number) => Math.round(v).toString(16).padStart(2, "0");
+  return `#${hex(backdrop.r)}${hex(backdrop.g)}${hex(backdrop.b)}`;
+}
+
+test("every X and O colour reaches 3:1 on every Twist face tint of its own appearance", () => {
   for (const mode of ["light", "dark"] as const) {
-    const bg = token("--bg", mode);
-    const surface = token("--surface", mode);
+    for (let face = 0; face < 6; face++) {
+      const ground = flatten(mode, `--face-${face}`);
+      for (const p of PALETTES) {
+        for (const mark of ["X", "O"] as const) {
+          const ratio = contrast(p[mark][mode], ground);
+          assert.ok(ratio >= MIN_CONTRAST, `${p.id} ${mark} ${mode} on --face-${face}: ${ratio.toFixed(2)}`);
+        }
+      }
+    }
+  }
+});
+
+test("every X and O colour reaches 3:1 on the page, a card and a control of its own appearance", () => {
+  for (const mode of ["light", "dark"] as const) {
+    const grounds = {
+      "--page": flatten(mode, "--page"),
+      "--surface": flatten(mode, "--page", "--surface"),
+      "--surface-strong": flatten(mode, "--page", "--surface", "--surface-strong"),
+    };
     for (const p of PALETTES) {
       for (const mark of ["X", "O"] as const) {
         const colour = p[mark][mode];
         assert.match(colour, /^#[0-9a-f]{6}$/i);
-        assert.ok(contrast(colour, bg) >= MIN_CONTRAST, `${p.id} ${mark} ${mode} on --bg: ${contrast(colour, bg).toFixed(2)}`);
-        assert.ok(contrast(colour, surface) >= MIN_CONTRAST, `${p.id} ${mark} ${mode} on --surface: ${contrast(colour, surface).toFixed(2)}`);
+        for (const [name, ground] of Object.entries(grounds)) {
+          assert.ok(contrast(colour, ground) >= MIN_CONTRAST, `${p.id} ${mark} ${mode} on ${name}: ${contrast(colour, ground).toFixed(2)}`);
+        }
       }
     }
   }
@@ -88,11 +120,6 @@ test("markColors gives the X and O colour of the right appearance", () => {
     assert.deepEqual(markColors(p.id, "dark"), { X: p.X.dark, O: p.O.dark });
   }
   assert.deepEqual(markColors("nope", "dark"), markColors("default", "dark"));
-});
-
-test("the default X is the accent colour in both appearances", () => {
-  assert.equal(paletteById("default").X.light.toLowerCase(), token("--accent", "light").toLowerCase());
-  assert.equal(paletteById("default").X.dark.toLowerCase(), token("--accent", "dark").toLowerCase());
 });
 
 test("contrast is the WCAG ratio", () => {

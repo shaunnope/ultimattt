@@ -1,7 +1,7 @@
 // Takes the screenshots listed in the manifest (site/screenshots/) from the running app.
 //   node scripts/make-screenshots.mjs
 // A narrow one (1080x2340, a phone) and a wide one (1920x1080, a desktop). Run it when the look changes,
-// then bump VERSION in src/sw.ts so installed copies pick the new files up.
+// then bump VERSION in src/sw.ts so installed copies pick the new files up (the Twist game is chosen by its name on the setup card).
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
@@ -15,10 +15,10 @@ try {
   const url = server.url;
   const choose = (page, title) => page.locator("label", { has: page.locator("strong", { hasText: new RegExp(`^${title}$`) }) }).click();
 
-  // narrow: a Cube game, one line scored, in 3D
+  // narrow: a Twist game, one line scored, in 3D
   const phone = await browser.newPage({ viewport: { width: 360, height: 780 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
   await phone.goto(url);
-  await choose(phone, "Cube");
+  await choose(phone, "Twist");
   await phone.getByRole("button", { name: "Start game" }).click();
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 4], [2, 2]]) await phone.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
   await phone.waitForTimeout(600);

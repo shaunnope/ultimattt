@@ -1,9 +1,21 @@
 // Registers the service worker and shows a bar when a newer version is waiting.
 // The player chooses when to switch; the game in progress is saved on every move, so it survives.
 
+import { icon } from "./icons.ts";
 import { h } from "./ui.ts";
 
 const CHECK_EVERY_MS = 60 * 60 * 1000;
+
+/** Show "A new version is ready." with an Update button. Nothing happens until the player presses it. */
+export function offerUpdate(bar: HTMLElement, worker: Pick<ServiceWorker, "postMessage">): void {
+  const button = h("button", { class: "btn", type: "button" }, "Update");
+  button.addEventListener("click", () => {
+    button.disabled = true;
+    worker.postMessage({ type: "skip-waiting" });
+  });
+  bar.replaceChildren(icon("info"), h("span", { class: "update-text" }, "A new version is ready."), button);
+  bar.hidden = false;
+}
 
 export function initServiceWorker(): void {
   if (!("serviceWorker" in navigator)) return;
@@ -11,14 +23,7 @@ export function initServiceWorker(): void {
   const hadController = !!navigator.serviceWorker.controller;
 
   function offer(worker: ServiceWorker): void {
-    if (!bar) return;
-    const button = h("button", { class: "btn btn-primary", type: "button" }, "Update");
-    button.addEventListener("click", () => {
-      button.disabled = true;
-      worker.postMessage({ type: "skip-waiting" });
-    });
-    bar.replaceChildren(h("span", null, "A new version is ready."), button);
-    bar.hidden = false;
+    if (bar) offerUpdate(bar, worker);
   }
 
   let reloading = false;
