@@ -1,9 +1,8 @@
-/* The Cube: a 3D cube made of CSS-transformed stickers, a flat net as the alternative, and the layer picker. */
+/* The Cube: a 3D cube made of CSS-transformed stickers, a flat net as the alternative, and the layer picker.
+   The face colours are content: each sticker is drawn in exactly its face's colour, rimmed in the edge colour. */
 
 .cube-board { display: grid; gap: 12px; }
 .cube-viewbar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.btn-small { min-height: 44px; padding: 4px 12px; font-size: 0.9rem; }
-.btn[aria-pressed="true"] { background: var(--accent-muted); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* --E is the cube's edge; each sticker is 1/N of it, so one stylesheet serves 3×3, 4×4 and 5×5. */
 .cube-stage { --E: min(60vw, 252px); --u: calc(var(--E) / var(--n, 3)); display: grid; place-items: center; perspective: 1100px; height: calc(var(--E) * 1.53); overflow: visible; }
@@ -16,7 +15,8 @@
   transform: rotateX(var(--rx, -25deg)) rotateY(var(--ry, -30deg));
   touch-action: none; cursor: grab;
 }
-.cube-scene.snap { transition: transform 0.4s ease; }
+/* Turning the cube or a layer is game motion, longer than the interface transitions (spec FR-016). */
+.cube-scene.snap { transition: transform var(--duration-turn) ease; }
 .cube-scene.dragging { cursor: grabbing; }
 .cube-scene .sticker {
   position: absolute; left: 50%; top: 50%; width: var(--u); height: var(--u);
@@ -24,16 +24,16 @@
   transform:
     var(--turn, rotateX(0deg) rotateY(0deg) rotateZ(0deg)) var(--face)
     translate3d(calc(var(--u) * var(--dx)), calc(var(--u) * var(--dy)), calc(var(--E) / 2));
-  transition: transform 0.34s ease;
+  transition: transform var(--duration-turn) ease;
   backface-visibility: hidden;
 }
 .cube-scene.no-anim .sticker { transition: none; }
 
 /* ---- stickers, in both views ---- */
 .sticker {
-  display: grid; place-items: center; line-height: 1; color: var(--fg);
-  border: max(1.5px, calc(var(--u, 70px) / 28)) solid var(--fg); border-radius: max(3px, calc(var(--u, 70px) / 8));
-  background: color-mix(in srgb, var(--tint, var(--surface)) 45%, var(--surface));
+  display: grid; place-items: center; line-height: 1; color: var(--ink);
+  border: max(1.5px, calc(var(--u, 70px) / 28)) solid var(--rim); border-radius: max(3px, calc(var(--u, 70px) / 8));
+  background-color: var(--tint, var(--surface-strong));
 }
 .sticker[data-face="0"] { --tint: var(--face-0); }
 .sticker[data-face="1"] { --tint: var(--face-1); }
@@ -48,26 +48,26 @@
 .sticker[data-line="X"] { box-shadow: inset 0 0 0 4px var(--mark-x); }
 .sticker[data-line="O"] { box-shadow: inset 0 0 0 4px var(--mark-o); }
 /* The latest placement: a full inset ring plus an inner ring, distinct from the line ring, the locked hatch and hints. */
-.sticker[data-last] { box-shadow: inset 0 0 0 3px var(--fg), inset 0 0 0 5px var(--surface); }
-.sticker[data-line][data-last] { box-shadow: inset 0 0 0 4px var(--mark-x), inset 0 0 0 7px var(--fg), inset 0 0 0 9px var(--surface); }
-.sticker[data-line="O"][data-last] { box-shadow: inset 0 0 0 4px var(--mark-o), inset 0 0 0 7px var(--fg), inset 0 0 0 9px var(--surface); }
+.sticker[data-last] { box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 5px var(--tint, var(--surface-strong)); }
+.sticker[data-line][data-last] { box-shadow: inset 0 0 0 4px var(--mark-x), inset 0 0 0 7px var(--ink), inset 0 0 0 9px var(--tint, var(--surface-strong)); }
+.sticker[data-line="O"][data-last] { box-shadow: inset 0 0 0 4px var(--mark-o), inset 0 0 0 7px var(--ink), inset 0 0 0 9px var(--tint, var(--surface-strong)); }
 @media (forced-colors: active) {
   .sticker[data-last] { outline: 3px solid Highlight; outline-offset: -3px; }
 }
 .sticker .mark { width: 72%; height: 72%; stroke-width: 12; }
 /* The layer outline: it is the layer's own stickers, so it travels with them, and it is never itself transitioned,
    so it holds steady while the layer swings through a preview. The flat view lifts it above its neighbours. */
-.sticker[data-preview="true"] { outline: 5px solid var(--focus); outline-offset: -5px; transition-property: transform; }
+.sticker[data-preview="true"] { outline: 5px solid var(--brand-ink); outline-offset: -5px; transition-property: transform; }
 .cube-flat .sticker[data-preview="true"] { position: relative; z-index: 1; }
 .sticker[data-ghost] { border-style: dashed; }
-.sticker.flash { animation: sticker-flash 0.22s ease; }
+.sticker.flash { animation: sticker-flash var(--duration-open) ease; }
 @keyframes sticker-flash { 50% { filter: brightness(1.6); } }
 .cube-board[data-phase="rotate"] .sticker { cursor: not-allowed; }
 
-/* ---- flat net ---- */
+/* ---- flat net: stickers are separated by a 2px seam in the page colour ---- */
 .cube-flat {
   display: grid; grid-template-columns: repeat(calc(4 * var(--n, 3)), 1fr); grid-template-rows: repeat(calc(3 * var(--n, 3)), 1fr);
-  gap: 3px; width: min(100%, 720px); margin: 0 auto;
+  gap: 3px; width: min(100%, 720px); margin: 0 auto; background: var(--seam);
 }
 .cube-flat-face { display: contents; }
 .cube-flat .sticker {
@@ -75,23 +75,21 @@
   border-width: 2px; border-radius: 6px;
 }
 
-/* ---- layer picker ---- */
+/* ---- layer picker: a panel of controls on the board card ---- */
 .rotate-picker {
-  display: grid; gap: 12px; padding: 12px; border: 1px solid var(--accent); border-radius: var(--radius); background: var(--surface);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 12px; border: 1px solid var(--surface-border); border-radius: var(--radius-control); background: var(--surface-strong);
 }
 .rotate-picker[hidden] { display: none; }
-.rotate-section h3 { font-size: 0.95rem; margin-bottom: 6px; }
+.rotate-picker .btn, .rotate-picker .turn-btn { background: var(--surface); border-color: var(--edge); }
+.rotate-section h3 { font-size: 13.5px; line-height: 18px; font-weight: 700; margin-bottom: 6px; }
 .rotate-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, auto); gap: 6px; align-items: center; margin-bottom: 4px; }
-.rotate-name { font-size: 0.9rem; overflow-wrap: anywhere; }
+.rotate-name { font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
 /* Turn buttons: arrow icons in wording mode, up to four characters of notation otherwise. They never clip or scroll sideways. */
 .turn-btn { min-width: 44px; padding: 4px 8px; display: inline-grid; place-items: center; }
 .turn-icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .turn-text { font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .turn-actions { display: grid; gap: 8px; }
-.turn-caption { min-height: 2.8em; font-size: 0.9rem; color: var(--muted); }
-@media (min-width: 720px) {
-  .rotate-picker { grid-template-columns: repeat(3, 1fr); }
-}
+.turn-caption { min-height: 2.8em; font-size: 14px; line-height: 20px; color: var(--muted-strong); }
 
 /* ---- locked faces (lock option): a stripe pattern and a padlock icon badge, never colour alone ---- */
 .sticker[data-locked="true"]:not([data-line]) {
@@ -103,7 +101,7 @@
 .face-locked-label .lock-icon {
   --badge: min(calc(var(--E, 120px) * 0.24), calc(var(--u, 40px) * 0.75));
   display: grid; place-items: center; box-sizing: border-box; width: var(--badge); height: var(--badge); min-width: 22px; min-height: 22px;
-  border: 2px solid var(--fg); border-radius: 999px; background: var(--surface); color: var(--fg);
+  border: 2px solid var(--ink); border-radius: var(--radius-pill); background: var(--surface-strong); color: var(--ink);
 }
 .face-locked-label .lock-icon svg { width: 62%; height: 62%; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 @media (forced-colors: active) {

@@ -116,3 +116,55 @@ test("check-names and check-theme-tokens pass on this project's own files", () =
   const root = join(import.meta.dirname, "..", "..");
   assert.deepEqual(checkNames(root), []);
 });
+
+// ---- check-theme-tokens also scans theme.css: literals only on custom-property declarations ----
+
+// @ts-expect-error plain .mjs scripts, no types
+import { checkThemeCssText } from "../../scripts/check-theme-tokens.mjs";
+
+test("check-theme-tokens: theme.css may hold colour literals on --token declarations and nowhere else", () => {
+  assert.deepEqual(checkThemeCssText(":root { --bg: #faf8f3; --fg: rgb(26,26,26); --x: color-mix(in srgb, #fff 10%, var(--bg)); }", "theme.css"), []);
+  assert.deepEqual(checkThemeCssText(":root {\n  --a: #fff;\n  --b: rgba(0,0,0,.5);\n}\n", "theme.css"), []);
+  const problems: string[] = checkThemeCssText(".x { color: #fff; }\n:root { --ok: #000; }\n.y { background: rgba(0,0,0,.1); }", "theme.css");
+  assert.equal(problems.length, 2);
+  assert.ok(problems.some((p) => /theme\.css:1:.*hex colour/.test(p)));
+  assert.ok(problems.some((p) => /theme\.css:3:.*colour function/.test(p)));
+});
+
+test("check-theme-tokens: a literal in a theme.css rule fails the project check", () => {
+  const problems: string[] = checkThemeTokens(fixtureDir("tokens-theme-bad"));
+  assert.equal(problems.length, 1);
+  assert.ok(problems[0]?.includes("theme.css:2"));
+});
+
+test("check-theme-tokens passes on this project's own stylesheets, theme.css included", () => {
+  assert.deepEqual(checkThemeTokens(join(import.meta.dirname, "..", "..")), []);
+});
+
+// ---- check-breakpoints: one narrow breakpoint (480px) and the 640px dialog switch, nothing else ----
+
+// @ts-expect-error plain .mjs scripts, no types
+import { checkBreakpointsText, checkBreakpoints } from "../../scripts/check-breakpoints.mjs";
+
+test("check-breakpoints: the 480px and 640px width queries pass", () => {
+  assert.deepEqual(checkBreakpointsText("@media (max-width: 480px) { a { color: var(--x); } }\n@media (min-width: 640px) { b { margin: auto; } }", "x.css"), []);
+  assert.deepEqual(checkBreakpointsText("@media (max-width:480px){a{}}", "x.css"), []);
+});
+
+test("check-breakpoints: any other width query fails with its file and line", () => {
+  const problems: string[] = checkBreakpointsText("a { }\n@media (min-width: 720px) { a { } }\n@media (max-width: 600px) { a { } }", "cube.css");
+  assert.equal(problems.length, 2);
+  assert.ok(problems[0]!.includes("cube.css:2") && problems[0]!.includes("720px"));
+  assert.ok(problems[1]!.includes("cube.css:3") && problems[1]!.includes("600px"));
+});
+
+test("check-breakpoints: other media features, comments and range syntax are handled", () => {
+  assert.deepEqual(checkBreakpointsText("@media (prefers-reduced-motion: reduce) { a { } }\n@media (forced-colors: active) { a { } }\n/* @media (min-width: 900px) */", "x.css"), []);
+  assert.equal(checkBreakpointsText("@media screen and (min-width: 481px) and (max-width: 900px) { a { } }", "x.css").length, 2);
+  assert.equal(checkBreakpointsText("@media (width >= 720px) { a { } }", "x.css").length, 1);
+  assert.equal(checkBreakpointsText("@media (min-width: 40em) { a { } }", "x.css").length, 1);
+});
+
+test("check-breakpoints passes on this project's own stylesheets", () => {
+  assert.deepEqual(checkBreakpoints(join(import.meta.dirname, "..", "..")), []);
+});

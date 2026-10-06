@@ -12,6 +12,8 @@ import { renderSetup } from "./setup.ts";
 import { initServiceWorker } from "./update-bar.ts";
 import { applySettings, openSettings } from "./settings.ts";
 import { icon } from "./icons.ts";
+import { appearanceIcon, openThemeModal } from "./theme-modal.ts";
+import { applyMode, currentPreference, loadModePref, MODE_EVENT } from "./theme.ts";
 import { h, toast } from "./ui.ts";
 
 /** A game picked up where it was left. */
@@ -52,6 +54,11 @@ function helpView(): HTMLElement {
   return el;
 }
 
+/** The top bar's Back button: shown while a task (the help page) is open, in place of nothing before the logo. */
+function backButton(): HTMLElement | null {
+  return document.getElementById("help-back");
+}
+
 function leaveHelp(): void {
   if (helpFromLink && history.length > 1) {
     history.back();
@@ -59,6 +66,16 @@ function leaveHelp(): void {
   }
   history.replaceState(null, "", location.pathname + location.search);
   routeHash();
+}
+
+/** The top bar while help is open: the Back button shows and the Help button is the current page. */
+function setHelpOpen(open: boolean): void {
+  const back = backButton();
+  if (back) back.hidden = !open;
+  document.querySelector(".topbar")?.toggleAttribute("data-back", open);
+  const help = document.getElementById("help-button");
+  if (open) help?.setAttribute("aria-current", "page");
+  else help?.removeAttribute("aria-current");
 }
 
 /** Show or hide the help page to match the address. */
@@ -80,11 +97,13 @@ async function routeHash(): Promise<void> {
     if (location.hash !== HELP_HASH) return; // the player already left while the page was loading
     main().hidden = true;
     view.hidden = false;
+    setHelpOpen(true);
     view.focus();
     window.scrollTo?.(0, 0);
   } else {
     const wasOpen = !view.hidden;
     view.hidden = true;
+    setHelpOpen(false);
     main().hidden = false;
     if (wasOpen) main().focus();
   }
@@ -210,17 +229,26 @@ async function openWatch(): Promise<boolean> {
 function addHeaderButtons(): void {
   const actions = document.getElementById("header-actions");
   if (!actions || actions.childElementCount > 0) return;
+  const back = h("button", { class: "icon-btn back-button", type: "button", id: "help-back", "aria-label": "Back", title: "Back", hidden: true }, icon("back"));
+  back.addEventListener("click", () => leaveHelp());
+  document.querySelector(".topbar")?.prepend(back);
   const helpButton = h("button", { class: "icon-btn", type: "button", "aria-label": "Help", title: "Help", id: "help-button" }, icon("help"));
   helpButton.addEventListener("click", () => {
     location.hash = HELP_HASH;
   });
   const button = h("button", { class: "icon-btn", type: "button", "aria-label": "Settings", title: "Settings" }, icon("settings"));
   button.addEventListener("click", () => void openSettings());
-  actions.append(helpButton, button);
+  const appearance = h("button", { class: "icon-btn", type: "button", "aria-label": "Appearance", title: "Appearance", id: "appearance-button" });
+  const paintAppearance = () => appearance.replaceChildren(icon(appearanceIcon(currentPreference())));
+  paintAppearance();
+  window.addEventListener(MODE_EVENT, paintAppearance);
+  appearance.addEventListener("click", () => void openThemeModal());
+  actions.append(helpButton, appearance, button);
 }
 
 async function boot(): Promise<void> {
   initServiceWorker();
+  applyMode(loadModePref());
   applySettings(loadSave().save.settings);
   addHeaderButtons();
   const code = codeFromSearch(location.search);

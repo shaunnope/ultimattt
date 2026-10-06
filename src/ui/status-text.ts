@@ -30,18 +30,18 @@ const withNote = (text: string, note: string): string => (note ? `${text} ${note
 /** One sentence for the status line; "" for a plain turn, which the pill shows instead. */
 export function statusText(ctx: StatusContext): string {
   if (ctx.resigned) return `${ctx.resigned} resigned. ${other(ctx.resigned)} wins.`;
-  if (ctx.status === "won") return withNote(`${ctx.winner!} wins!`, ctx.lockNote);
+  if (ctx.status === "won") return withNote(`${ctx.winner!} wins.`, ctx.lockNote);
   if (ctx.status === "draw") return "It's a draw.";
   if (ctx.status === "tie") return withNote("It's a tie.", ctx.lockNote);
   // Ultimate keeps its where-to-play note; a plain turn is empty.
   const where = ctx.variant === "ultimate" ? ctx.where : "";
   if (ctx.mode === "two-device") {
     const mine = ctx.toMove === ctx.myMark;
-    if (ctx.variant === "cube" && ctx.phase === "rotate") return mine ? `${ctx.toMove} scored! Turn a layer of the cube.` : "Waiting for your friend to turn a layer.";
+    if (ctx.variant === "cube" && ctx.phase === "rotate") return mine ? `${ctx.toMove} scored. Turn a layer of the cube.` : "Waiting for your friend to turn a layer.";
     return mine ? where : withNote(`Waiting for your friend (${ctx.toMove}).`, where);
   }
   if (ctx.thinking) return "Computer is thinking…";
-  if (ctx.variant === "cube" && ctx.phase === "rotate") return `${ctx.toMove} scored! Turn a layer of the cube.`;
+  if (ctx.variant === "cube" && ctx.phase === "rotate") return `${ctx.toMove} scored. Turn a layer of the cube.`;
   return where;
 }
 

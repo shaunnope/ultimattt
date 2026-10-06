@@ -20,7 +20,7 @@ export interface Palette {
 }
 
 export const PALETTES: readonly Palette[] = [
-  { id: "default", label: "Default", X: { light: "#3b5bdb", dark: "#6a8cff" }, O: { light: "#c2410c", dark: "#fb923c" } },
+  { id: "default", label: "Default", X: { light: "#3b5bdb", dark: "#7f9bff" }, O: { light: "#c2410c", dark: "#fb923c" } },
   { id: "cbsafe", label: "Colour-blind safe", X: { light: "#0072b2", dark: "#56b4e9" }, O: { light: "#b84a00", dark: "#e69f00" } },
   { id: "forest", label: "Forest and berry", X: { light: "#0f766e", dark: "#2dd4bf" }, O: { light: "#be185d", dark: "#f472b6" } },
   { id: "sunset", label: "Violet and amber", X: { light: "#6d28d9", dark: "#a78bfa" }, O: { light: "#a16207", dark: "#facc15" } },

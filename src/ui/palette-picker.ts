@@ -4,6 +4,7 @@
 // properties, so switching appearance needs no redraw.
 
 import { PALETTES, type Palette } from "../core/palette.ts";
+import { icon } from "./icons.ts";
 import { createMark } from "./mark.ts";
 import { h } from "./ui.ts";
 
@@ -22,8 +23,17 @@ export function createPalettePicker(current: string, onChange: (id: string) => v
   for (const palette of PALETTES) {
     const id = `palette-${palette.id}`;
     const input = h("input", { type: "radio", name: "mark-palette", id, value: palette.id, checked: palette.id === current });
-    input.addEventListener("change", () => onChange(palette.id));
-    grid.append(h("div", { class: "choice" }, input, h("label", { for: id }, h("strong", null, palette.label), sample(palette))));
+    input.addEventListener("change", () => {
+      mark(palette.id);
+      onChange(palette.id);
+    });
+    grid.append(h("div", { class: "choice", "data-palette": palette.id }, input, h("label", { for: id }, h("strong", null, palette.label), sample(palette))));
   }
+  /** The chosen row carries a check icon and the word "Selected", so the choice is not shown by colour alone. */
+  function mark(chosen: string): void {
+    grid.querySelectorAll(".selected-mark").forEach((el) => el.remove());
+    grid.querySelector(`[data-palette="${chosen}"] label`)?.append(h("span", { class: "selected-mark" }, icon("check"), "Selected"));
+  }
+  mark(current);
   return h("fieldset", { class: "palette-picker", "data-group": "mark-palette" }, h("legend", null, "Mark colours (on this device only)"), grid);
 }

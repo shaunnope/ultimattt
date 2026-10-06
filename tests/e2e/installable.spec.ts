@@ -55,10 +55,10 @@ test("the logo is in the header and on the start screen, decorative, and every i
   await page.goto("./");
   const logos = page.locator(".app-logo");
   await expect(logos.first()).toBeVisible();
-  await expect(page.locator(".app-header .app-logo")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".topbar .app-logo")).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator(".start-logo .app-logo")).toBeVisible(); // the start screen shows it too
-  await expect(page.locator(".app-header .app-logo [data-mark=X]")).toHaveCount(1);
-  await expect(page.locator(".app-header .app-logo [data-mark=O]")).toHaveCount(1);
+  await expect(page.locator(".topbar .app-logo [data-mark=X]")).toHaveCount(1);
+  await expect(page.locator(".topbar .app-logo [data-mark=O]")).toHaveCount(1);
   const manifestUrl = new URL((await page.locator('link[rel="manifest"]').getAttribute("href"))!, page.url()).toString();
   const manifest = await (await page.request.get(manifestUrl)).json();
   for (const icon of manifest.icons as { src: string; sizes: string }[]) {

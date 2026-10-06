@@ -71,8 +71,8 @@ export class Relay {
   }
 
   /** A new device: its own browser context on the network, with one page open. */
-  async device(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
-    const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  async device(browser: Browser, options: { colorScheme?: "light" | "dark" } = {}): Promise<{ context: BrowserContext; page: Page }> {
+    const context = await browser.newContext({ viewport: { width: 1100, height: 900 }, ...options });
     this.devices.push(context);
     await this.attach(context);
     const page = await context.newPage();

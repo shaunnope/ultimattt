@@ -32,10 +32,12 @@ test("a palette applies at once, survives a reload, and follows the appearance",
   await dialog.getByLabel("Colour-blind safe").check({ force: true });
   const light = await markX(page);
   expect(light).not.toBe(before);
-  await dialog.getByLabel("Appearance").selectOption("dark");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Appearance" }).click();
+  await page.getByRole("dialog", { name: "Appearance" }).getByRole("radio", { name: "Dark" }).click();
   const dark = await markX(page);
   expect(dark).not.toBe(light);
-  await dialog.getByRole("button", { name: "Done" }).click();
+  await page.keyboard.press("Escape");
   await page.reload();
   expect(await markX(page)).toBe(dark);
   dialog = await openSettings(page);

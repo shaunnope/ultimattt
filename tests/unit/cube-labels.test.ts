@@ -62,7 +62,7 @@ test("a plain Twist turn has no status text (the pill shows it), and a score ask
   assert.equal(say(newGame(config)), "");
   assert.equal(say(play([place(2, 4)])), "");
   const scored = play([place(2, 0), place(0, 0), place(2, 1), place(0, 1), place(2, 2)]);
-  assert.equal(say(scored), "X scored! Turn a layer of the cube.");
+  assert.equal(say(scored), "X scored. Turn a layer of the cube.");
 });
 
 test("frontFace names the face turned towards the viewer for a view", () => {

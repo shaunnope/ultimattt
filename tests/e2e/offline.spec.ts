@@ -141,7 +141,7 @@ test("offline, the logo still shows and every icon is served from the cache", as
   await controlled(page);
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator(".app-header .app-logo")).toBeVisible();
+  await expect(page.locator(".topbar .app-logo")).toBeVisible();
   const hrefs = ["icons/logo.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
   for (const href of hrefs) {
     const status = await page.evaluate(async (path) => (await fetch(path)).status, href);

@@ -9,14 +9,14 @@ Keywords: **MUST** is enforced by a check or a release gate. **SHOULD** is the d
 
 ## 0. Project Profile (fill in per project)
 
-| Slot | What to decide |
-| --- | --- |
-| `APP_KEY` | Storage prefix for every key |
-| Content colours | The colours that *are* the content, drawn exactly and never themed |
-| Domain components | Components only this app has |
-| Network features | Anything that needs the network, so it can degrade |
+| Slot | What to decide | For this project |
+| --- | --- | --- |
+| `APP_KEY` | Storage prefix for every key | `ttt` (keys `ttt.mode`, `ttt.save` and so on) |
+| Content colours | The colours that *are* the content, drawn exactly and never themed | X and O in the chosen mark palette (`mark-x`, `mark-o`), the six Twist cube faces (`face-0` to `face-5`), the QR code (`qr-bg`, `qr-fg`) |
+| Domain components | Components only this app has | The Classic, Ultimate and Twist boards, the Twist cube view, the current-player pill, replay controls, the multiplayer pairing flow |
+| Network features | Anything that needs the network, so it can degrade | Multiplayer pairing and play. Everything else works offline |
 
-**Constant across projects (not Profile slots):** `brand-ink` (cobalt `#3149c4` light, `#b3c3ff` dark), the typeface (Nunito, 400/600/700/800) and the copy locale (British spelling and number format).
+**Constant across projects (not Profile slots):** `brand-ink` (cobalt `#3149c4` light, `#b3c3ff` dark), the typeface (Nunito, 400/600/700/800) and the copy locale (Singapore English spelling and number format).
 
 ---
 
@@ -320,7 +320,8 @@ export function resolveMode(pref: string | null, prefersDark: boolean): "light" 
 | Manifest | Missing fields, absolute URLs, missing icons | `tests/contract/manifest.test.ts` |
 | Install, offline, subpath | Not installable, broken offline, broken under `/repo/` | `tests/e2e/installable`, `offline`, `subpath` specs |
 | Release gate | Accessibility < 90, axe serious violations, first load ≥ 3s | `scripts/audit.mjs` (CI blocks deploy) |
-| **Contrast matrix** (to add) | Any declared pair falls below its ratio in either mode | Not yet implemented. Resolve tokens per mode and assert ratios |
+| **Contrast matrix** | Any declared pair falls below its ratio in either mode | `scripts/check-contrast.mjs` + `scripts/contrast-pairs.json` |
+| Breakpoints | A width media query other than 480px (max) and 640px (min) | `scripts/check-breakpoints.mjs` |
 
 Wire them as `npm run check`, `npm test`, `npm run test:e2e` and `npm run audit`. CI runs all four before publishing.
 
@@ -335,9 +336,9 @@ Wire them as `npm run check`, `npm test`, `npm run test:e2e` and `npm run audit`
 5. Copy the check scripts, the manifest contract test and the audit, and add them to CI.
 6. In each feature's `contracts/ui-contracts.md`, name the core components used and spell out domain components against sections 1 to 8.
 
-### Migrating from the pre-refinement palette (ultimattt today)
+### Migrating from the pre-refinement palette (done in ultimattt, spec 006)
 
-ultimattt's `site/css/theme.css` still uses Flagrant's original tokens. Rename as follows:
+ultimattt's `site/css/theme.css` used Flagrant's original tokens. They were renamed as follows:
 
 | Old | New |
 | --- | --- |
