@@ -1,4 +1,4 @@
-// Fails when a stylesheet other than site/css/theme.css contains a colour literal (a hex colour, rgb(), hsl(),
+// Fails when a stylesheet other than static/css/theme.css (or the style block of a .svelte file) contains a colour literal (a hex colour, rgb(), hsl(),
 // oklch() or a colour name), and when theme.css itself has one outside a custom-property declaration. Every colour
 // comes from a token defined in theme.css, so the light and dark looks stay consistent and a restyle touches one file. Comments are ignored; `transparent`, `currentColor` and var(--token)
 // are fine. (The manifest and the theme-color meta tag need literal colours; tests/contract/manifest.test.ts checks
@@ -6,6 +6,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { svelteStyles } from "./lib/svelte-style.mjs";
 
 const NAMES = "white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|silver|gold|navy|teal|maroon|olive|lime|aqua|fuchsia|cyan|magenta|brown";
 const LITERALS = [
@@ -51,14 +52,16 @@ function scanLines(lines, file) {
 }
 
 export function checkThemeTokens(root) {
-  const dir = join(root, "site", "css");
-  if (!existsSync(dir)) return ["site/css is missing"];
+  const dir = join(root, "static", "css");
+  if (!existsSync(dir)) return ["static/css is missing"];
   const problems = [];
   for (const name of readdirSync(dir).filter((n) => n.endsWith(".css") && n !== "theme.css")) {
-    problems.push(...checkCssText(readFileSync(join(dir, name), "utf8"), `site/css/${name}`));
+    problems.push(...checkCssText(readFileSync(join(dir, name), "utf8"), `static/css/${name}`));
   }
-  if (existsSync(join(dir, "theme.css"))) problems.push(...checkThemeCssText(readFileSync(join(dir, "theme.css"), "utf8"), "site/css/theme.css"));
-  else problems.push("site/css/theme.css is missing");
+  if (existsSync(join(dir, "theme.css"))) problems.push(...checkThemeCssText(readFileSync(join(dir, "theme.css"), "utf8"), "static/css/theme.css"));
+  else problems.push("static/css/theme.css is missing");
+  // a component's own styles follow the same rule: colours come from tokens
+  for (const { file, style } of svelteStyles(root)) problems.push(...checkCssText(style, file));
   return problems;
 }
 

@@ -5,6 +5,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { svelteStyles } from "./lib/svelte-style.mjs";
 
 const ALLOWED = new Set(["max-width:480px", "min-width:640px"]);
 
@@ -34,12 +35,13 @@ export function checkBreakpointsText(css, file) {
 }
 
 export function checkBreakpoints(root) {
-  const dir = join(root, "site", "css");
-  if (!existsSync(dir)) return ["site/css is missing"];
+  const dir = join(root, "static", "css");
+  if (!existsSync(dir)) return ["static/css is missing"];
   const problems = [];
   for (const name of readdirSync(dir).filter((n) => n.endsWith(".css"))) {
-    problems.push(...checkBreakpointsText(readFileSync(join(dir, name), "utf8"), `site/css/${name}`));
+    problems.push(...checkBreakpointsText(readFileSync(join(dir, name), "utf8"), `static/css/${name}`));
   }
+  for (const { file, style } of svelteStyles(root)) problems.push(...checkBreakpointsText(style, file));
   return problems;
 }
 

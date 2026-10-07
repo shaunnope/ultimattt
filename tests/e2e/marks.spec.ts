@@ -39,6 +39,7 @@ test("a palette applies at once, survives a reload, and follows the appearance",
   expect(dark).not.toBe(light);
   await page.keyboard.press("Escape");
   await page.reload();
+  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
   expect(await markX(page)).toBe(dark);
   dialog = await openSettings(page);
   await expect(dialog.getByLabel("Colour-blind safe")).toBeChecked();

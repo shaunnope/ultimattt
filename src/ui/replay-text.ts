@@ -2,7 +2,7 @@
 
 import type { CubeRotate, GameConfig, Mark, Move } from "../core/types.ts";
 import { turnName, type NotationStyle } from "../core/notation.ts";
-import { boardName } from "./board-ultimate.ts";
+import { boardName } from "./board-text.ts";
 import { FACE_LETTERS, FACE_NAMES } from "./cube-labels.ts";
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);

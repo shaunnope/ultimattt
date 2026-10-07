@@ -49,16 +49,3 @@ export type IconName = keyof typeof ICON_PATHS;
 
 /** Every icon is drawn with round caps and joins, whatever the CSS around it says. */
 export const ICON_STROKE = { "stroke-linecap": "round", "stroke-linejoin": "round" } as const;
-
-export function icon(name: IconName): SVGSVGElement {
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("data-icon", name);
-  svg.setAttribute("focusable", "false");
-  for (const [name2, value] of Object.entries(ICON_STROKE)) svg.setAttribute(name2, value);
-  const path = document.createElementNS(NS, "path");
-  path.setAttribute("d", ICON_PATHS[name]);
-  svg.append(path);
-  return svg;
-}

@@ -63,7 +63,7 @@ test("a pair that names a missing token fails with a clear message", () => {
 
 test("the declared pairs hold on the real theme.css in both modes", () => {
   const root = join(import.meta.dirname, "..", "..");
-  const css = readFileSync(join(root, "site", "css", "theme.css"), "utf8");
+  const css = readFileSync(join(root, "static", "css", "theme.css"), "utf8");
   const pairs = JSON.parse(readFileSync(join(root, "scripts", "contrast-pairs.json"), "utf8"));
   assert.deepEqual(checkContrast(css, pairs), []);
 });

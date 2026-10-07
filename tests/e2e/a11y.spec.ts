@@ -166,11 +166,8 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("the update bar and an error banner on the start screen", async ({ page }) => {
       await page.goto("./");
-      await page.evaluate(async () => {
-        const url = "./js/ui/update-bar.js";
-        const mod = await import(url);
-        mod.offerUpdate(document.getElementById("update-bar")!, { postMessage() {} });
-      });
+      await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent("ttt:update-ready", { detail: { postMessage() {} } })));
       await page.locator("#join-code").fill("zz");
       await page.getByRole("button", { name: "Join game" }).click();
       await expect(page.locator("#join-error")).toBeVisible();
@@ -179,6 +176,7 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("the offline banner", async ({ page, context }) => {
       await page.goto("./");
+      await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
       await context.setOffline(true);
       await expect(page.locator(".banner", { hasText: "You are offline." })).toBeVisible();
       await clean(page, "offline banner");
@@ -189,6 +187,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 test("the skip link is the first thing Tab reaches, and it jumps to the game", async ({ page }) => {
   await page.goto("./");
+  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
   await page.keyboard.press("Tab");
   const skip = page.getByRole("link", { name: "Skip to the game" });
   await expect(skip).toBeFocused();

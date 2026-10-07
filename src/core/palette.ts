@@ -2,7 +2,7 @@
 // both colours, picked by id. Players cannot enter a colour, so readability and distinctness are properties of
 // this table, proven once in tests/unit/palette.test.ts. Pure: no DOM, storage or network.
 //
-// Values were chosen against flagrant's surfaces (site/css/theme.css); the default X is flagrant's accent, and
+// Values were chosen against flagrant's surfaces (static/css/theme.css); the default X is flagrant's accent, and
 // the colour-blind safe pair follows the Okabe-Ito blue and orange.
 
 export type Appearance = "light" | "dark";

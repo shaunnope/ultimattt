@@ -4,57 +4,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain .mjs scripts, no types
-import { checkVersion } from "../../scripts/check-version.mjs";
-// @ts-expect-error plain .mjs scripts, no types
-import { checkPrecache } from "../../scripts/check-precache.mjs";
-// @ts-expect-error plain .mjs scripts, no types
 import { checkSw } from "../../scripts/check-sw.mjs";
 
 const fixture = (name: string) => readFileSync(join(import.meta.dirname, "..", "fixtures", "check", name), "utf8");
-
-function project(opts: { version: string; files: string[]; hash: string; lock?: { version: string; hash: string }; emitted?: string[] }) {
-  const root = mkdtempSync(join(tmpdir(), "ttt-check-"));
-  mkdirSync(join(root, "src"), { recursive: true });
-  mkdirSync(join(root, "site", "js"), { recursive: true });
-  mkdirSync(join(root, "scripts"), { recursive: true });
-  writeFileSync(join(root, "src", "sw.ts"), `const VERSION = "${opts.version}";\n`);
-  writeFileSync(join(root, "site", "precache.json"), JSON.stringify({ hash: opts.hash, files: opts.files }));
-  for (const f of opts.emitted ?? []) {
-    mkdirSync(join(root, "site", f, ".."), { recursive: true });
-    writeFileSync(join(root, "site", f), "//");
-  }
-  if (opts.lock) writeFileSync(join(root, "scripts", "precache.lock.json"), JSON.stringify(opts.lock));
-  return root;
-}
-
-test("check-version: passes when assets are unchanged", () => {
-  const root = project({ version: "3", files: ["index.html"], hash: "aaa", lock: { version: "3", hash: "aaa" } });
-  assert.deepEqual(checkVersion(root), []);
-});
-
-test("check-version: passes when assets changed and version was bumped", () => {
-  const root = project({ version: "4", files: ["index.html"], hash: "bbb", lock: { version: "3", hash: "aaa" } });
-  assert.deepEqual(checkVersion(root), []);
-});
-
-test("check-version: fails when assets changed without a version bump", () => {
-  const root = project({ version: "3", files: ["index.html"], hash: "bbb", lock: { version: "3", hash: "aaa" } });
-  const problems = checkVersion(root);
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /bump VERSION/i);
-});
-
-test("check-precache: passes when every emitted js file is listed", () => {
-  const root = project({ version: "1", files: ["js/app.js", "js/core/seed.js"], hash: "x", emitted: ["js/app.js", "js/core/seed.js"] });
-  assert.deepEqual(checkPrecache(root), []);
-});
-
-test("check-precache: fails when an emitted js file is missing from the list", () => {
-  const root = project({ version: "1", files: ["js/app.js"], hash: "x", emitted: ["js/app.js", "js/core/seed.js"] });
-  const problems = checkPrecache(root);
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /js\/core\/seed\.js/);
-});
 
 test("check-sw: passes for a worker that skips waiting only on message and cleans stale caches", () => {
   assert.deepEqual(checkSw(fixture("sw-good.ts")), []);
@@ -100,8 +52,8 @@ test("check-names: a project name in a comment passes, anywhere else fails", () 
   const problems: string[] = checkNames(fixtureDir("names-bad"));
   assert.equal(problems.length, 3);
   assert.ok(problems.some((p) => p.includes("src/a.ts")));
-  assert.ok(problems.some((p) => p.includes("site/index.html")));
-  assert.ok(problems.some((p) => p.includes("site/manifest.json")));
+  assert.ok(problems.some((p) => p.includes("src/app.html")));
+  assert.ok(problems.some((p) => p.includes("static/manifest.json")));
 });
 
 test("check-names: a // inside a string is not a comment, and block comments hide the name", () => {
@@ -167,4 +119,73 @@ test("check-breakpoints: other media features, comments and range syntax are han
 
 test("check-breakpoints passes on this project's own stylesheets", () => {
   assert.deepEqual(checkBreakpoints(join(import.meta.dirname, "..", "..")), []);
+});
+
+// ---- the new layout: static/, src/app.html, src/service-worker.ts and the style blocks of .svelte files ----
+
+// @ts-expect-error plain .mjs scripts, no types
+import { checkSwProject } from "../../scripts/check-sw.mjs";
+// @ts-expect-error plain .mjs scripts, no types
+import { checkTheme } from "../../scripts/check-theme.mjs";
+// @ts-expect-error plain .mjs scripts, no types
+import { checkContrastProject } from "../../scripts/check-contrast.mjs";
+
+const projectRoot = join(import.meta.dirname, "..", "..");
+
+function tmpProject(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "ttt-layout-"));
+  for (const [name, body] of Object.entries(files)) {
+    mkdirSync(join(root, name, ".."), { recursive: true });
+    writeFileSync(join(root, name), body);
+  }
+  return root;
+}
+
+test("check-sw reads src/service-worker.ts, and says so when it is missing", () => {
+  assert.deepEqual(checkSwProject(projectRoot), []);
+  const problems: string[] = checkSwProject(tmpProject({ "src/other.ts": "" }));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!, /src\/service-worker\.ts/);
+  const bad = checkSwProject(tmpProject({ "src/service-worker.ts": fixture("sw-bad-skipwaiting.ts") }));
+  assert.ok(bad.some((p: string) => /skipWaiting/.test(p)));
+});
+
+test("check-theme reads the inline script from src/app.html and resolveMode from src/ui/theme.ts", async () => {
+  assert.deepEqual(await checkTheme(projectRoot), []);
+  const problems: string[] = await checkTheme(tmpProject({ "src/app.html": "<html></html>", "src/ui/theme.ts": readFileSync(join(projectRoot, "src", "ui", "theme.ts"), "utf8") }));
+  assert.ok(problems.some((p) => /pre-paint/.test(p)));
+});
+
+test("check-contrast reads static/css/theme.css", () => {
+  assert.deepEqual(checkContrastProject(projectRoot), []);
+  assert.ok((checkContrastProject(tmpProject({ "scripts/contrast-pairs.json": "[]" })) as string[]).some((p) => /static\/css\/theme\.css/.test(p)));
+});
+
+test("check-theme-tokens: a colour literal in the style block of a .svelte file fails, with the file's own line number", () => {
+  assert.deepEqual(checkThemeTokens(fixtureDir("svelte-style-good")), []);
+  const problems: string[] = checkThemeTokens(fixtureDir("svelte-style-bad"));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!, /src\/lib\/A\.svelte:4:.*hex colour/);
+});
+
+test("check-theme-tokens: colour words in a .svelte file's markup or script are not styles", () => {
+  const root = tmpProject({
+    "static/css/theme.css": ":root { --a: #fff; }",
+    "src/lib/B.svelte": '<script>const c = "#fff";</script>\n<p class="red">white</p>\n<style>p { color: var(--a); }</style>\n',
+  });
+  assert.deepEqual(checkThemeTokens(root), []);
+});
+
+test("check-breakpoints: a width query in the style block of a .svelte file is checked like a stylesheet", () => {
+  assert.deepEqual(checkBreakpoints(fixtureDir("svelte-style-good")), []);
+  const problems: string[] = checkBreakpoints(fixtureDir("svelte-style-bad"));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!, /src\/lib\/A\.svelte:5:.*720px/);
+});
+
+test("check-names: a project name in the markup of a .svelte file fails, in its comment it passes", () => {
+  const bad = checkNames(tmpProject({ "src/lib/C.svelte": "<p>flagrant</p>\n", "static/manifest.json": "{}" }));
+  assert.equal(bad.length, 1);
+  assert.match(bad[0]!, /src\/lib\/C\.svelte:1/);
+  assert.deepEqual(checkNames(tmpProject({ "src/lib/C.svelte": "<!-- flagrant -->\n<p>ok</p>\n", "static/manifest.json": "{}" })), []);
 });

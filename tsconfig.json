@@ -1,21 +1,18 @@
 {
+  "extends": "$app/tsconfig",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "erasableSyntaxOnly": true,
-    "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
-    "rootDir": "src",
-    "outDir": "site/js",
     "skipLibCheck": true,
-    "types": ["node"]
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node", "$app/types"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/sw.ts"]
+  "include": ["src", "test", "*"],
+  "exclude": ["src/service-worker", "src/service-worker.ts"]
 }

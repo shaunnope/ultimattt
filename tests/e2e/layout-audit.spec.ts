@@ -52,6 +52,7 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("start screen offline: two-device play says what to do", async ({ page, context }) => {
       await page.goto("./");
+      await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
       await context.setOffline(true);
       await expect(page.locator(".banner", { hasText: "You are offline." })).toBeVisible();
       await auditAtWidths(page, "start screen offline");
@@ -121,11 +122,8 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("the update bar", async ({ page }) => {
       await page.goto("./");
-      await page.evaluate(async () => {
-        const url = "./js/ui/update-bar.js";
-        const mod = await import(url);
-        mod.offerUpdate(document.getElementById("update-bar")!, { postMessage() {} });
-      });
+      await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
+      await page.evaluate(() => window.dispatchEvent(new CustomEvent("ttt:update-ready", { detail: { postMessage() {} } })));
       await expect(page.locator("#update-bar")).toContainText("A new version is ready.");
       await auditAtWidths(page, "update bar");
     });

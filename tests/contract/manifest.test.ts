@@ -8,7 +8,7 @@ import { resolveTokens } from "../../scripts/check-contrast.mjs";
 // @ts-expect-error plain .mjs scripts, no types
 import { evalColour } from "../../scripts/lib/colour.mjs";
 
-const site = join(import.meta.dirname, "..", "..", "site");
+const site = join(import.meta.dirname, "..", "..", "static");
 const theme = readFileSync(join(site, "css", "theme.css"), "utf8");
 const manifest = JSON.parse(readFileSync(join(site, "manifest.json"), "utf8")) as {
   name?: string;
@@ -86,7 +86,7 @@ test("theme_color and background_color are the light page token, and the default
   const page = pageHex("light");
   assert.equal(manifest.background_color!.toLowerCase(), page);
   assert.equal(manifest.theme_color!.toLowerCase(), page);
-  const html = readFileSync(join(site, "index.html"), "utf8");
+  const html = readFileSync(join(import.meta.dirname, "..", "..", "src", "app.html"), "utf8");
   assert.match(html, new RegExp(`<meta name="theme-color" content="${page}"`, "i"));
 });
 

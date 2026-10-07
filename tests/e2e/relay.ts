@@ -26,9 +26,15 @@ export class Relay {
     await context.route("**/peerjs.min.js", (route) => route.fulfill({ path: join(import.meta.dirname, "fake-peerjs.js"), contentType: "text/javascript" }));
     const track = (page: Page) => {
       this.pages.add(page);
-      // a page that reloads or closes takes its ids and connections with it, as on a real network
+      // a page that reloads or closes takes its ids and connections with it, as on a real network. A change of the #/ part of the
+      // address (opening help over a game, moving between screens) is the same page, so its connections stay.
+      let last = "about:blank";
       page.on("framenavigated", (frame) => {
-        if (frame === page.mainFrame()) this.vanish(page);
+        if (frame !== page.mainFrame()) return;
+        const now = frame.url();
+        const sameDocument = now !== last && now.split("#")[0] === last.split("#")[0];
+        last = now;
+        if (!sameDocument) this.vanish(page);
       });
       page.on("close", () => {
         this.vanish(page);

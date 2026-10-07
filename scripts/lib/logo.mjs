@@ -1,4 +1,4 @@
-// The logo's geometry, shared by site/icons/logo.svg (and its inline copy in the page header) and the PNG icons that
+// The logo's geometry, shared by static/icons/logo.svg (and its inline copy in the page header, src/lib/components/Logo.svelte) and the PNG icons that
 // scripts/make-icons.mjs rasterises. A 2×2×2 cube drawn isometrically: three visible faces, each split 2×2, with X's and
 // O's on the cells. Every stroke is round-capped and round-joined. Coordinates are in a 64×64 box.
 

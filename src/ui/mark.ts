@@ -6,8 +6,6 @@
 
 import type { Mark } from "../core/types.ts";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
 export interface Stroke {
   tag: "path" | "circle";
   attrs: Record<string, string>;
@@ -37,23 +35,4 @@ export const markName = (mark: Mark): string => mark;
 /** Class names for a mark. `mark-new` starts the draw-in, and is never added under reduced motion. */
 export function markClassName(mark: Mark, fresh: boolean, reducedMotion = false): string {
   return `mark mark-${mark.toLowerCase()}${fresh && !reducedMotion ? " mark-new" : ""}`;
-}
-
-const prefersReducedMotion = (): boolean =>
-  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** An SVG element for a mark. Decorative: the cell or sticker that holds it carries the accessible name. */
-export function createMark(mark: Mark, opts: { fresh?: boolean } = {}): SVGSVGElement {
-  const shape = markShape(mark);
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", markClassName(mark, opts.fresh === true, prefersReducedMotion()));
-  svg.setAttribute("viewBox", shape.viewBox);
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("focusable", "false");
-  for (const stroke of shape.strokes) {
-    const el = document.createElementNS(SVG_NS, stroke.tag);
-    for (const [name, value] of Object.entries(stroke.attrs)) el.setAttribute(name, value);
-    svg.append(el);
-  }
-  return svg;
 }

@@ -1,4 +1,4 @@
-// Takes the screenshots listed in the manifest (site/screenshots/) from the running app.
+// Takes the screenshots listed in the manifest (static/screenshots/) from the running app.
 //   node scripts/make-screenshots.mjs
 // A narrow one (1080x2340, a phone) and a wide one (1920x1080, a desktop). Run it when the look changes,
 // then bump VERSION in src/sw.ts so installed copies pick the new files up (the Twist game is chosen by its name on the setup card).
@@ -8,8 +8,8 @@ import { chromium } from "@playwright/test";
 import { startStaticServer } from "./lib/serve.mjs";
 
 const root = process.cwd();
-mkdirSync("site/screenshots", { recursive: true });
-const server = await startStaticServer(join(root, "site"), 0);
+mkdirSync("static/screenshots", { recursive: true });
+const server = await startStaticServer(join(root, "build"), 0);
 try {
   const browser = await chromium.launch();
   const url = server.url;
@@ -22,7 +22,7 @@ try {
   await phone.getByRole("button", { name: "Start game" }).click();
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 4], [2, 2]]) await phone.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
   await phone.waitForTimeout(600);
-  await phone.screenshot({ path: "site/screenshots/screen-narrow.png" });
+  await phone.screenshot({ path: "static/screenshots/screen-narrow.png" });
 
   // wide: an Ultimate game with a board claimed
   const desktop = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
@@ -34,9 +34,9 @@ try {
     await desktop.locator(`button[data-board="${b}"][data-cell="${c}"]`).click();
   }
   await desktop.waitForTimeout(600);
-  await desktop.screenshot({ path: "site/screenshots/screen-wide.png" });
+  await desktop.screenshot({ path: "static/screenshots/screen-wide.png" });
   await browser.close();
-  console.log("screenshots written to site/screenshots");
+  console.log("screenshots written to static/screenshots");
 } finally {
   await server.stop();
 }

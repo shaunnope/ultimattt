@@ -82,14 +82,13 @@ export function cssColourToHex(text: string): string | null {
   return null;
 }
 
-/** The page colour of the current mode as #rrggbb, read from the --page token so it can never drift from the CSS. */
+/**
+ * The page colour of the current mode as #rrggbb, read from the --page token so it can never drift from the CSS. The shell has a
+ * hidden probe element (#page-colour) painted with that token; reading its computed colour resolves any colour expression.
+ */
 function pageColour(): string | null {
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;background-color:var(--page)";
-  document.documentElement.append(probe);
-  const colour = getComputedStyle(probe).backgroundColor;
-  probe.remove();
-  return cssColourToHex(colour);
+  const probe = document.getElementById("page-colour");
+  return probe ? cssColourToHex(getComputedStyle(probe).backgroundColor) : null;
 }
 
 function paint(): void {

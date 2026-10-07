@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: "list",
   use: { baseURL: "http://localhost:4173/", trace: "retain-on-failure" },
   webServer: {
-    command: "npm run build && npx http-server site -p 4173 -c-1 --silent",
+    command: "node scripts/build.mjs --subpath && npx http-server build -p 4173 -c-1 --silent",
     url: "http://localhost:4173/",
     reuseExistingServer: false,
     timeout: 120_000,

@@ -47,6 +47,22 @@ test("every variant is playable offline after one visit", async ({ page, context
   await expect(mark(page, "X")).toHaveCount(1);
 });
 
+test("the computer plays offline too, in Classic and Ultimate (its worker is in the cache)", async ({ page, context }) => {
+  await page.goto("./");
+  await controlled(page);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
+
+  await startGame(page, { variant: "Classic", opponent: "Computer", level: "1. Beginner" });
+  await page.locator('[data-cell="4"]').click();
+  await expect(mark(page, "O")).toHaveCount(1, { timeout: 10_000 });
+
+  await startGame(page, { variant: "Ultimate", opponent: "Computer", level: "1. Beginner" });
+  await page.locator('button[data-board="4"][data-cell="4"]').click();
+  await expect(mark(page, "O")).toHaveCount(1, { timeout: 10_000 });
+});
+
 test("a game in progress comes back after a reload, in every variant", async ({ page }) => {
   await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
   await page.locator('[data-cell="4"]').click();
@@ -96,7 +112,7 @@ test("a corrupt save is set aside, a notice is shown, and the game starts fresh"
 // A tiny static server for the site, so the test can start serving a changed worker (a "new version")
 // without touching any file.
 function serveSite(port: number): Promise<{ suffix: { sw: string }; close: () => Promise<void> }> {
-  const root = join(import.meta.dirname, "..", "..", "site");
+  const root = join(import.meta.dirname, "..", "..", "build");
   const types: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png" };
   const suffix = { sw: "" };
   const server = createServer((req, res) => {
@@ -107,7 +123,7 @@ function serveSite(port: number): Promise<{ suffix: { sw: string }; close: () =>
       return;
     }
     let body: Buffer | string = readFileSync(file);
-    if (path === "/sw.js") body = body.toString() + suffix.sw;
+    if (path === "/service-worker.js") body = body.toString() + suffix.sw;
     res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream", "cache-control": "no-store" }).end(body);
   });
   return new Promise((resolve) => server.listen(port, () => resolve({ suffix, close: () => new Promise((r) => server.close(() => r())) })));

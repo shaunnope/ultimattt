@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { boardName, whereToPlay, cellPosition } from "../../src/ui/board-ultimate.ts";
+import { boardName, whereToPlay, cellPosition } from "../../src/ui/board-text.ts";
 import { newGame, apply } from "../../src/core/ultimate.ts";
 import type { GameConfig, UltimateMove } from "../../src/core/types.ts";
 

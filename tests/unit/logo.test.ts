@@ -3,13 +3,15 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const site = join(import.meta.dirname, "..", "..", "site");
-const svgPath = join(site, "icons", "logo.svg");
+const root = join(import.meta.dirname, "..", "..");
+const svgPath = join(root, "static", "icons", "logo.svg");
+const appHtml = join(root, "src", "app.html");
+const logoComponent = join(root, "src", "lib", "components", "Logo.svelte");
 const read = () => readFileSync(svgPath, "utf8");
 const shapes = (svg: string) => [...svg.matchAll(/<(?:path|circle|ellipse|line|polyline|polygon|rect)\b[^>]*>/g)].map((m) => m[0]);
 
 test("the logo exists, is an SVG with a square view box, and has no text", () => {
-  assert.ok(existsSync(svgPath), "site/icons/logo.svg is missing");
+  assert.ok(existsSync(svgPath), "static/icons/logo.svg is missing");
   const svg = read();
   assert.match(svg, /^<svg\b[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
   assert.match(svg, /viewBox="0 0 64 64"/);
@@ -46,15 +48,15 @@ test("the ink follows the text colour and the marks follow the palette tokens", 
 });
 
 test("the header and the favicon use it, with the PNG kept as a fallback", () => {
-  const html = readFileSync(join(site, "index.html"), "utf8");
-  assert.match(html, /<svg\b[^>]*class="app-logo"[^>]*aria-hidden="true"/);
-  assert.match(html, /<link rel="icon" href="icons\/logo\.svg" type="image\/svg\+xml">/);
-  assert.match(html, /<link rel="icon" href="icons\/icon-192\.png" type="image\/png">/);
+  assert.match(readFileSync(logoComponent, "utf8"), /<svg\b[^>]*class="app-logo"[^>]*aria-hidden="true"/);
+  const html = readFileSync(appHtml, "utf8");
+  assert.match(html, /<link rel="icon" href="%sveltekit\.assets%\/icons\/logo\.svg" type="image\/svg\+xml">/);
+  assert.match(html, /<link rel="icon" href="%sveltekit\.assets%\/icons\/icon-192\.png" type="image\/png">/);
 });
 
 test("the inline header logo draws the same artwork as logo.svg", () => {
   const inner = (s: string) => s.replace(/^[\s\S]*?<svg\b[^>]*>/, "").replace(/<\/svg>[\s\S]*$/, "").replace(/<style>[\s\S]*?<\/style>/, "").replace(/\s+/g, " ").trim();
-  const html = readFileSync(join(site, "index.html"), "utf8");
+  const html = readFileSync(logoComponent, "utf8");
   const inline = html.match(/<svg\b[^>]*class="app-logo"[\s\S]*?<\/svg>/)![0];
   assert.equal(inner(inline), inner(read()));
 });

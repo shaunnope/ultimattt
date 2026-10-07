@@ -5,7 +5,7 @@ import { describeMove } from "../../src/ui/replay-text.ts";
 import { fromMoves } from "../../src/core/variants.ts";
 import { legalMoves, apply as applyCube, newGame as newCube } from "../../src/core/cube.ts";
 import { recordFromGame, configFromRecord, packLink, unpackLink } from "../../src/core/record.ts";
-import { applySeedToSetup, DEFAULT_SETUP } from "../../src/ui/setup.ts";
+import { applySeedToSetup, DEFAULT_SETUP } from "../../src/ui/setup-model.ts";
 import type { CubeMove, GameConfig, Move } from "../../src/core/types.ts";
 
 const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };

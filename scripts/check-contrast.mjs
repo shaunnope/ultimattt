@@ -1,10 +1,10 @@
 // Fails when a declared colour pairing in scripts/contrast-pairs.json falls below its contrast ratio in light or dark.
-// Tokens come from site/css/theme.css, resolved per mode (:root first, then :root[data-mode="light"|"dark"], as the
+// Tokens come from static/css/theme.css, resolved per mode (:root first, then :root[data-mode="light"|"dark"], as the
 // cascade does). A pair is { fg, bg: [layer, ...], min, why }: bg lists the surfaces bottom first, so a control on a
 // card on the page is ["page", "surface", "surface-strong"], and translucent layers are composited down the stack
 // before the foreground is laid over the result and measured. min is 4.5 for text and 3 for edges, focus rings, bar
 // fills and meaningful icons.
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { composite, evalColour, ratio } from "./lib/colour.mjs";
@@ -78,11 +78,17 @@ export function checkContrast(css, pairs) {
   return problems;
 }
 
+/** The declared pairs against static/css/theme.css in a project folder. */
+export function checkContrastProject(root) {
+  const themePath = join(root, "static", "css", "theme.css");
+  if (!existsSync(themePath)) return ["static/css/theme.css is missing"];
+  const pairsPath = join(root, "scripts", "contrast-pairs.json");
+  if (!existsSync(pairsPath)) return ["scripts/contrast-pairs.json is missing"];
+  return checkContrast(readFileSync(themePath, "utf8"), JSON.parse(readFileSync(pairsPath, "utf8")));
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const root = process.cwd();
-  const css = readFileSync(join(root, "site", "css", "theme.css"), "utf8");
-  const pairs = JSON.parse(readFileSync(join(root, "scripts", "contrast-pairs.json"), "utf8"));
-  const problems = checkContrast(css, pairs);
+  const problems = checkContrastProject(process.cwd());
   problems.forEach((p) => console.error("check-contrast:", p));
   process.exit(problems.length ? 1 : 0);
 }
