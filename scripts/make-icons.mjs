@@ -1,5 +1,5 @@
 // Draws the app icons (the 2×2×2 cube of X's and O's from scripts/lib/logo.mjs) as PNGs with no dependencies, and writes the
-// same artwork as site/icons/logo.svg and into the page header (between the logo markers in site/index.html).
+// same artwork as static/icons/logo.svg and into the page header (between the logo markers in src/lib/components/Logo.svelte).
 // Run: node scripts/make-icons.mjs
 import { deflateSync } from "node:zlib";
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
@@ -90,14 +90,14 @@ export function inlineLogo(html) {
 }
 
 function main() {
-  mkdirSync("site/icons", { recursive: true });
-  writeFileSync("site/icons/icon-192.png", png(192, renderLogo(192, 0.08)));
-  writeFileSync("site/icons/icon-512.png", png(512, renderLogo(512, 0.08)));
-  writeFileSync("site/icons/icon-maskable-512.png", png(512, renderLogo(512, 0.2)));
-  writeFileSync("site/icons/apple-touch-icon.png", png(180, renderLogo(180, 0.08)));
-  writeFileSync("site/icons/logo.svg", logoSvg() + "\n");
-  writeFileSync("site/index.html", inlineLogo(readFileSync("site/index.html", "utf8")));
-  console.log("icons written to site/icons");
+  mkdirSync("static/icons", { recursive: true });
+  writeFileSync("static/icons/icon-192.png", png(192, renderLogo(192, 0.08)));
+  writeFileSync("static/icons/icon-512.png", png(512, renderLogo(512, 0.08)));
+  writeFileSync("static/icons/icon-maskable-512.png", png(512, renderLogo(512, 0.2)));
+  writeFileSync("static/icons/apple-touch-icon.png", png(180, renderLogo(180, 0.08)));
+  writeFileSync("static/icons/logo.svg", logoSvg() + "\n");
+  writeFileSync("src/lib/components/Logo.svelte", inlineLogo(readFileSync("src/lib/components/Logo.svelte", "utf8")));
+  console.log("icons written to static/icons");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

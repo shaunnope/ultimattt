@@ -1,6 +1,6 @@
 // Fails unless the service worker only calls skipWaiting from its message handler
-// and deletes stale caches in its activate handler. Reads src/sw.ts as text.
-import { readFileSync } from "node:fs";
+// and deletes stale caches in its activate handler. Reads src/service-worker.ts as text.
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,8 +23,15 @@ export function checkSw(source) {
   return problems;
 }
 
+/** The worker in a project folder: src/service-worker.ts. */
+export function checkSwProject(root) {
+  const path = join(root, "src", "service-worker.ts");
+  if (!existsSync(path)) return ["src/service-worker.ts is missing"];
+  return checkSw(readFileSync(path, "utf8"));
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const problems = checkSw(readFileSync(join(process.cwd(), "src", "sw.ts"), "utf8"));
+  const problems = checkSwProject(process.cwd());
   problems.forEach((p) => console.error("check-sw:", p));
   process.exit(problems.length ? 1 : 0);
 }

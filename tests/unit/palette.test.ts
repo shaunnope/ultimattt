@@ -8,7 +8,7 @@ import { resolveTokens } from "../../scripts/check-contrast.mjs";
 // @ts-expect-error plain .mjs scripts, no types
 import { composite, evalColour } from "../../scripts/lib/colour.mjs";
 
-const theme = readFileSync(join(import.meta.dirname, "..", "..", "site", "css", "theme.css"), "utf8");
+const theme = readFileSync(join(import.meta.dirname, "..", "..", "static", "css", "theme.css"), "utf8");
 
 /** The value of a token inside the light or dark block of theme.css. */
 function token(name: string, mode: "light" | "dark"): string {

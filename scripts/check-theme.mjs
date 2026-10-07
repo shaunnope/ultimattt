@@ -1,8 +1,8 @@
-// Fails when the pre-paint theme script in site/index.html disagrees with resolveMode in src/ui/theme.ts.
+// Fails when the pre-paint theme script in src/app.html disagrees with resolveMode in src/ui/theme.ts.
 // The script is run against every stored value (under the current key ttt.mode and under the legacy key ttt.theme,
 // which a returning player may still have) and every system theme, and its answers are compared: the resolved
 // data-mode and the recorded data-mode-preference.
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -28,7 +28,7 @@ function runScript(source, stored, prefersDark) {
 
 export function checkThemeHtml(html, resolveMode) {
   const match = /<script>([\s\S]*?)<\/script>/.exec(html);
-  if (!match) return ["index.html has no inline pre-paint theme script"];
+  if (!match) return ["src/app.html has no inline pre-paint theme script"];
   const problems = [];
 
   const cases = [];
@@ -61,10 +61,20 @@ export function checkThemeHtml(html, resolveMode) {
   return problems;
 }
 
+/** The page in src/app.html against resolveMode in src/ui/theme.ts. */
+export async function checkTheme(root) {
+  const page = join(root, "src", "app.html");
+  const theme = join(root, "src", "ui", "theme.ts");
+  if (!existsSync(page)) return ["src/app.html is missing"];
+  if (!existsSync(theme)) return ["src/ui/theme.ts is missing"];
+  const html = readFileSync(page, "utf8");
+  if (!/<script>[\s\S]*?<\/script>/.test(html)) return checkThemeHtml(html, () => "light"); // no script: the same message, without loading the theme module
+  const { resolveMode } = await import(pathToFileURL(theme).href);
+  return checkThemeHtml(html, resolveMode);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const root = process.cwd();
-  const { resolveMode } = await import(pathToFileURL(join(root, "src", "ui", "theme.ts")).href);
-  const problems = checkThemeHtml(readFileSync(join(root, "site", "index.html"), "utf8"), resolveMode);
+  const problems = await checkTheme(process.cwd());
   problems.forEach((p) => console.error("check-theme:", p));
   process.exit(problems.length ? 1 : 0);
 }

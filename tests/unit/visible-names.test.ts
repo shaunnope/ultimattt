@@ -18,7 +18,7 @@ function walk(dir: string): string[] {
 const ALLOWED = ["Cube notation (R, U', F2, 2L)"];
 
 test("no visible text uses Cube as a mode name (the mode is Twist-Tac-Toe or Twist)", () => {
-  const files = [...walk(join(ROOT, "src")).filter((f) => extname(f) === ".ts"), join(ROOT, "site/index.html"), join(ROOT, "site/manifest.json")];
+  const files = [...walk(join(ROOT, "src")).filter((f) => extname(f) === ".ts"), join(ROOT, "src/app.html"), join(ROOT, "static/manifest.json")];
   const problems: string[] = [];
   for (const file of files) {
     const kind = file.endsWith(".html") ? "html" : file.endsWith(".json") ? "json" : "ts";

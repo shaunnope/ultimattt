@@ -11,7 +11,7 @@ import { startGame } from "./helpers.ts";
 const PREFIX = "/ultimattt/";
 
 function serveUnderPrefix(port: number): Promise<{ requests: string[]; close: () => Promise<void> }> {
-  const root = join(import.meta.dirname, "..", "..", "site");
+  const root = join(import.meta.dirname, "..", "..", "build-subpath");
   const types: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png" };
   const requests: string[] = [];
   const server = createServer((req, res) => {
@@ -88,6 +88,17 @@ test("offline play and resuming a game work from under the project path", async 
     await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
     await page.locator('[data-cell="0"]').click();
     await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
+  });
+});
+
+test("the computer plays offline from under the project path", async ({ page, context }, testInfo) => {
+  await withSite(testInfo, async (url) => {
+    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await controlled(page);
+    await context.setOffline(true);
+    await startGame(page, { variant: "Classic", opponent: "Computer", level: "1. Beginner" }, url);
+    await page.locator('[data-cell="4"]').click();
+    await expect(page.locator('button.cell[data-mark="O"]')).toHaveCount(1, { timeout: 10_000 });
   });
 });
 

@@ -32,12 +32,10 @@ async function finishedGame(page: Page) {
 test("the update bar offers the update and waits for the player", async ({ page }) => {
   await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
   await cell(page, 4).click();
-  await page.evaluate(async () => {
-    const url = "./js/ui/update-bar.js";
-    const mod = await import(url);
+  await page.evaluate(() => {
     const worker = { messages: [] as unknown[], postMessage(m: unknown) { this.messages.push(m); } };
     (window as unknown as { __worker: typeof worker }).__worker = worker;
-    mod.offerUpdate(document.getElementById("update-bar")!, worker);
+    window.dispatchEvent(new CustomEvent("ttt:update-ready", { detail: worker }));
   });
   const bar = page.locator("#update-bar");
   await expect(bar).toBeVisible();
@@ -169,6 +167,7 @@ test("the palette picker marks the chosen row with a check icon and the word Sel
 
 test("icons are inline SVG with a data-icon name, and no emoji appears in the start screen text", async ({ page }) => {
   await page.goto("./");
+  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event now
   expect(await page.locator("button svg[data-icon]").count()).toBeGreaterThan(0);
   const text = await page.locator("body").innerText();
   expect(text).not.toMatch(/[\u{1F000}-\u{1FAFF}←-⇿■-◿☀-➿⬀-⯿]/u);

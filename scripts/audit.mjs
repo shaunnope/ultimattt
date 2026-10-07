@@ -51,7 +51,7 @@ async function main() {
   const build = spawnSync("npm", ["run", "build"], { cwd: root, stdio: "inherit", shell: true });
   if (build.status !== 0) process.exit(build.status ?? 1);
 
-  const server = await startStaticServer(join(root, "site"), 0);
+  const server = await startStaticServer(join(root, "build"), 0);
   try {
     const url = server.url;
     const require = createRequire(import.meta.url);

@@ -1,6 +1,6 @@
 // Fails when the names of the two reference projects appear in anything a player or the page can see: source text,
 // stylesheets, the page, the manifest. They may appear in comments that cite where a value came from, and in the
-// spec documents, which this script does not scan. Scans src/ and site/ (never the build output site/js).
+// spec documents, which this script does not scan. Scans src/ and static/ (never the build output).
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,7 +43,7 @@ export function stripComments(text, kind) {
   return out;
 }
 
-const KINDS = { ".ts": "ts", ".js": "ts", ".mjs": "ts", ".css": "css", ".html": "html", ".json": "json", ".svg": "html" };
+const KINDS = { ".ts": "ts", ".js": "ts", ".mjs": "ts", ".css": "css", ".html": "html", ".svelte": "html", ".json": "json", ".svg": "html" };
 
 export function checkNamesText(text, kind, file) {
   const problems = [];
@@ -67,12 +67,11 @@ function walk(dir, skip) {
 
 export function checkNames(root) {
   const problems = [];
-  const generated = new Set(["precache.json", "sw.js"]);
   const skip = (p) => {
     const rel = relative(root, p).replaceAll("\\", "/");
-    return rel === "site/js" || rel.startsWith("site/js/") || rel.startsWith("site/screenshots") || rel.startsWith("site/icons") || generated.has(rel.replace(/^site\//, ""));
+    return rel.startsWith("static/screenshots") || rel.startsWith("static/icons");
   };
-  for (const top of ["src", "site"]) {
+  for (const top of ["src", "static"]) {
     const dir = join(root, top);
     if (!existsSync(dir)) continue;
     for (const file of walk(dir, skip)) {

@@ -29,11 +29,11 @@ Needs Node 22.18 or later (it runs TypeScript directly for the tests).
 ```text
 npm install
 npx playwright install chromium     # once, for the browser tests
-npm run build                       # tsc: src/ -> site/js, src/sw.ts -> site/sw.js, preload list, precache list
-npx http-server site -p 8080        # then open http://localhost:8080
+npm run build                       # SvelteKit static build -> build/ (the service worker is built from src/service-worker.ts)
+npx http-server build -p 8080       # then open http://localhost:8080
 ```
 
-There is no bundler: `tsc` emits plain ES modules and the browser loads them as they are.
+The interface is SvelteKit (Svelte 5) built as a static single-page app: no server code, hash routes (`#/play`, `#/replay`, `#/help`), and nothing to configure on the host. `node scripts/build.mjs --subpath` also builds `build-subpath/` for a host that serves it under `/ultimattt/`; the base path is a build-time setting. The rules in `src/core` and the adapters in `src/adapters` stay plain TypeScript with no framework (`npm run check` fails if they import it).
 
 ## Tests and checks
 
@@ -41,7 +41,8 @@ There is no bundler: `tsc` emits plain ES modules and the browser loads them as 
 npm test            # type check, then the unit and contract tests (node:test, no browser)
 npm run test:e2e    # the browser tests (Playwright; desktop and phone sizes)
 npm run test:perf   # timing: computer reply time and cube frame times on a 4x slower CPU; runs alone
-npm run check       # service worker rules, precache coverage, version bump, theme script, preload list
+npm run check       # service worker rules, the build contract and size budget, core purity, no hand-built DOM, theme, tokens, contrast, breakpoints, names
+npm run test:parity # screenshots of every screen against a baseline (see tests/parity/screens.spec.ts)
 npm run audit       # release gate: Lighthouse accessibility >= 90, axe, first load under 3 s, installability, timing
 ```
 
@@ -54,30 +55,35 @@ Two-device play is tested with a stand-in for PeerJS (`tests/e2e/fake-peerjs.js`
 ```text
 src/core/        pure rules, computer, seeds, records, protocol, settings (no DOM, storage or network)
 src/adapters/    localStorage (save file), PeerJS pairing
-src/ui/          screens, boards, the 3D cube, replay, settings, service worker registration
-src/sw.ts        the service worker
-site/            what is deployed: HTML, CSS, icons; js/ and sw.js are build output
-tests/           unit/ contract/ e2e/ fixtures/
-scripts/         build and release scripts (precache list, preload list, checks, audit)
+src/lib/        the Svelte components (components/), shared state (state/)
+src/routes/      the shell (+layout.svelte) and the routes: start screen, play, replay, help
+src/ui/          what the components share and the screens' own logic with no DOM: game and cube sessions, boot decision, two-device run, status words, theme
+src/service-worker.ts   the service worker (what to cache and the cache name come from the build)
+src/app.html     the page: head, pre-paint theme script, the shell mount point
+static/          copied as they are: CSS, icons, manifest, screenshots, 404 page
+build/           the build output, what is deployed (git-ignored)
+tests/           unit/ contract/ e2e/ parity/ fixtures/
+scripts/         build and release scripts (build, checks, audit, icons, screenshots)
 specs/           the specification, plan and tasks this was built from
 ```
+
+The move to SvelteKit is spec 007 (`specs/007-sveltekit-ui-migration/`); where the build departs from its plan, `plan.md` and `baseline.md` there say so.
 
 ## Releasing
 
 1. Make sure everything passes: `npm test`, `npm run test:e2e`, and `npm run audit` (Lighthouse accessibility, axe, first-load time, installability, timing). The workflow runs the audit too and will not deploy without it, but running it first saves a failed run.
-2. Bump `VERSION` in `src/sw.ts` whenever any cached file changed. Without it, returning visitors keep the old version. `npm run check` fails if the files changed and the version did not.
-3. `npm run build`, then `node scripts/check-version.mjs --update` to record the released version and the hash of the cached files in `scripts/precache.lock.json`. That file is committed: it is what lets `npm run check` notice a change to the cached files that came without a new `VERSION`. Refresh it at every release.
-4. Push to `main`. The workflow in `.github/workflows/deploy.yml` builds, runs the checks, the tests and the audit, and only then publishes `site/` to GitHub Pages.
+2. There is no version number to bump: the service worker's cache is named for the build, so every release is a new cache, and returning visitors are offered it (the update bar) the next time they open the app.
+3. Push to `main`. The workflow in `.github/workflows/deploy.yml` builds, runs the checks, the tests and the audit, and only then publishes `build-subpath/` (the app under `/ultimattt/`) to GitHub Pages.
 
 **Manual check before a release:** the new-player Twist test (success criterion SC-007: at least 9 in 10 new players complete a Twist game, including a layer turn, without help). It needs people, so it is not automated.
 
 ### GitHub Pages
 
-In the repository's *Settings → Pages*, set *Source* to *GitHub Actions* and turn on *Enforce HTTPS*. The site works from a project path (`https://<user>.github.io/<repo>/`) because every address in it is relative; `tests/e2e/subpath.spec.ts` serves it under `/ultimattt/` and checks it. Pages cannot set response headers, so the service worker is the only cache control the site needs (browsers always revalidate a service worker script).
+In the repository's *Settings → Pages*, set *Source* to *GitHub Actions* and turn on *Enforce HTTPS*. The site works from a project path (`https://<user>.github.io/<repo>/`): the base path is chosen when the app is built (`BASE_PATH`, set by `scripts/build.mjs --subpath`), and `tests/e2e/subpath.spec.ts` serves `build-subpath/` under `/ultimattt/` and checks it. A different repository name needs the path in `scripts/build.mjs` changed. Pages cannot set response headers, so the service worker is the only cache control the site needs (browsers always revalidate a service worker script).
 
 ## Accessibility and offline
 
-Every control works by keyboard and by touch; marks differ by shape as well as colour; claimed boards, winning lines, hints and the playable board are marked with outlines and patterns, not only colour. After the first load the whole app is cached by a versioned service worker and works offline; the game in progress and your settings are kept on the device. Two-device play is the only feature that needs the network.
+Every control works by keyboard and by touch; marks differ by shape as well as colour; claimed boards, winning lines, hints and the playable board are marked with outlines and patterns, not only colour. After the first load the whole app is cached by a service worker (its cache is named for the build) and works offline; the game in progress and your settings are kept on the device. Two-device play is the only feature that needs the network.
 
 ## Credits
 

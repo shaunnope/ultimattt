@@ -21,8 +21,8 @@ async function openTheme(page: Page) {
 test("a dark device is dark before any module script has run", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ colorScheme: "dark", baseURL });
   const page = await context.newPage();
-  // hold the app module back, so what shows at DOMContentLoaded is only what the page itself set
-  await page.route("**/js/ui/app.js", async (route) => {
+  // hold the app entry script back, so what shows at DOMContentLoaded is only what the page itself set
+  await page.route("**/_app/immutable/entry/start.*.js", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await route.continue();
   });
@@ -120,14 +120,14 @@ test("a choice made under the old key (ttt.theme) is dark on first paint, then m
     localStorage.setItem("ttt.theme", "dark");
     localStorage.removeItem("ttt.mode");
   });
-  await page.route("**/js/ui/app.js", async (route) => {
+  await page.route("**/_app/immutable/entry/start.*.js", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.continue();
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   expect(await mode(page)).toBe("dark");
   expect(await preference(page)).toBe("dark");
-  await page.unroute("**/js/ui/app.js");
+  await page.unroute("**/_app/immutable/entry/start.*.js");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("ttt.mode"))).toBe("dark");
   expect(await page.evaluate(() => localStorage.getItem("ttt.theme"))).toBeNull();
   await context.close();

@@ -416,3 +416,40 @@ test("a Cube game with the lock and faces scoring is the same on both devices", 
   await expect(b.locator("#game-title")).toContainText(/faces scoring/);
   await expect(b.locator("#game-title")).toContainText(/locked faces/);
 });
+
+// ---- the migrated screens (specs/007): help over a game, and leaving closes the connection ----
+
+test("help opened in the middle of a two-device game leaves the connection and the game intact", async ({ browser, relay }) => {
+  const { a, b } = await pair(browser, relay);
+  await cell(a, 0).click();
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
+  await a.getByRole("button", { name: "Help", exact: true }).click();
+  await expect(a.locator("#help-view h2").first()).toBeVisible();
+  await cell(b, 4).click();
+  await expect(cell(b, 4)).toHaveAttribute("data-mark", "O");
+  await a.locator("#help-back").click();
+  await expect(cell(a, 0)).toHaveAttribute("data-mark", "X");
+  await expect(cell(a, 4)).toHaveAttribute("data-mark", "O"); // the move made while help was open arrived
+  await expect(a.locator("#net-status")).toContainText("Connected");
+  await cell(a, 8).click();
+  await expect(cell(b, 8)).toHaveAttribute("data-mark", "X");
+});
+
+test("leaving a hosted game closes its connection, so the next game gets no stale messages", async ({ browser, relay }) => {
+  const { a, b } = await pair(browser, relay);
+  await cell(a, 0).click();
+  await expect(cell(b, 0)).toHaveAttribute("data-mark", "X");
+  await a.getByRole("button", { name: "New game" }).click();
+  await expect(b.locator("#net-status")).toContainText(/left|lost/i);
+  const { page: c } = await relay.device(browser);
+  const code = await host(a);
+  await joinWith(c, code);
+  await expect(a.locator(".board").first()).toBeVisible();
+  await expect(c.locator(".board").first()).toBeVisible();
+  await cell(a, 4).click();
+  await expect(cell(c, 4)).toHaveAttribute("data-mark", "X");
+  await expect(marks(c, "X")).toHaveCount(1);
+  await expect(marks(c, "O")).toHaveCount(0);
+  await expect(marks(b, "X")).toHaveCount(1); // the old game is as it was left
+  await expect(marks(b, "O")).toHaveCount(0);
+});

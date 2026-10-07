@@ -2,7 +2,7 @@ name: Test, audit and deploy to GitHub Pages
 
 # On every push to main: build and run every check and test, run the release audit (Lighthouse accessibility,
 # axe, first-load time, installability, computer reply time and cube frame times), and only if both pass
-# publish site/ to GitHub Pages. The constitution requires the audit to pass before any deploy.
+# publish build-subpath/ (the app under /ultimattt/) to GitHub Pages. The constitution requires the audit to pass before any deploy.
 # One-time setup: in the repository's Settings > Pages, set Source to "GitHub Actions", and turn on "Enforce HTTPS".
 
 on:
@@ -29,7 +29,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: node scripts/build.mjs --subpath
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run test:contract
@@ -38,7 +38,7 @@ jobs:
       - run: npm run test:e2e
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: build-subpath
 
   audit:
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # builds the site, then Lighthouse, axe, installability and the timing tests
+      # builds the app, then Lighthouse, axe, installability and the timing tests
       - run: npm run audit
 
   deploy:

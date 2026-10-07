@@ -66,12 +66,12 @@ export class Computer {
 /** A worker backed by the real module worker, or by the same solver run inline where workers are missing. */
 export function defaultWorker(): WorkerLike {
   if (typeof Worker !== "undefined") {
-    return new Worker(new URL("./ai-worker.js", import.meta.url), { type: "module" }) as unknown as WorkerLike;
+    return new Worker(new URL("./ai-worker.ts", import.meta.url), { type: "module" }) as unknown as WorkerLike;
   }
   const inline: WorkerLike = {
     onmessage: null,
     postMessage(message) {
-      void import("./ai-worker.js").then(({ solve }) => {
+      void import("./ai-worker.ts").then(({ solve }) => {
         const req = message as Parameters<typeof solve>[0];
         const move = solve(req);
         setTimeout(() => inline.onmessage?.({ data: { id: req.id, move } }), 0);

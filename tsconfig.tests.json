@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": true, "rootDir": ".", "outDir": "site/js-unused" },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "playwright*.config.ts"],
-  "exclude": ["src/sw.ts", "tests/fixtures/**"]
+  "compilerOptions": { "noEmit": true, "rootDir": ".", "allowJs": false },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "playwright*.config.ts", "vite.config.ts"],
+  "exclude": ["src/service-worker.ts", "tests/fixtures/**"]
 }

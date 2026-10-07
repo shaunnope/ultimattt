@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-mode="light" data-mode-preference="system">
+<head>
+  <meta charset="utf-8">
+  <title>Tic Tac Toe: Classic, Ultimate and Twist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Classic tic tac toe, Ultimate tic tac toe and Twist-Tac-Toe, a 3D cube variant. Play the computer or a friend. Works offline.">
+  <meta name="theme-color" content="#f3f2f0">
+  <link rel="manifest" href="%sveltekit.assets%/manifest.json">
+  <link rel="icon" href="%sveltekit.assets%/icons/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="%sveltekit.assets%/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="%sveltekit.assets%/icons/apple-touch-icon.png">
+
+  <!-- Pre-paint theme: keep in step with resolveMode in src/ui/theme.ts (scripts/check-theme.mjs checks it).
+       It reads ttt.mode, and the older ttt.theme when there is none, so a returning player's choice shows on the first paint. -->
+  <script>
+    (function () {
+      var m = null;
+      try {
+        m = localStorage.getItem("ttt.mode");
+        if (m === null) m = localStorage.getItem("ttt.theme");
+      } catch (e) {}
+      if (m !== "light" && m !== "dark") m = "system";
+      var r = document.documentElement;
+      r.setAttribute("data-mode-preference", m);
+      if (m === "system") m = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      r.setAttribute("data-mode", m);
+    })();
+  </script>
+
+  <link rel="stylesheet" href="%sveltekit.assets%/css/theme.css">
+  <link rel="stylesheet" href="%sveltekit.assets%/css/style.css">
+  <link rel="stylesheet" href="%sveltekit.assets%/css/cube.css">
+
+  <!-- Nunito, loaded without blocking the first paint: the system face shows until it arrives (display=swap), and
+       stays if the network never delivers it. It is third-party, so the service worker does not cache it. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;display=swap"></noscript>
+  %sveltekit.head%
+</head>
+<body>
+  <div style="display: contents">%sveltekit.body%</div>
+  <noscript><p class="noscript">This game needs JavaScript.</p></noscript>
+</body>
+</html>

@@ -1,8 +1,5 @@
 .claude/skills
 node_modules/
-site/js/
-site/sw.js
-site/precache.json
 test-results/
 playwright-report/
 *.log
@@ -11,3 +8,7 @@ playwright-report/
 Thumbs.db
 __pycache__/
 *.pyc
+.parity/
+build/
+build-subpath/
+.svelte-kit/

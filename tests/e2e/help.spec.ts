@@ -23,6 +23,7 @@ test("Back returns to the screen the player came from", async ({ page }) => {
 
 test("the browser back button also leaves help", async ({ page }) => {
   await page.goto("./");
+  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
   await page.getByRole("button", { name: "Help", exact: true }).click();
   await page.goBack();
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
@@ -154,6 +155,7 @@ test("help sections are visibly separated and evenly spaced, with headings clear
 
 test("every help control shows a focus ring and has an accessible name", async ({ page }) => {
   await page.goto("./#/help");
+  await expect(page.locator("#help-view h2").first()).toBeVisible(); // the app boots after the load event
   const controls = page.locator("#help-view button, #help-view a");
   expect(await controls.count()).toBeGreaterThan(0);
   for (const control of await controls.all()) {

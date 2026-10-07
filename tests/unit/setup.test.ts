@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   configFromSetup, modesFor, DEFAULT_SETUP, initialSetup, applySeedToSetup, chooseSize, chooseVariant, chooseMode, winLengthChoice, seedControlsVisible,
-} from "../../src/ui/setup.ts";
+} from "../../src/ui/setup-model.ts";
 import { parseSeed, pickMark } from "../../src/core/seed.ts";
 import { winLengthOptions } from "../../src/core/rules.ts";
 

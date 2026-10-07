@@ -109,23 +109,3 @@ export function startConfetti(deps: ConfettiDeps): ConfettiRun | null {
   frame = deps.requestFrame(loop);
   return { stop };
 }
-
-/** Confetti over the page, unless the player prefers reduced motion. */
-export function celebrate(): ConfettiRun | null {
-  return startConfetti({
-    reducedMotion: typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches,
-    createCanvas: () => {
-      const canvas = document.createElement("canvas");
-      canvas.setAttribute("aria-hidden", "true");
-      canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60";
-      return canvas;
-    },
-    attach: (canvas) => document.body.append(canvas),
-    detach: (canvas) => canvas.remove(),
-    requestFrame: (cb) => requestAnimationFrame(cb),
-    cancelFrame: (id) => cancelAnimationFrame(id),
-    now: () => performance.now(),
-    random: () => crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32,
-    size: () => ({ width: innerWidth, height: innerHeight }),
-  });
-}
