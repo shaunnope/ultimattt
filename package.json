@@ -11,6 +11,8 @@
     "#lib/*": "./src/lib/*"
   },
   "scripts": {
+    "dev": "svelte-kit sync && vite dev",
+    "preview": "node scripts/build.mjs && http-server build -p 8080",
     "build": "node scripts/build.mjs",
     "typecheck": "svelte-kit sync && svelte-check --fail-on-warnings && tsc -p tsconfig.tests.json",
     "test:unit": "node --test \"tests/unit/*.test.ts\"",
