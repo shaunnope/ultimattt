@@ -26,7 +26,7 @@ async function startCubeWith(page: Page, options: { lock?: boolean; faces?: bool
   await expect(start.or(leave)).toBeVisible();
   if (await leave.isVisible()) await leave.click();
   await choose(page, "Twist");
-  await choose(page, "A friend on this device").catch(() => undefined);
+  await choose(page, "This device").catch(() => undefined);
   await lock(page).setChecked(options.lock === true);
   await faces(page).setChecked(options.faces === true);
   await page.getByRole("button", { name: "Start game" }).click();
@@ -60,7 +60,7 @@ test("setup offers the two options for Cube only, off by default, and remembers 
   await choose(page, "Twist");
   await lock(page).check();
   await faces(page).check();
-  await choose(page, "A friend on this device").catch(() => undefined);
+  await choose(page, "This device").catch(() => undefined);
   await page.getByRole("button", { name: "Start game" }).click();
   await expect(page.locator(".cube-board")).toBeVisible();
   await page.getByRole("button", { name: "New game" }).click();
@@ -126,7 +126,7 @@ test("on a 5×5 cube at 390 px the padlock stays small and does not cover an ope
   await expect(start.or(leave)).toBeVisible();
   if (await leave.isVisible()) await leave.click();
   await choose(page, "Twist");
-  await choose(page, "A friend on this device").catch(() => undefined);
+  await choose(page, "This device").catch(() => undefined);
   await choose(page, "5×5");
   await choose(page, "3");
   await lock(page).check();

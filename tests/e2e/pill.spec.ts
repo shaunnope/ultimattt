@@ -26,7 +26,7 @@ const playCells = async (page: Page, cells: number[]) => {
 const LINE: [number, number][] = [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]];
 
 async function startLocal(page: Page, variant: Variant) {
-  await startGame(page, { variant, opponent: "A friend on this device" });
+  await startGame(page, { variant, opponent: "This device" });
 }
 
 for (const variant of ["Classic", "Ultimate", "Twist"] as const) {
@@ -186,7 +186,7 @@ async function hostAndJoin(browser: Parameters<Relay["device"]>[0], relay: Relay
   const { page: b } = await relay.device(browser);
   await a.goto("./");
   await choose(a, "Classic");
-  await choose(a, "A friend on another device");
+  await choose(a, "Local network");
   await choose(a, "X");
   await a.getByRole("button", { name: "Host game" }).click();
   const code = (await a.locator("#join-code-display").innerText()).trim();

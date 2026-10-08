@@ -30,7 +30,7 @@ test("the browser back button also leaves help", async ({ page }) => {
 });
 
 test("help opened in the middle of a game leaves the game untouched", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.locator('[data-cell="4"]').click();
   await page.locator('[data-cell="0"]').click();
   const before = await page.evaluate(() => localStorage.getItem("ttt.save"));

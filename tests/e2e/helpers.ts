@@ -9,7 +9,7 @@ export type Variant = "Classic" | "Ultimate" | "Twist";
 
 export interface StartOptions {
   variant: Variant;
-  opponent: "Computer" | "A friend on this device";
+  opponent: "Computer" | "This device";
   size?: "3×3" | "4×4" | "5×5";
   /** Cells in a row that win; only for sizes above 3×3 */
   winLength?: 3 | 4 | 5;

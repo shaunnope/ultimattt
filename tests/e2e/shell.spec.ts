@@ -18,7 +18,7 @@ test("a full game and a settings change ask only the app's own origin and Google
     const url = new URL(request.url());
     if (url.protocol === "http:" || url.protocol === "https:") origins.add(url.origin);
   });
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 3, 1, 4, 2]) await page.locator(`[data-cell="${c}"]`).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");

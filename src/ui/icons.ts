@@ -40,6 +40,10 @@ export const ICON_PATHS = {
   "mode-twist": "M12 2l9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10",
   "hint-win": "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
   "hint-block": "M12 4a8 8 0 0 1 4 1M19 8a8 8 0 0 1 1 4M20 15a8 8 0 0 1-3 4M12 20a8 8 0 0 1-4-1M5 16a8 8 0 0 1-1-4M5 8a8 8 0 0 1 3-3",
+  // The opponent choices on the start screen: a chip for the computer, a phone for this device, signal arcs for the network
+  "player-computer": "M7 7h10v10H7zM10 10h4v4h-4zM9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4",
+  "player-device": "M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2",
+  "player-network": "M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16.2a5 5 0 0 1 7 0M12 20h.01",
   // A padlock: body and shackle
   lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
   "turn-half": "M20 8a8 8 0 0 0-14-3M4 4v5h5M4 16a8 8 0 0 0 14 3M20 20v-5h-5",

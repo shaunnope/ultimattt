@@ -53,7 +53,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.goto("./");
       await choosePalette(page, palette.label);
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       await cell(page, 0).click();
       await cell(page, 1).click();
       const { X, O } = markColors(palette.id, scheme);
@@ -75,7 +75,7 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 test("small boards of an Ultimate game are separated by a seam in the page colour", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   const seam = await tokenColour(page, "--seam");
   const page_ = await tokenColour(page, "--page");
   expect(seam).toBe(page_);
@@ -88,7 +88,7 @@ test("small boards of an Ultimate game are separated by a seam in the page colou
 });
 
 test("a claimed small board shows its owner by a large mark and a ring, not by colour alone", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   for (const [b, c] of [[0, 0], [0, 4], [4, 0], [0, 3], [3, 0], [0, 5], [5, 0]] as [number, number][]) {
     await page.locator(`button[data-board="${b}"][data-cell="${c}"]`).click();
   }
@@ -105,7 +105,7 @@ test("a claimed small board shows its owner by a large mark and a ring, not by c
 });
 
 test("Twist faces are drawn in their own colours, seamed and rimmed, and a face in a line is also hatched", async ({ page }) => {
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   await page.getByRole("button", { name: "Flat view" }).click();
   const flat = page.locator(".cube-flat");
   await expect(flat).toBeVisible();

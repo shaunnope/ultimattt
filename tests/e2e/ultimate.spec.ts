@@ -20,7 +20,7 @@ async function playMoves(page: Page, moves: [number, number][]) {
 const OPENING: [number, number][] = [[0, 0], [0, 4], [4, 0], [0, 3], [3, 0], [0, 5], [5, 0]];
 
 test("the cell you play points the opponent at one board, which is outlined and named", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await expect(page.locator(".sub-board[data-playable='true']")).toHaveCount(9);
   await cell(page, 4, 2).click();
   await expect(page.locator(".sub-board[data-playable='true']")).toHaveCount(1);
@@ -29,7 +29,7 @@ test("the cell you play points the opponent at one board, which is outlined and 
 });
 
 test("a move in the wrong board is refused with an explanation", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await cell(page, 4, 2).click();
   await cell(page, 5, 5).click();
   await expect(page.locator("#game-status")).toContainText(/highlighted|board/i);
@@ -37,7 +37,7 @@ test("a move in the wrong board is refused with an explanation", async ({ page }
 });
 
 test("a claimed board shows its owner, and being sent there frees the choice", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await playMoves(page, OPENING);
   await expect(sub(page, 0)).toHaveAttribute("data-claim", "O");
   await expect(page.locator(".sub-board[data-playable='true']")).toHaveCount(8);
@@ -59,7 +59,7 @@ test("a full game played from the computer's own moves ends with the same result
     s = apply(s, m);
   }
   const expected = status(s);
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await playMoves(page, moves);
   if (expected.status === "won") {
     await expect(page.locator("#game-status")).toContainText(`${expected.winner} wins`);
@@ -87,6 +87,6 @@ test("the computer replies in under a second on a throttled CPU, even with a fre
 });
 
 test("the Ultimate game title names no scoring kind", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await expect(page.locator("#game-title")).not.toContainText(/lines scoring|faces scoring/);
 });

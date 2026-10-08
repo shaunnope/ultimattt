@@ -7,7 +7,7 @@ import { Relay } from "./relay.ts";
 // fake-peerjs.js), so no internet is needed.
 //
 // UI contract used by these tests:
-//  - start screen: opponent "A friend on another device" and a "Host game" button; a "Game code" field
+//  - start screen: opponent "Local network" and a "Host game" button; a "Game code" field
 //    (#join-code) with "Join game"
 //  - the host's waiting screen shows #join-code-display, a join link with ?join=, a QR code, "Cancel"
 //  - during the game: #net-status says Connected or Connection lost; a guest can "Reconnect"
@@ -26,7 +26,7 @@ type Variant = "Classic" | "Ultimate" | "Twist";
 async function host(page: Page, variant: Variant = "Classic", mark: "X" | "O" = "X", size?: "3×3" | "4×4" | "5×5"): Promise<string> {
   await page.goto("./");
   await choose(page, variant);
-  await choose(page, "A friend on another device");
+  await choose(page, "Local network");
   if (size) await choose(page, size);
   await choose(page, mark);
   await page.getByRole("button", { name: "Host game" }).click();
@@ -238,7 +238,7 @@ test("with no connection the two-device options are unavailable, and the other m
   await expect(page.getByText(/you are offline/i)).toBeVisible();
   await expect(page.locator("input#mode-network")).toBeDisabled();
   await expect(page.getByRole("button", { name: "Join game" })).toBeDisabled();
-  await choose(page, "A friend on this device");
+  await choose(page, "This device");
   await page.getByRole("button", { name: "Start game" }).click();
   await expect(page.locator(".board")).toBeVisible();
 });
@@ -404,7 +404,7 @@ test("a Cube game with the lock and faces scoring is the same on both devices", 
   const { page: b } = await relay.device(browser);
   await a.goto("./");
   await choose(a, "Twist");
-  await choose(a, "A friend on another device");
+  await choose(a, "Local network");
   await a.locator("#opt-lock").check();
   await a.locator("#opt-faces").check();
   await choose(a, "X");

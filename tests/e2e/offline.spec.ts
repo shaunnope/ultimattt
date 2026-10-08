@@ -34,15 +34,15 @@ test("every variant is playable offline after one visit", async ({ page, context
   await page.reload();
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
 
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.locator('[data-cell="4"]').click();
   await expect(mark(page, "X")).toHaveCount(1);
 
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await page.locator('button[data-board="4"][data-cell="4"]').click();
   await expect(mark(page, "X")).toHaveCount(1);
 
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').click();
   await expect(mark(page, "X")).toHaveCount(1);
 });
@@ -64,7 +64,7 @@ test("the computer plays offline too, in Classic and Ultimate (its worker is in 
 });
 
 test("a game in progress comes back after a reload, in every variant", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.locator('[data-cell="4"]').click();
   await page.locator('[data-cell="0"]').click();
   await page.reload();
@@ -72,13 +72,13 @@ test("a game in progress comes back after a reload, in every variant", async ({ 
   await expect(page.locator('[data-cell="0"]')).toHaveAttribute("data-mark", "O");
   await expectTurn(page, "X");
 
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   await page.locator('button[data-board="4"][data-cell="2"]').click();
   await page.reload();
   await expect(page.locator('button[data-board="4"][data-cell="2"]')).toHaveAttribute("data-mark", "X");
   await expect(page.locator("#game-status")).toContainText(/top right/i);
 
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   await page.locator('button.sticker[data-face="2"][data-cell="4"]').dispatchEvent("click");
   await page.reload();
   await expect(page.locator('button.sticker[data-face="2"][data-cell="4"]')).toHaveAttribute("data-mark", "X");
@@ -94,7 +94,7 @@ test("a reload while the computer is to move makes it move again", async ({ page
 });
 
 test("leaving a game with New game forgets it", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.locator('[data-cell="4"]').click();
   await page.getByRole("button", { name: "New game" }).click();
   await page.reload();
@@ -134,7 +134,7 @@ test("a new version shows the update bar, and updating keeps the game", async ({
   const site = await serveSite(port);
   try {
     const url = `http://localhost:${port}/`;
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await startGame(page, { variant: "Classic", opponent: "This device" }, url);
     await page.locator('[data-cell="4"]').click();
     await controlled(page);
     site.suffix.sw = "\n// a newer build\n";

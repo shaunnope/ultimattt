@@ -108,7 +108,7 @@ async function keyboardStart(page: Page, variant: Variant) {
     if (variant === "cube") await page.keyboard.press("ArrowRight"); // -> Twist
   }
   await tabUntil(page, (f) => f.tag === "INPUT" && f.name === "mode");
-  if (variant !== "cube") await page.keyboard.press("ArrowRight"); // Computer -> a friend on this device (Cube already is)
+  if (variant !== "cube") await page.keyboard.press("ArrowRight"); // Computer -> This device (Cube already is)
   await tabUntil(page, (f) => f.text === "Start game");
   await page.keyboard.press("Enter");
 }
@@ -193,7 +193,7 @@ test.describe("touch only", () => {
   async function touchStart(page: Page, variant: Variant) {
     await fresh(page);
     if (variant !== "classic") await page.locator("label", { has: page.locator("strong", { hasText: new RegExp(`^${TITLES[variant]}$`) }) }).tap();
-    if (variant !== "cube") await page.locator("label", { has: page.locator("strong", { hasText: /^A friend on this device$/ }) }).tap();
+    if (variant !== "cube") await page.locator("label", { has: page.locator("strong", { hasText: /^This device$/ }) }).tap();
     await page.getByRole("button", { name: "Start game" }).tap();
   }
 

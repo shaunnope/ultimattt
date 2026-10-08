@@ -37,3 +37,12 @@ test("each game mode and each hint type has its own icon", () => {
   const paths = domain.map((name) => (ICON_PATHS as Record<string, string>)[name]);
   assert.equal(new Set(paths).size, paths.length, "no two concepts share a drawing");
 });
+
+test("each way to pick an opponent has its own icon: the computer, this device and the local network", () => {
+  const opponents = ["player-computer", "player-device", "player-network"];
+  for (const name of opponents) assert.ok(name in ICON_PATHS, `${name} is missing`);
+  const all = Object.values(ICON_PATHS) as string[];
+  const paths = opponents.map((name) => (ICON_PATHS as Record<string, string>)[name]!);
+  assert.equal(new Set(all).size, all.length, "no two concepts share a drawing");
+  assert.equal(new Set(paths).size, paths.length);
+});

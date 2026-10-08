@@ -70,7 +70,7 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("setup, two devices", async ({ page }) => {
       await page.goto("./");
-      await choose(page, "A friend on another device");
+      await choose(page, "Local network");
       await expect(page.getByRole("button", { name: "Host game" })).toBeVisible();
       await shoot(page, "setup-two-devices", scheme);
     });
@@ -83,26 +83,26 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("a Classic game in play", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [4, 0, 8]) await cell(page, c).click();
       await shoot(page, "classic", scheme);
     });
 
     test("an Ultimate game in play", async ({ page }) => {
-      await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Ultimate", opponent: "This device" });
       for (const [b, c] of OPENING) await subCell(page, b, c).click();
       await shoot(page, "ultimate", scheme);
     });
 
     test("a Twist game, 3D and flat", async ({ page }) => {
-      await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Twist", opponent: "This device" });
       await shoot(page, "twist-3d", scheme);
       await page.getByRole("button", { name: "Flat view" }).click();
       await shoot(page, "twist-flat", scheme);
     });
 
     test("the result dialog", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [0, 3, 1, 4, 2]) await cell(page, c).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await page.evaluate(() => new Promise((r) => setTimeout(r, 600)));
@@ -110,7 +110,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("a replay", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [0, 3, 1, 4, 2]) await cell(page, c).click();
       await page.getByRole("dialog").getByRole("button", { name: "Watch replay" }).click();
       await expect(page.getByRole("group", { name: "Replay controls" })).toBeVisible();
@@ -140,7 +140,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("the resign confirmation", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       await page.getByRole("button", { name: "Resign" }).click();
       await expect(page.getByRole("dialog", { name: "Resign this game?" })).toBeVisible();
       await page.evaluate(() => new Promise((r) => setTimeout(r, 600)));
@@ -172,7 +172,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
       await fix(page);
       await page.goto("./");
-      await choose(page, "A friend on another device");
+      await choose(page, "Local network");
       await page.evaluate(() => (window as unknown as { restartRandom: () => void }).restartRandom());
       await page.getByRole("button", { name: "Host game" }).click();
       await expect(page.locator("#join-code-display")).toBeVisible();
