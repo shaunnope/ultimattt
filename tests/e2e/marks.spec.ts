@@ -46,7 +46,7 @@ test("a palette applies at once, survives a reload, and follows the appearance",
 });
 
 test("marks are drawn SVG shapes: X has two strokes, O a circle, and a new mark draws itself in", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 0).click();
   await cell(page, 1).click();
   await expect(cell(page, 0).locator("svg.mark-x path")).toHaveCount(2);
@@ -60,7 +60,7 @@ test("marks are drawn SVG shapes: X has two strokes, O a circle, and a new mark 
 
 test("with reduced motion a new mark appears with no animation", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 4).click();
   await expect(cell(page, 4).locator("svg.mark-x")).not.toHaveClass(/mark-new/);
 });
@@ -91,7 +91,7 @@ test("a 001 save with custom icons opens with the default marks and no error; an
 test("the palette never appears in a share link", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   const dialog = await openSettings(page);
   await dialog.getByLabel("Forest and berry").check({ force: true });
   await dialog.getByRole("button", { name: "Done" }).click();
@@ -104,7 +104,7 @@ test("the palette never appears in a share link", async ({ page, context }) => {
 });
 
 test("marks differ by shape as well as colour", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 0).click();
   await cell(page, 1).click();
   expect(await cell(page, 0).locator("svg *").evaluateAll((els) => els.map((e) => e.tagName.toLowerCase()))).toEqual(["path", "path"]);

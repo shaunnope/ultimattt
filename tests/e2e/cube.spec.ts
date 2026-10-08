@@ -18,7 +18,7 @@ const sticker = (page: Page, face: number, cell: number) => page.locator(`button
 const idle = (page: Page) => expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);
 
 async function startCube(page: Page) {
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   await expect(page.locator(".cube-scene, .cube-flat").first()).toBeVisible();
 }
 
@@ -338,7 +338,7 @@ test("the notation setting changes only the display: the saved moves are the sam
 for (const size of ["4×4", "5×5"] as const) {
   test(`a ${size} cube: scoring with win length 3 offers every layer, and an inner layer turn works`, async ({ page }) => {
     const n = Number(size[0]);
-    await startGame(page, { variant: "Twist", opponent: "A friend on this device", size, winLength: 3 });
+    await startGame(page, { variant: "Twist", opponent: "This device", size, winLength: 3 });
     await expect(page.locator("button.sticker")).toHaveCount(6 * n * n);
     await expect(page.locator("#game-title")).toContainText(`${size}, 3 in a row`);
     await scoreFront(page);

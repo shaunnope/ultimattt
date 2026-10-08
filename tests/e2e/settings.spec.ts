@@ -23,7 +23,7 @@ async function closeSettings(page: Page) {
 }
 
 test("hints are off by default", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 3, 1, 4]) await cell(page, c).click(); // X: 0,1  O: 3,4  X to move
   for (let i = 0; i < 9; i++) await expect(cell(page, i)).not.toHaveAttribute("data-hint", /.+/);
   const dialog = await openSettings(page);
@@ -31,7 +31,7 @@ test("hints are off by default", async ({ page }) => {
 });
 
 test("with hints on, winning and must-block cells are marked with shapes, and it is remembered", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 3, 1, 4]) await cell(page, c).click();
   const dialog = await openSettings(page);
   await dialog.getByLabel("Show hints").check();
@@ -51,7 +51,7 @@ test("with hints on, winning and must-block cells are marked with shapes, and it
 });
 
 test("hints follow the move: they disappear when the game is over", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   const dialog = await openSettings(page);
   await dialog.getByLabel("Show hints").check();
   await closeSettings(page);
@@ -62,7 +62,7 @@ test("hints follow the move: they disappear when the game is over", async ({ pag
 });
 
 test("Ultimate hints cover the board you must play", async ({ page }) => {
-  await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Ultimate", opponent: "This device" });
   const dialog = await openSettings(page);
   await dialog.getByLabel("Show hints").check();
   await closeSettings(page);
@@ -72,7 +72,7 @@ test("Ultimate hints cover the board you must play", async ({ page }) => {
 });
 
 test("Cube hints mark the cell that completes a line and the one to block", async ({ page }) => {
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   const dialog = await openSettings(page);
   await dialog.getByLabel("Show hints").check();
   await closeSettings(page);
@@ -86,7 +86,7 @@ test("with automatic replay off, dismissing the result leaves the board", async 
   const dialog = await openSettings(page);
   await dialog.getByLabel("Replay a finished game automatically").uncheck();
   await closeSettings(page);
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 3, 1, 4, 2]) await cell(page, c).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("group", { name: "Replay controls" })).toHaveCount(0);
@@ -100,7 +100,7 @@ test("the pre-paint theme script and the app agree (scripts/check-theme.mjs)", a
 test("the start screen remembers the last choices, after New game and after a reload", async ({ page }) => {
   await page.goto("./");
   await choose(page, "Ultimate");
-  await choose(page, "A friend on this device");
+  await choose(page, "This device");
   await page.getByRole("button", { name: "Start game" }).click();
   await expect(page.locator(".board")).toBeVisible();
   await page.getByRole("button", { name: "New game" }).click();

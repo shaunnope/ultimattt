@@ -22,7 +22,7 @@ const test = base.extend<{ relay: Relay }>({
 const cell = (page: Page, i: number) => page.locator(`[data-cell="${i}"]`);
 
 async function finishedGame(page: Page) {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 3, 1, 4, 2]) await cell(page, c).click(); // X takes the top row
   const result = page.getByRole("dialog");
   await expect(result).toBeVisible();
@@ -30,7 +30,7 @@ async function finishedGame(page: Page) {
 }
 
 test("the update bar offers the update and waits for the player", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 4).click();
   await page.evaluate(() => {
     const worker = { messages: [] as unknown[], postMessage(m: unknown) { this.messages.push(m); } };
@@ -86,7 +86,7 @@ test("the result says what happened in words, with a check icon on a win and the
 });
 
 test("a draw has no check icon and still says so plainly", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of [0, 1, 2, 4, 3, 5, 7, 6, 8]) await cell(page, c).click(); // no line for either player
   const result = page.getByRole("dialog");
   await expect(result.getByRole("heading")).toHaveText("It's a draw");
@@ -114,7 +114,7 @@ test("sharing the replay says it was copied, in a short status toast", async ({ 
 test("the game code is shown in tabular figures", async ({ browser, relay }) => {
   const { page } = await relay.device(browser);
   await page.goto("./");
-  await choose(page, "A friend on another device");
+  await choose(page, "Local network");
   await page.getByRole("button", { name: "Host game" }).click();
   const code = page.locator("#join-code-display");
   await expect(code).toBeVisible();
@@ -130,8 +130,8 @@ test("offline, a banner says what to do, two-device play is unavailable, and a g
   await expect(banner).toBeVisible();
   await expect(banner).toContainText("Check your connection to play on two devices.");
   await expect(banner.locator("svg")).toHaveCount(1);
-  await expect(page.getByLabel("A friend on another device")).toBeDisabled();
-  await choose(page, "A friend on this device");
+  await expect(page.getByLabel("Local network")).toBeDisabled();
+  await choose(page, "This device");
   await page.getByRole("button", { name: "Start game" }).click();
   await expect(page.locator(".board").first()).toBeVisible();
   await context.setOffline(false);

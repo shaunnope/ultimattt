@@ -65,7 +65,7 @@ test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("a dialog still opens and closes, with no perceptible duration", async ({ page }) => {
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+    await startGame(page, { variant: "Classic", opponent: "This device" });
     await page.getByRole("button", { name: "Resign" }).click();
     const dialog = page.getByRole("dialog", { name: "Resign this game?" });
     await expect(dialog).toBeVisible();
@@ -76,7 +76,7 @@ test.describe("reduced motion", () => {
   });
 
   test("the cube's turns collapse too, and its stickers still reach their places", async ({ page }) => {
-    await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+    await startGame(page, { variant: "Twist", opponent: "This device" });
     const duration = await page.locator(".cube-scene .sticker").first().evaluate((el) => getComputedStyle(el).transitionDuration);
     for (const part of duration.split(",")) expect(seconds(part) * 1000, duration).toBeLessThan(5);
     await page.locator('button.sticker[data-face="2"][data-cell="4"]').dispatchEvent("click");

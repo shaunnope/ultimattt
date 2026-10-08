@@ -12,7 +12,7 @@ async function choose(page: Page, title: string) {
   await page.locator("label", { has: page.locator("strong", { hasText: new RegExp(`^${title}$`) }) }).click();
 }
 
-async function start(page: Page, opts: { size?: "3×3" | "4×4" | "5×5"; winLength?: 3 | 4 | 5; opponent: "Computer" | "A friend on this device"; level?: string; mark?: "X" | "O" }) {
+async function start(page: Page, opts: { size?: "3×3" | "4×4" | "5×5"; winLength?: 3 | 4 | 5; opponent: "Computer" | "This device"; level?: string; mark?: "X" | "O" }) {
   await page.goto("./");
   await choose(page, "Classic");
   await choose(page, opts.opponent);
@@ -32,7 +32,7 @@ async function playCells(page: Page, cells: number[]) {
 }
 
 test("3×3 two players: X wins with a row and the line is highlighted", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await expectTurn(page, "X");
   await playCells(page, [0, 3, 1, 4, 2]);
   await expect(page.locator("#game-status")).toContainText("X wins");
@@ -41,14 +41,14 @@ test("3×3 two players: X wins with a row and the line is highlighted", async ({
 });
 
 test("3×3 two players: a full board with no line is a draw", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await playCells(page, [0, 1, 2, 4, 3, 5, 7, 6, 8]);
   await expect(page.locator("#game-status")).toContainText("draw");
   await expect(page.getByRole("dialog")).toContainText("draw");
 });
 
 test("4×4 with win length 4: three in a row does not win, four does", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device", size: "4×4", winLength: 4 });
+  await start(page, { opponent: "This device", size: "4×4", winLength: 4 });
   await playCells(page, [0, 4, 1, 5, 2]);
   await expect(page.locator("#game-status")).not.toContainText("wins");
   await playCells(page, [8, 3]);
@@ -56,7 +56,7 @@ test("4×4 with win length 4: three in a row does not win, four does", async ({ 
 });
 
 test("5×5 with win length 4: four in a row wins", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device", size: "5×5", winLength: 4 });
+  await start(page, { opponent: "This device", size: "5×5", winLength: 4 });
   await playCells(page, [0, 5, 1, 6, 2, 7]);
   await expect(page.locator("#game-status")).not.toContainText("wins");
   await playCells(page, [3]);
@@ -64,7 +64,7 @@ test("5×5 with win length 4: four in a row wins", async ({ page }) => {
 });
 
 test("5×5 with win length 3: three in a row wins, and the line is highlighted", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device", size: "5×5", winLength: 3 });
+  await start(page, { opponent: "This device", size: "5×5", winLength: 3 });
   await expect(page.locator("#game-title")).toContainText("5×5, 3 in a row");
   await playCells(page, [0, 5, 1, 6, 2]);
   await expect(page.locator("#game-status")).toContainText("X wins");
@@ -103,7 +103,7 @@ test("a 001 save of a 5×5 game resumes with its original rules (four in a row)"
 });
 
 test("an occupied cell is refused with an explanation and the turn does not change", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await cell(page, 0).click();
   await cell(page, 0).click();
   await expect(page.locator("#game-status")).toContainText(/taken|occupied/i);
@@ -126,7 +126,7 @@ test("playing as O, the computer moves first", async ({ page }) => {
 });
 
 test("Resign ends the game for the player who resigns", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await cell(page, 0).click();
   await page.getByRole("button", { name: "Resign" }).click();
   await page.getByRole("button", { name: /confirm|resign/i }).last().click();
@@ -134,13 +134,13 @@ test("Resign ends the game for the player who resigns", async ({ page }) => {
 });
 
 test("New game returns to the start screen", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await playCells(page, [0, 3, 1, 4, 2]);
   await page.getByRole("dialog").getByRole("button", { name: "New game" }).click();
   await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
 });
 
 test("the Classic game title names no scoring kind", async ({ page }) => {
-  await start(page, { opponent: "A friend on this device" });
+  await start(page, { opponent: "This device" });
   await expect(page.locator("#game-title")).not.toContainText(/lines scoring|faces scoring/);
 });

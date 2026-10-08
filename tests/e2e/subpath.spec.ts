@@ -54,7 +54,7 @@ test("everything loads from under the project path, and nothing is asked for at 
     page.on("response", (r) => {
       if (r.status() >= 400) failed.push(`${r.status()} ${r.url()}`);
     });
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await startGame(page, { variant: "Classic", opponent: "This device" }, url);
     await page.locator('[data-cell="4"]').click();
     await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X");
     expect(failed, failed.join("\n")).toEqual([]);
@@ -79,7 +79,7 @@ test("the manifest, its icons and the service worker scope all sit under the pro
 
 test("offline play and resuming a game work from under the project path", async ({ page, context }, testInfo) => {
   await withSite(testInfo, async (url) => {
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await startGame(page, { variant: "Classic", opponent: "This device" }, url);
     await page.locator('[data-cell="4"]').click();
     await controlled(page);
     await expect(page.locator('[data-cell="4"]')).toHaveAttribute("data-mark", "X"); // the game came back
@@ -93,7 +93,7 @@ test("offline play and resuming a game work from under the project path", async 
 
 test("the computer plays offline from under the project path", async ({ page, context }, testInfo) => {
   await withSite(testInfo, async (url) => {
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await startGame(page, { variant: "Classic", opponent: "This device" }, url);
     await controlled(page);
     await context.setOffline(true);
     await startGame(page, { variant: "Classic", opponent: "Computer", level: "1. Beginner" }, url);
@@ -106,7 +106,7 @@ test("a shared replay link keeps the project path and opens", async ({ page, con
   await withSite(testInfo, async (url) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" }, url);
+    await startGame(page, { variant: "Classic", opponent: "This device" }, url);
     for (const c of [0, 3, 1, 4, 2]) await page.locator(`[data-cell="${c}"]`).click();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Close replay" }).click();
@@ -132,7 +132,7 @@ test("a join link keeps the project path", async ({ page }, testInfo) => {
     // the link the host shares is this page plus ?join=CODE
     await page.route("**/peerjs.min.js", (route) => route.fulfill({ path: join(import.meta.dirname, "fake-peerjs.js"), contentType: "text/javascript" }));
     await page.goto(url);
-    await page.locator("label", { has: page.locator("strong", { hasText: /^A friend on another device$/ }) }).click();
+    await page.locator("label", { has: page.locator("strong", { hasText: /^Local network$/ }) }).click();
     await page.getByRole("button", { name: "Host game" }).click();
     await expect(page.locator(".join-link")).toContainText(`${url}?join=`);
   });

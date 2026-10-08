@@ -42,9 +42,9 @@
   const win = $derived(winLengthChoice(choice));
   const allowedModes = $derived(modesFor(choice.variant));
   const modeOptions = $derived([
-    ...(allowedModes.includes("computer") ? [{ value: "computer", title: "Computer" }] : []),
-    { value: "local", title: "A friend on this device" },
-    { value: "network", title: "A friend on another device", disabled: !online },
+    ...(allowedModes.includes("computer") ? [{ value: "computer", title: "Computer", icon: "player-computer" as const }] : []),
+    { value: "local", title: "This device", icon: "player-device" as const },
+    { value: "network", title: "Local network", icon: "player-network" as const, disabled: !online },
   ]);
 
   // what to tell the player when the seed they will play is not what they typed
@@ -134,6 +134,30 @@
   <h2 id="setup-title" class="sr-only">New game</h2>
   <div class="start-logo" aria-hidden="true"><Logo /></div>
   <div class="card">
+    <div class="field">
+      <label for="join-code">Game code</label>
+      <input
+        id="join-code"
+        type="text"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        maxlength="12"
+        placeholder="BXK4M9"
+        aria-describedby="join-error"
+        disabled={!online}
+        bind:this={joinInput}
+        bind:value={joinCode}
+        onkeydown={(event) => {
+          if (event.key === "Enter") join();
+        }} />
+      <Banner as="p" id="join-error" class="field-error" role="alert" tone="error" text={joinError} hidden={joinError === ""} />
+      <p class="hint-text">Joining a friend? Type the code from their screen, or scan their QR code.</p>
+      <div class="btn-row"><button class="btn" type="button" disabled={!online} onclick={join}>Join game</button></div>
+      <Banner as="p" id="offline-note" tone="warn" text="You are offline. Check your connection to play on two devices." hidden={online} />
+    </div>
+  </div>
+  <div class="card">
     <Seg name="variant" legend="Game" options={VARIANTS.map((v) => ({ value: v.value, title: v.title, blurb: v.blurb }))} value={choice.variant} onchange={pickVariant} />
   </div>
   <div class="card">
@@ -202,28 +226,5 @@
     </fieldset>
   </div>
   <div class="btn-row"><button class="btn btn-primary" type="button" onclick={start}>{choice.mode === "network" ? "Host game" : "Start game"}</button></div>
-  <div class="card">
-    <div class="field">
-      <label for="join-code">Game code</label>
-      <input
-        id="join-code"
-        type="text"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        maxlength="12"
-        placeholder="BXK4M9"
-        aria-describedby="join-error"
-        disabled={!online}
-        bind:this={joinInput}
-        bind:value={joinCode}
-        onkeydown={(event) => {
-          if (event.key === "Enter") join();
-        }} />
-      <Banner as="p" id="join-error" class="field-error" role="alert" tone="error" text={joinError} hidden={joinError === ""} />
-      <p class="hint-text">Joining a friend? Type the code from their screen, or scan their QR code.</p>
-      <div class="btn-row"><button class="btn" type="button" disabled={!online} onclick={join}>Join game</button></div>
-      <Banner as="p" id="offline-note" tone="warn" text="You are offline. Check your connection to play on two devices." hidden={online} />
-    </div>
-  </div>
+  
 </section>

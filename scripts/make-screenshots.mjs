@@ -28,7 +28,7 @@ try {
   const desktop = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   await desktop.goto(url);
   await choose(desktop, "Ultimate");
-  await choose(desktop, "A friend on this device");
+  await choose(desktop, "This device");
   await desktop.getByRole("button", { name: "Start game" }).click();
   for (const [b, c] of [[0, 0], [0, 4], [4, 0], [0, 3], [3, 0], [0, 5], [5, 0], [8, 8], [8, 4]]) {
     await desktop.locator(`button[data-board="${b}"][data-cell="${c}"]`).click();

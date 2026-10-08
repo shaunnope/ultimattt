@@ -36,7 +36,7 @@ for (const scheme of ["light", "dark"] as const) {
 
     test("start screen with the opponent set to another device", async ({ page }) => {
       await page.goto("./");
-      await choose(page, "A friend on another device");
+      await choose(page, "Local network");
       await expect(page.getByRole("button", { name: "Host game" })).toBeVisible();
       await auditAtWidths(page, "start screen, two devices");
     });
@@ -67,23 +67,23 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("a Classic game", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       await cell(page, 4).click();
       await auditAtWidths(page, "classic game");
     });
 
     test("a 5x5 Classic game", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device", size: "5×5", winLength: 4 });
+      await startGame(page, { variant: "Classic", opponent: "This device", size: "5×5", winLength: 4 });
       await auditAtWidths(page, "classic 5x5 game");
     });
 
     test("an Ultimate game", async ({ page }) => {
-      await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Ultimate", opponent: "This device" });
       await auditAtWidths(page, "ultimate game");
     });
 
     test("a Twist game", async ({ page }) => {
-      await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Twist", opponent: "This device" });
       await auditAtWidths(page, "twist game");
     });
 
@@ -99,7 +99,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("the result dialog, the finished game and its replay", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [0, 3, 1, 4, 2]) await cell(page, c).click();
       const result = page.getByRole("dialog");
       await expect(result).toBeVisible();
@@ -113,7 +113,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Settings, Appearance and the resign confirmation", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       await page.getByRole("button", { name: "Settings" }).click();
       await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible();
       await auditAtWidths(page, "settings dialog");
@@ -138,7 +138,7 @@ for (const scheme of ["light", "dark"] as const) {
     test("the host's waiting screen", async ({ browser, relay }) => {
       const { page } = await relay.device(browser, { colorScheme: scheme });
       await page.goto("./");
-      await choose(page, "A friend on another device");
+      await choose(page, "Local network");
       await page.getByRole("button", { name: "Host game" }).click();
       await expect(page.locator("#join-code-display")).toBeVisible();
       await auditAtWidths(page, "waiting screen");
@@ -175,7 +175,7 @@ test("the audit catches a small target, a second primary button, glass on glass,
 
 test.describe("dialogs", () => {
   async function openResign(page: Page) {
-    await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+    await startGame(page, { variant: "Classic", opponent: "This device" });
     await page.getByRole("button", { name: "Resign" }).click();
     const dialog = page.getByRole("dialog", { name: "Resign this game?" });
     await expect(dialog).toBeVisible();

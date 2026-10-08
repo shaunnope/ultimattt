@@ -21,7 +21,7 @@ test("a slow font request does not delay the first render", async ({ page }) => 
 
 test("with the font blocked the app renders in the fallback face and a move can be played", async ({ page }) => {
   await page.route(FONT_HOSTS, (route) => route.abort());
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.locator('[data-cell="4"]').click();
   await expect(page.locator('[data-cell="4"] svg.mark-x')).toBeVisible();
 });

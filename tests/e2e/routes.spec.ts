@@ -21,7 +21,7 @@ const startScreen = (page: Page) => page.getByRole("button", { name: "Start game
 const WIN = [0, 3, 1, 4, 2];
 
 test("a game is at #/play, and a reload there restores it", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 4).click();
   await cell(page, 0).click();
   await expect.poll(() => hash(page)).toBe("#/play");
@@ -44,7 +44,7 @@ test("a reload on #/replay without a replay link shows the start screen", async 
 });
 
 test("the start screen is at #/, and leaving a game with New game returns there", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await page.getByRole("button", { name: "New game" }).click();
   await expect(startScreen(page)).toBeVisible();
   await expect.poll(() => hash(page)).toMatch(/^(#\/)?$/);
@@ -60,7 +60,7 @@ test("a ?join= link joins and then removes the code from the address", async ({ 
 test("a replay link opens the replay at #/replay, and Close replay leaves it with no watch in the address", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of WIN) await cell(page, c).click();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Close replay" }).click();

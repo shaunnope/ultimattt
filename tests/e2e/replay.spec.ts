@@ -16,7 +16,7 @@ const controls = (page: Page) => page.getByRole("group", { name: "Replay control
 const slider = (page: Page) => page.getByRole("slider", { name: "Replay position" });
 
 async function playToWin(page: Page) {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   for (const c of WIN) await cell(page, c).click();
   await expect(page.getByRole("dialog")).toContainText("X wins");
 }
@@ -65,7 +65,7 @@ test("dismissing the result starts the replay by itself", async ({ page }) => {
 });
 
 test("a Cube replay includes its layer turns", async ({ page }) => {
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   const sticker = (f: number, c: number) => page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`);
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await sticker(f!, c!).dispatchEvent("click");
   await turnLayer(page, "Turn the bottom layer to the right");
@@ -112,7 +112,7 @@ test("a bad link is explained and nothing starts", async ({ page }) => {
 });
 
 test("watching a link leaves your own game alone, and Close replay brings it back", async ({ page }) => {
-  await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Classic", opponent: "This device" });
   await cell(page, 4).click();
   await cell(page, 0).click();
   const before = await page.evaluate(() => localStorage.getItem("ttt.save"));
@@ -164,11 +164,11 @@ test("no seed shows anywhere for a game with no computer: setup, game, replay or
   await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined }));
   await page.goto("./");
   await expect(page.locator("#seed-input")).toBeVisible(); // the computer is the default opponent
-  await choose(page, "A friend on this device");
+  await choose(page, "This device");
   await expect(page.locator("#seed-input")).toBeHidden();
-  await choose(page, "A friend on another device");
+  await choose(page, "Local network");
   await expect(page.locator("#seed-input")).toBeHidden();
-  await choose(page, "A friend on this device");
+  await choose(page, "This device");
   await page.getByRole("button", { name: "Start game" }).click();
   await expect(page.locator("#game-seed")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Copy seed" })).toHaveCount(0);
@@ -184,7 +184,7 @@ test("no seed shows anywhere for a game with no computer: setup, game, replay or
 test("switching the opponent shows and hides the seed field, and discards typed text", async ({ page }) => {
   await page.goto("./");
   await page.locator("#seed-input").fill("C33-BXK4-M9TR");
-  await choose(page, "A friend on this device");
+  await choose(page, "This device");
   await expect(page.locator("#seed-input")).toBeHidden();
   await choose(page, "Computer");
   await expect(page.locator("#seed-input")).toHaveValue("");
@@ -273,7 +273,7 @@ test("a Twist replay turns to a face that is out of view before its mark appears
 });
 
 test("a layer-turn step in a Twist replay does not change the view", async ({ page }) => {
-  await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+  await startGame(page, { variant: "Twist", opponent: "This device" });
   for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await stickerAt(page, f!, c!).dispatchEvent("click");
   await turnLayer(page, "Turn the bottom layer to the right");
   await expect(page.locator('.cube-stage[data-busy="true"]')).toHaveCount(0);

@@ -61,7 +61,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Classic game and its result", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       await clean(page, "classic game");
       for (const c of [0, 3, 1, 4, 2]) await page.locator(`[data-cell="${c}"]`).click();
       await expect(page.getByRole("dialog")).toBeVisible();
@@ -69,13 +69,13 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Ultimate game", async ({ page }) => {
-      await startGame(page, { variant: "Ultimate", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Ultimate", opponent: "This device" });
       await page.locator('button[data-board="4"][data-cell="2"]').click();
       await clean(page, "ultimate game");
     });
 
     test("Cube, in 3D and flat, with the layer picker", async ({ page }) => {
-      await startGame(page, { variant: "Twist", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Twist", opponent: "This device" });
       for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
       await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
       await clean(page, "cube 3D with picker");
@@ -84,7 +84,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Replay", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [0, 3, 1, 4, 2]) await page.locator(`[data-cell="${c}"]`).click();
       await page.getByRole("dialog").getByRole("button", { name: "Watch replay" }).click();
       await expect(page.getByRole("group", { name: "Replay controls" })).toBeVisible();
@@ -123,13 +123,13 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("Ultimate 4×4 game", async ({ page }) => {
-      await startGame(page, { variant: "Ultimate", opponent: "A friend on this device", size: "4×4", winLength: 3 });
+      await startGame(page, { variant: "Ultimate", opponent: "This device", size: "4×4", winLength: 3 });
       await page.locator('button[data-board="5"][data-cell="9"]').click();
       await clean(page, "ultimate 4x4");
     });
 
     test("Cube 4×4 with the picker, in notation mode", async ({ page }) => {
-      await startGame(page, { variant: "Twist", opponent: "A friend on this device", size: "4×4", winLength: 3 });
+      await startGame(page, { variant: "Twist", opponent: "This device", size: "4×4", winLength: 3 });
       for (const [f, c] of [[2, 0], [0, 0], [2, 1], [0, 1], [2, 2]]) await page.locator(`button.sticker[data-face="${f}"][data-cell="${c}"]`).dispatchEvent("click");
       await expect(page.getByRole("group", { name: "Turn a layer" })).toBeVisible();
       await clean(page, "cube 4x4 with picker");
@@ -158,7 +158,7 @@ for (const scheme of ["light", "dark"] as const) {
     });
 
     test("the result dialog and the finished game", async ({ page }) => {
-      await startGame(page, { variant: "Classic", opponent: "A friend on this device" });
+      await startGame(page, { variant: "Classic", opponent: "This device" });
       for (const c of [0, 3, 1, 4, 2]) await page.locator(`[data-cell="${c}"]`).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await clean(page, "result dialog");
