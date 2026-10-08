@@ -63,6 +63,7 @@ export function renderLogo(size, pad) {
   const origin = pad * size;
   for (const shape of logoShapes()) {
     const rgb = COLORS[shape.color].rgb;
+    if (shape.opacity !== undefined) { fillTile(out, size, shape, rgb, k, origin); continue; }
     const half = (shape.width / 2) * k;
     const pts = shape.points.map(([x, y]) => [origin + x * k, origin + y * k]);
     const count = shape.closed ? pts.length : pts.length - 1;
@@ -82,6 +83,38 @@ export function renderLogo(size, pad) {
     }
   }
   return out;
+}
+
+/** A filled tile: the polygon plus a round-joined stroke of the same ink, blended at the shape's opacity as one piece. */
+function fillTile(out, size, shape, rgb, k, origin) {
+  const half = (shape.width / 2) * k;
+  const pts = shape.points.map(([x, y]) => [origin + x * k, origin + y * k]);
+  const inside = (px, py) => {
+    let c = false;
+    for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+      const [ax, ay] = pts[a], [bx, by] = pts[b];
+      if (ay > py !== by > py && px < ((bx - ax) * (py - ay)) / (by - ay) + ax) c = !c;
+    }
+    return c;
+  };
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs) - half - 1)), x1 = Math.min(size - 1, Math.ceil(Math.max(...xs) + half + 1));
+  const y0 = Math.max(0, Math.floor(Math.min(...ys) - half - 1)), y1 = Math.min(size - 1, Math.ceil(Math.max(...ys) + half + 1));
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      let fill = 0;
+      for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) if (inside(x + (sx + 0.5) / 4, y + (sy + 0.5) / 4)) fill += 1 / 16;
+      let edge = 0;
+      for (let s = 0; s < pts.length; s++) {
+        const [ax, ay] = pts[s], [bx, by] = pts[(s + 1) % pts.length];
+        edge = Math.max(edge, Math.max(0, Math.min(1, half - distance(x + 0.5, y + 0.5, ax, ay, bx, by) + 0.5)));
+      }
+      const alpha = Math.max(fill, edge) * shape.opacity;
+      if (alpha === 0) continue;
+      const i = (y * size + x) * 3;
+      for (let c = 0; c < 3; c++) out[i + c] = Math.round(out[i + c] + (rgb[c] - out[i + c]) * alpha);
+    }
+  }
 }
 
 /** Put the inline logo into the page header, between its markers. */
