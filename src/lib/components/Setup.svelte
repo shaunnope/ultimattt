@@ -4,16 +4,18 @@
   import { isValidCode, normaliseCode } from "../../core/pairing.ts";
   import type { GameConfig, Level, Mode, Variant } from "../../core/types.ts";
   import {
-    applySeedToSetup, chooseMode, chooseSize, chooseVariant, configFromSetup, initialSetup, LEVEL_NAMES, modesFor, seedControlsVisible,
+    applySeedText, chooseMode, chooseSize, chooseVariant, configFromSetup, initialSetup, LEVEL_NAMES, modesFor, placeholderFor, seedControlsVisible,
     VARIANTS, winLengthChoice, type SetupState,
   } from "../../ui/setup-model.ts";
+  import type { SeedReading } from "../../core/seed.ts";
   import Banner from "./Banner.svelte";
   import Logo from "./Logo.svelte";
   import Seg from "./Seg.svelte";
 
   // The start screen: pick a variant, a board size and win length, an opponent and options, then start. Against the computer a
-  // seed can be pasted: it decides the variant, size and win length, and the game uses that seed. Only games with a computer
-  // have a seed at all, so no other game shows a seed field. The rules are in ui/setup-model.ts.
+  // seed can be pasted: a real one decides the variant, size and win length, and any other text is turned into a seed. An empty
+  // box plays the placeholder seed it shows. Only games with a computer have a seed at all, so no other game shows a seed field.
+  // The rules are in ui/setup-model.ts.
   interface Props {
     onStart: (config: GameConfig) => void;
     /** Join a friend's game with their code. */
@@ -27,13 +29,13 @@
   // the screen opens on the last choices (and any the caller names); after that the player's own changes rule
   let choice = $state<SetupState>(untrack(() => initialSetup({ ...initialSetup(loadSave().save.settings.lastSetup), ...initial })));
   let seedText = $state("");
-  /** The seed in the box, if it is a good one. */
-  let seed = $state<string | null>(null);
-  let seedError = $state("");
+  /** What the text in the box means: the seed that will be played, or null while the box is blank. */
+  let reading = $state<SeedReading | null>(null);
+  /** The seed shown in the empty box, and played when the box stays empty. */
+  let placeholder = $state(untrack(() => placeholderFor(choice, null)));
   let joinCode = $state("");
   let joinError = $state("");
   let online = $state(typeof navigator === "undefined" || navigator.onLine !== false);
-  let seedInput = $state<HTMLInputElement>();
   let joinInput = $state<HTMLInputElement>();
 
   const showSeed = $derived(seedControlsVisible(choice));
@@ -45,15 +47,23 @@
     { value: "network", title: "A friend on another device", disabled: !online },
   ]);
 
+  // what to tell the player when the seed they will play is not what they typed
+  const seedNote = $derived(reading !== null && reading.seed !== seedText.trim() ? `This plays as ${reading.seed}.` : "");
+
   function clearSeed(): void {
-    seed = null;
+    reading = null;
     seedText = "";
-    seedError = "";
   }
 
   // a seed field that is not shown holds nothing
   $effect(() => {
-    if (!showSeed && (seedText !== "" || seed !== null || seedError !== "")) clearSeed();
+    if (!showSeed && (seedText !== "" || reading !== null)) clearSeed();
+  });
+
+  // the placeholder follows the rules: kept while they stay, made anew when the variant, size or win length changes
+  $effect(() => {
+    const rules = { variant: choice.variant, size: choice.size, winLength: choice.winLength };
+    untrack(() => (placeholder = placeholderFor(rules, placeholder)));
   });
 
   // Two-device play needs the internet to introduce the devices; everything else works without it.
@@ -61,22 +71,11 @@
     if (!online && choice.mode === "network") choice.mode = modesFor(choice.variant)[0]!;
   });
 
-  /** Take a seed from the box: a good one sets the variant, board and win length; a bad one is explained. */
+  /** Take a seed from the box: a real one sets the variant, board and win length; any other text becomes a seed. */
   function readSeed(text: string): void {
-    if (text.trim() === "") {
-      seed = null;
-      seedError = "";
-      return;
-    }
-    const applied = applySeedToSetup(choice, text);
-    if ("error" in applied) {
-      seed = null;
-      seedError = applied.error;
-      return;
-    }
-    choice = applied;
-    seed = text.trim().toUpperCase();
-    seedError = "";
+    const read = applySeedText($state.snapshot(choice), text);
+    if (read.reading?.kind === "exact") choice = read.state;
+    reading = read.reading;
   }
 
   function pickVariant(value: Variant): void {
@@ -92,20 +91,15 @@
     clearSeed();
   }
   function pickMode(value: Mode): void {
-    const form = chooseMode({ choice: $state.snapshot(choice), seed }, value);
+    const form = chooseMode({ choice: $state.snapshot(choice), seed: reading?.seed ?? null }, value);
     choice = form.choice;
     if (form.seed === null && seedText !== "") clearSeed();
   }
 
   function start(): void {
-    if (seedText.trim() !== "" && seed === null) {
-      readSeed(seedText);
-      seedInput?.focus();
-      return;
-    }
     const now = $state.snapshot(choice);
     updateSettings({ lastSetup: { ...now, winLength: win.value } });
-    onStart(configFromSetup(now, now.mode === "computer" ? (seed ?? undefined) : undefined));
+    onStart(configFromSetup(now, now.mode === "computer" ? (reading?.seed ?? placeholder) : undefined));
   }
 
   function join(): void {
@@ -170,6 +164,24 @@
         {/each}
       </select>
     </div>
+    <div class="field" id="seed-card" hidden={!showSeed}>
+      <label for="seed-input">Seed (optional)</label>
+      <input
+        id="seed-input"
+        type="text"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        {placeholder}
+        aria-describedby="seed-note"
+        aria-invalid="false"
+        value={seedText}
+        oninput={(event) => {
+          seedText = event.currentTarget.value;
+          readSeed(seedText);
+        }} />
+      <p class="hint-text" id="seed-note" aria-live="polite" hidden={seedNote === ""}>{seedNote}</p>
+    </div>
     <Seg
       name="mark"
       legend="Your mark"
@@ -188,27 +200,6 @@
       </label>
       <p class="hint-text" id="opt-faces-hint">Your score is the number of faces holding one of your lines.</p>
     </fieldset>
-  </div>
-  <div class="card" id="seed-card" hidden={!showSeed}>
-    <div class="field">
-      <label for="seed-input">Seed (optional)</label>
-      <input
-        id="seed-input"
-        type="text"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        placeholder="C53-BXK4-M9TR"
-        aria-describedby="seed-error"
-        aria-invalid={seedError === "" ? "false" : "true"}
-        bind:this={seedInput}
-        value={seedText}
-        oninput={(event) => {
-          seedText = event.currentTarget.value;
-          readSeed(seedText);
-        }} />
-      <Banner as="p" id="seed-error" class="field-error" role="alert" tone="error" text={seedError} hidden={seedError === ""} />
-    </div>
   </div>
   <div class="btn-row"><button class="btn btn-primary" type="button" onclick={start}>{choice.mode === "network" ? "Host game" : "Start game"}</button></div>
   <div class="card">

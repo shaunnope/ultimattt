@@ -58,3 +58,11 @@ test("every problem is reported, not just the first", () => {
   const problems = evaluateAudit({ ...readLighthouse(lhr(0.5, 9000)), axe: summariseAxe([{ id: "x", impact: "serious", nodes: [{}] }]) });
   assert.equal(problems.length, 3);
 });
+
+test("parseAuditArgs: the timing suite runs unless --skip-perf is given", async () => {
+  // @ts-expect-error plain .mjs script, no types
+  const { parseAuditArgs } = await import("../../scripts/audit.mjs");
+  assert.deepEqual(parseAuditArgs([]), { perf: true });
+  assert.deepEqual(parseAuditArgs(["--skip-perf"]), { perf: false });
+  assert.deepEqual(parseAuditArgs(["--other"]), { perf: true });
+});

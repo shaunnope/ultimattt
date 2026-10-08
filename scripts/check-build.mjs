@@ -3,7 +3,7 @@
 //  - the worker reads what to cache from the build ($app/manifest) and names its cache after the build version
 //  - the sub-path build has no root-absolute URL outside its base
 //  - nothing preloaded is missing, and nothing points into the old site/ layout
-//  - size budget: first-load script plus style at most 70 KB gzipped, all script at most 160 KB gzipped
+//  - size budget: first-load script plus style at most 71 KB gzipped, all script at most 160 KB gzipped
 //    (the first load here is the shell's own files and what they import statically; the first load the browser really makes, which
 //    includes the route nodes fetched once the page runs, is asserted by tests/e2e/budget.spec.ts)
 //  - the package has no runtime dependencies (the dependency list is empty)
@@ -13,7 +13,7 @@ import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const KB = 1024;
-export const FIRST_LOAD_BUDGET = 70 * KB;
+export const FIRST_LOAD_BUDGET = 71 * KB;
 export const ALL_SCRIPT_BUDGET = 160 * KB;
 const ALLOWED_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com"]);
 const SUBPATH_BASE = "/ultimattt";
@@ -130,7 +130,7 @@ export function checkBuild(root, { buildDir = "build", subpath = false, base = S
   // ---- the budget
   const firstLoad = withStaticImports(loaded).filter((f) => existsSync(f) && /\.(?:m?js|css)$/.test(f));
   const firstBytes = firstLoad.reduce((sum, f) => sum + gz(f), 0);
-  if (firstBytes > FIRST_LOAD_BUDGET) problems.push(`first load is ${kb(firstBytes)} KB gzipped (script plus style), over the 70 KB budget`);
+  if (firstBytes > FIRST_LOAD_BUDGET) problems.push(`first load is ${kb(firstBytes)} KB gzipped (script plus style), over the 71 KB budget`);
   const scripts = walk(join(dir, "_app")).filter((f) => /\.m?js$/.test(f));
   const allBytes = scripts.reduce((sum, f) => sum + gz(f), 0);
   if (allBytes > ALL_SCRIPT_BUDGET) problems.push(`all script is ${kb(allBytes)} KB gzipped, over the 160 KB budget`);

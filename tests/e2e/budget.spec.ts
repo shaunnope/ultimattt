@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { gzipSync } from "node:zlib";
 
 // The size budget (specs/007 research R12): what the browser actually loads to show the start screen, script plus style, gzipped,
-// is at most 70 KB. scripts/check-build.mjs checks the shell's own files and the whole build; this one is the real first load, which
+// is at most 71 KB (specs/008 raised it from 70). scripts/check-build.mjs checks the shell's own files and the whole build; this one is the real first load, which
 // includes the route nodes the framework fetches once the page is running. The 006 build was about 40 KB.
 
-const BUDGET_KB = 70;
+const BUDGET_KB = 71;
 
 test.beforeEach(({}, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "the same files load on every device; one project is enough");

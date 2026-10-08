@@ -1,9 +1,9 @@
 // The start screen's rules, with no DOM: what the choices mean, which ones go together, and how they become a game config.
 // Setup.svelte shows them; they are unit-tested in tests/unit/setup.test.ts. Against the computer a seed can be pasted: it
-// decides the variant, size and win length, and the game uses that seed. Only games with a computer have a seed at all.
+// decides the variant, size and win length, and the game uses that seed; any other text is turned into a seed. Only games with a computer have a seed at all.
 
 import type { GameConfig, Level, Mode, Variant } from "../core/types.ts";
-import { newSeed, parseSeed, pickMark, randomMark } from "../core/seed.ts";
+import { newSeed, parseSeed, pickMark, randomMark, resolveSeed, type SeedReading } from "../core/seed.ts";
 import { clampWinLength, defaultWinLength, winLengthOptions } from "../core/rules.ts";
 import type { SetupChoice } from "../core/settings.ts";
 
@@ -89,11 +89,20 @@ export function configFromSetup(state: SetupState, seed?: string): GameConfig {
   return config;
 }
 
-/** A seed pasted on the start screen decides the variant, board size and win length (and Cube is never against the computer). */
-export function applySeedToSetup(state: SetupState, seed: string): SetupState | { error: string } {
-  const parsed = parseSeed(seed);
-  if ("error" in parsed) return { error: parsed.error };
-  const next: SetupState = { ...state, variant: parsed.variant, size: parsed.size, winLength: parsed.winLength };
-  if (!modesFor(parsed.variant).includes(next.mode)) next.mode = modesFor(parsed.variant)[0]!;
-  return next;
+/** What the seed box says. A seed in any spelling decides the variant, board size and win length (and Cube is never against
+ *  the computer); any other text decides nothing but the seed, which is made from it. Blank text has no reading. */
+export function applySeedText(state: SetupState, text: string): { state: SetupState; reading: SeedReading | null } {
+  const reading = resolveSeed(text, { variant: state.variant, size: state.size, winLength: clampWinLength(state.variant, state.size, state.winLength) });
+  if (reading?.kind !== "exact") return { state, reading };
+  const next: SetupState = { ...state, variant: reading.variant, size: reading.size, winLength: reading.winLength };
+  if (!modesFor(reading.variant).includes(next.mode)) next.mode = modesFor(reading.variant)[0]!;
+  return { state: next, reading };
+}
+
+/** The seed shown in an empty seed box, and played when the box stays empty: kept while the rules it carries are the ones
+ *  chosen, and made anew when they change. Level, mark and opponent do not matter to it. */
+export function placeholderFor({ variant, size, winLength }: Pick<SetupState, "variant" | "size" | "winLength">, previous: string | null): string {
+  const kept = previous === null ? null : parseSeed(previous);
+  winLength = clampWinLength(variant, size, winLength);
+  return kept && !("error" in kept) && kept.variant === variant && kept.size === size && kept.winLength === winLength ? previous! : newSeed(variant, size, winLength);
 }

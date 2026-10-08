@@ -18,10 +18,13 @@
     "test:unit": "node --test \"tests/unit/*.test.ts\"",
     "test:contract": "node --test \"tests/contract/*.test.ts\"",
     "test:e2e": "playwright test",
+    "test:e2e:quick": "node scripts/e2e.mjs quick",
+    "test:e2e:heavy": "node scripts/e2e.mjs heavy",
     "test:perf": "playwright test -c playwright.perf.config.ts",
     "test": "npm run typecheck && npm run test:unit && npm run test:contract",
     "check": "node scripts/check-sw.mjs && node scripts/check-build.mjs && node scripts/check-core-purity.mjs && node scripts/check-no-dom-builders.mjs --final && node scripts/check-theme.mjs && node scripts/check-theme-tokens.mjs && node scripts/check-contrast.mjs && node scripts/check-breakpoints.mjs && node scripts/check-names.mjs",
     "audit": "node scripts/audit.mjs",
+    "audit:quick": "node scripts/audit.mjs --skip-perf",
     "test:parity": "playwright test -c playwright.parity.config.ts"
   },
   "devDependencies": {

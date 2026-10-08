@@ -89,6 +89,53 @@ export function parseSeed(text: string): ParsedSeed {
   return { variant: rules.variant, size: rules.size as 3 | 4 | 5, winLength: rules.winLength, body };
 }
 
+// ---- Reading the seed box. Never fails: any text is a seed, a part of one, or the starting value for one. ----
+
+const SEPARATORS = /[\s_\-‐-―−]/gu;
+
+/** The text with its spelling removed: folded to plain letters and digits (full-width forms too), upper case, and with
+ *  spaces, dashes and underscores taken out. Everything else stays, so different texts stay different. */
+export function normaliseSeedText(text: string): string {
+  return String(text ?? "").normalize("NFKC").toUpperCase().replace(SEPARATORS, "");
+}
+
+export interface SeedFallback {
+  variant: Variant;
+  size: 3 | 4 | 5;
+  winLength: number;
+}
+
+export type SeedReading =
+  | { kind: "exact"; seed: string; variant: Variant; size: 3 | 4 | 5; winLength: number }
+  | { kind: "body" | "derived"; seed: string };
+
+const BODY = new RegExp("^[" + SEED_ALPHABET + "]{" + BODY_LENGTH + "}" + "$");
+const standard = (prefix: string, body: string): string => `${prefix}-${body.slice(0, 4)}-${body.slice(4)}`;
+
+// Eight characters from the text alone: two independent 32 bit hashes give 64 bits, more than the 29^8 seeds need.
+function deriveBody(text: string): string {
+  const streams = ["a", "b"].map((salt) => randomSource(hashString(`seed-${salt}#${text}`)));
+  let body = "";
+  for (let i = 0; i < BODY_LENGTH; i++) body += SEED_ALPHABET[streams[i & 1]!() % SEED_ALPHABET.length];
+  return body;
+}
+
+/** What the seed box means. `null` for blank text. A seed in any spelling is that seed (and its rules); eight good
+ *  characters, or a good eight after an unknown rules part, are kept with the current rules in front; anything else
+ *  gives a seed made from the text, the same one every time. */
+export function resolveSeed(text: string, current: SeedFallback): SeedReading | null {
+  const clean = normaliseSeedText(text);
+  if (clean === "") return null;
+  const prefix = rulesCode(current.variant, current.size, current.winLength);
+  const body = clean.slice(-BODY_LENGTH);
+  if (clean.length === 3 + BODY_LENGTH && BODY.test(body)) {
+    const spelled = standard(clean.slice(0, 3), body);
+    const parsed = parseSeed(spelled);
+    return "error" in parsed ? { kind: "body", seed: standard(prefix, body) } : { kind: "exact", seed: spelled, variant: parsed.variant, size: parsed.size, winLength: parsed.winLength };
+  }
+  return BODY.test(clean) ? { kind: "body", seed: standard(prefix, clean) } : { kind: "derived", seed: standard(prefix, deriveBody(clean)) };
+}
+
 /** The mark a player takes when they let the game decide. Fixed by the seed. */
 export function pickMark(seed: string): Mark {
   return rngFor(seed, -1)() % 2 === 0 ? "X" : "O";

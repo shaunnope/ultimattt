@@ -4,9 +4,11 @@
 // The base path is a build-time setting (research R3). It is passed to Vite through the child's environment here, in
 // process, because a shell can rewrite a value that starts with a slash (Git Bash turns /ultimattt into a Windows path).
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canReuseBuild } from "./lib/build-reuse.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -18,6 +20,12 @@ function run(label, script, args, env = {}) {
     console.error(`build: ${label} failed`);
     process.exit(result.status ?? 1);
   }
+}
+
+// TTT_BUILD_FRESH=1 means a build was made moments ago by the caller (see scripts/lib/build-reuse.mjs)
+if (canReuseBuild(process.env, process.argv, (dir) => existsSync(join(root, dir)))) {
+  console.log("build: reusing the build made by the caller");
+  process.exit(0);
 }
 
 const kit = bin("@sveltejs/kit", "svelte-kit.js");

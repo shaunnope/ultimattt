@@ -5,7 +5,8 @@ import { describeMove } from "../../src/ui/replay-text.ts";
 import { fromMoves } from "../../src/core/variants.ts";
 import { legalMoves, apply as applyCube, newGame as newCube } from "../../src/core/cube.ts";
 import { recordFromGame, configFromRecord, packLink, unpackLink } from "../../src/core/record.ts";
-import { applySeedToSetup, DEFAULT_SETUP } from "../../src/ui/setup-model.ts";
+import { parseSeed } from "../../src/core/seed.ts";
+import { applySeedText, DEFAULT_SETUP } from "../../src/ui/setup-model.ts";
 import type { CubeMove, GameConfig, Move } from "../../src/core/types.ts";
 
 const classic: GameConfig = { variant: "classic", size: 3, winLength: 3, scoring: "lines", lockFaces: false, mode: "local" };
@@ -86,28 +87,22 @@ test("a finished game becomes a record and back, for every kind of game", () => 
 });
 
 test("a pasted seed sets the variant and board size on the start screen", () => {
-  let result = applySeedToSetup(DEFAULT_SETUP, "5X5-BXK4-M9TR");
-  assert.ok(!("error" in result));
-  if (!("error" in result)) {
-    assert.equal(result.variant, "classic");
-    assert.equal(result.size, 5);
-  }
-  result = applySeedToSetup({ ...DEFAULT_SETUP, variant: "classic" }, "ult-bxk4-m9tr");
-  assert.ok(!("error" in result));
-  if (!("error" in result)) assert.equal(result.variant, "ultimate");
-  result = applySeedToSetup({ ...DEFAULT_SETUP, mode: "computer" }, "CUB-BXK4-M9TR");
-  assert.ok(!("error" in result));
-  if (!("error" in result)) {
-    assert.equal(result.variant, "cube");
-    assert.equal(result.mode, "local");
-  }
+  let { state: result } = applySeedText(DEFAULT_SETUP, "5X5-BXK4-M9TR");
+  assert.equal(result.variant, "classic");
+  assert.equal(result.size, 5);
+  ({ state: result } = applySeedText({ ...DEFAULT_SETUP, variant: "classic" }, "ult-bxk4-m9tr"));
+  assert.equal(result.variant, "ultimate");
+  ({ state: result } = applySeedText({ ...DEFAULT_SETUP, mode: "computer" }, "CUB-BXK4-M9TR"));
+  assert.equal(result.variant, "cube");
+  assert.equal(result.mode, "local");
 });
 
-test("a bad seed is explained, not guessed at", () => {
-  for (const bad of ["nope", "3X3-AXK4-M9TR", "9X9-BXK4-M9TR", ""]) {
-    const result = applySeedToSetup(DEFAULT_SETUP, bad);
-    assert.ok("error" in result, bad);
+test("text that is not a seed is read as a derived seed, and strict link reading still refuses it", () => {
+  for (const bad of ["nope", "3X3-AXK4-M9TR", "9X9-AXK4-M9TR"]) {
+    assert.equal(applySeedText(DEFAULT_SETUP, bad).reading?.kind, "derived", bad);
+    assert.ok("error" in parseSeed(bad), bad);
   }
+  assert.equal(applySeedText(DEFAULT_SETUP, "").reading, null);
 });
 
 test("a lock game's record replays to the same final state and status, including an early end", () => {
