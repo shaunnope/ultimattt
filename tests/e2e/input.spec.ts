@@ -147,7 +147,8 @@ test("Ultimate, start to end, with the keyboard only", async ({ page }) => {
   await expectResult(page, config, moves);
 });
 
-test("Cube, start to end, with the keyboard only (flat view, layer turns from the picker)", async ({ page }) => {
+test("Cube, start to end, with the keyboard only (flat view, layer turns from the picker)", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "a keyboard-only game is a desktop input; the phone is covered by touch");
   test.setTimeout(240_000);
   const { moves, config } = randomGame("cube", 17);
   await keyboardStart(page, "cube");

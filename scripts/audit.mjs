@@ -15,6 +15,11 @@ import { startStaticServer } from "./lib/serve.mjs";
 
 export const THRESHOLDS = { accessibility: 0.9, interactiveMs: 3000 };
 
+/** `--skip-perf` leaves out the timing suite, for a run made right after `npm run test:perf`. Releases run it all. */
+export function parseAuditArgs(argv) {
+  return { perf: !argv.includes("--skip-perf") };
+}
+
 /** The two numbers we gate on, out of a Lighthouse result. Missing numbers stay null and fail the gate. */
 export function readLighthouse(lhr) {
   const accessibility = lhr?.categories?.accessibility?.score;
@@ -48,7 +53,8 @@ export function evaluateAudit({ accessibility, interactiveMs, axe }) {
 
 async function main() {
   const root = process.cwd();
-  const build = spawnSync("npm", ["run", "build"], { cwd: root, stdio: "inherit", shell: true });
+  // one build, root and sub-path, which the installability and timing runs below reuse instead of building again
+  const build = spawnSync(process.execPath, ["scripts/build.mjs", "--subpath"], { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
 
   const server = await startStaticServer(join(root, "build"), 0);
@@ -93,12 +99,17 @@ async function main() {
     if (problems.length) process.exitCode = 1;
 
     // Installability: manifest, service worker, offline
-    const installable = spawnSync("npx", ["playwright", "test", "tests/e2e/installable.spec.ts", "--project=desktop"], { cwd: root, stdio: "inherit", shell: true });
+    const fresh = { ...process.env, TTT_BUILD_FRESH: "1" };
+    const installable = spawnSync("npx", ["playwright", "test", "tests/e2e/installable.spec.ts", "--project=desktop"], { cwd: root, stdio: "inherit", shell: true, env: fresh });
     if (installable.status !== 0) process.exitCode = 1;
 
     // Timing: the computer replies in under a second, and the cube stays smooth, on a 4x slower CPU.
-    const perf = spawnSync("npm", ["run", "test:perf"], { cwd: root, stdio: "inherit", shell: true });
-    if (perf.status !== 0) process.exitCode = 1;
+    if (parseAuditArgs(process.argv.slice(2)).perf) {
+      const perf = spawnSync("npm", ["run", "test:perf"], { cwd: root, stdio: "inherit", shell: true, env: fresh });
+      if (perf.status !== 0) process.exitCode = 1;
+    } else {
+      console.log("audit: timing suite skipped (--skip-perf)");
+    }
   } finally {
     await server.stop();
   }

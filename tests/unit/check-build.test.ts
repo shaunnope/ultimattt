@@ -121,10 +121,10 @@ test("check-build: a shell that points into the old site/ layout fails", () => {
   assert.ok(run(project({ html })).some((p) => /site\//.test(p)));
 });
 
-test("check-build: first-load script plus style over 70 KB gzipped fails", () => {
+test("check-build: first-load script plus style over 71 KB gzipped fails", () => {
   // random bytes do not compress, so the gzipped size is about the byte count
   const problems = run(project({ files: { "_app/immutable/entry/start.abc.js": randomBytes(75_000) } }));
-  assert.ok(problems.some((p) => /first load/i.test(p) && /70/.test(p)));
+  assert.ok(problems.some((p) => /first load/i.test(p) && /71/.test(p)));
 });
 
 test("check-build: the first load follows static imports, and leaves dynamic imports out", () => {

@@ -27,6 +27,11 @@ test.beforeEach(async ({ page }) => {
 async function fix(page: Page): Promise<void> {
   await page.addInitScript(() => {
     let s = 123456789;
+    // the start screen now draws its placeholder seed from the stream; a screen whose pairing code is part of the capture
+    // starts the stream over just before the code is made, as it began in the app that took the baseline
+    (window as unknown as { restartRandom: () => void }).restartRandom = () => {
+      s = 123456789;
+    };
     Math.random = () => {
       s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
       return s / 4294967296;
@@ -40,12 +45,13 @@ async function fix(page: Page): Promise<void> {
   });
 }
 
+// the seed box shows a placeholder seed that follows the rules and is random, so its box is masked wherever it appears
 async function shoot(page: Page, name: string, scheme: string): Promise<void> {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     // let layout settle after the resize
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    await expect(page).toHaveScreenshot(`${name}-${width}-${scheme}.png`, { fullPage: true });
+    await expect(page).toHaveScreenshot(`${name}-${width}-${scheme}.png`, { fullPage: true, mask: [page.locator("#seed-input")] });
   }
 }
 
@@ -167,6 +173,7 @@ for (const scheme of ["light", "dark"] as const) {
       await fix(page);
       await page.goto("./");
       await choose(page, "A friend on another device");
+      await page.evaluate(() => (window as unknown as { restartRandom: () => void }).restartRandom());
       await page.getByRole("button", { name: "Host game" }).click();
       await expect(page.locator("#join-code-display")).toBeVisible();
       await shoot(page, "host-waiting", scheme);

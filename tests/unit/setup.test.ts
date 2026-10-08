@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  configFromSetup, modesFor, DEFAULT_SETUP, initialSetup, applySeedToSetup, chooseSize, chooseVariant, chooseMode, winLengthChoice, seedControlsVisible,
+  configFromSetup, modesFor, DEFAULT_SETUP, initialSetup, applySeedText, placeholderFor, chooseSize, chooseVariant, chooseMode, winLengthChoice, seedControlsVisible, type SetupState,
 } from "../../src/ui/setup-model.ts";
 import { parseSeed, pickMark } from "../../src/core/seed.ts";
-import { winLengthOptions } from "../../src/core/rules.ts";
+import { rulesCode, winLengthOptions } from "../../src/core/rules.ts";
 
 test("every variant can be played with a friend on this device or on another; only Classic and Ultimate have a computer", () => {
   assert.deepEqual(modesFor("cube"), ["local", "network"]);
@@ -109,12 +109,10 @@ test("a remembered valid size and win length are kept, and a seed keeps its own 
   const saved = { ...DEFAULT_SETUP, variant: "ultimate" as const, size: 5 as const, winLength: 5 };
   const opened = initialSetup(saved);
   assert.deepEqual([opened.size, opened.winLength], [5, 5]);
-  const seeded = applySeedToSetup(DEFAULT_SETUP, "U54-BXK4-M9TR");
-  assert.ok(!("error" in seeded));
-  if (!("error" in seeded)) assert.deepEqual([seeded.size, seeded.winLength], [5, 4]);
-  const legacy = applySeedToSetup(DEFAULT_SETUP, "CUB-BXK4-M9TR");
-  assert.ok(!("error" in legacy));
-  if (!("error" in legacy)) assert.deepEqual([legacy.size, legacy.winLength], [3, 3]);
+  const seeded = applySeedText(DEFAULT_SETUP, "U54-BXK4-M9TR").state;
+  assert.deepEqual([seeded.size, seeded.winLength], [5, 4]);
+  const legacy = applySeedText(DEFAULT_SETUP, "CUB-BXK4-M9TR").state;
+  assert.deepEqual([legacy.size, legacy.winLength], [3, 3]);
 });
 
 test("size can be chosen for every variant", () => {
@@ -148,16 +146,44 @@ test("the seed field and paste only appear for the computer opponent; leaving it
 });
 
 test("a pasted seed sets the variant, board size and win length", () => {
-  let result = applySeedToSetup(DEFAULT_SETUP, "C53-BXK4-M9TR");
-  assert.ok(!("error" in result));
-  if (!("error" in result)) assert.deepEqual({ v: result.variant, s: result.size, k: result.winLength }, { v: "classic", s: 5, k: 3 });
-  result = applySeedToSetup(DEFAULT_SETUP, "u44-bxk4-m9tr");
-  assert.ok(!("error" in result));
-  if (!("error" in result)) assert.deepEqual({ v: result.variant, s: result.size, k: result.winLength }, { v: "ultimate", s: 4, k: 4 });
-  result = applySeedToSetup(DEFAULT_SETUP, "5X5-BXK4-M9TR"); // a 001 seed: Classic 5×5 with its four in a row
-  assert.ok(!("error" in result));
-  if (!("error" in result)) assert.deepEqual({ v: result.variant, s: result.size, k: result.winLength }, { v: "classic", s: 5, k: 4 });
-  assert.ok("error" in applySeedToSetup(DEFAULT_SETUP, "nope"));
+  const rules = (text: string) => {
+    const { state } = applySeedText(DEFAULT_SETUP, text);
+    return { v: state.variant, s: state.size, k: state.winLength };
+  };
+  assert.deepEqual(rules("C53-BXK4-M9TR"), { v: "classic", s: 5, k: 3 });
+  assert.deepEqual(rules("u44-bxk4-m9tr"), { v: "ultimate", s: 4, k: 4 });
+  assert.deepEqual(rules("5X5-BXK4-M9TR"), { v: "classic", s: 5, k: 4 }); // a 001 seed: Classic 5×5 with its four in a row
+});
+
+test("text that is not a seed is read as one, never as an error, and changes no choice", () => {
+  for (const text of ["nope", "banana", "3X3-AXK4-M9TR", "9X9-AXK4-M9TR", "😀", "x".repeat(5000)]) {
+    const { state, reading } = applySeedText(DEFAULT_SETUP, text);
+    assert.deepEqual(state, DEFAULT_SETUP, text.slice(0, 20));
+    assert.equal(reading?.kind, "derived", text.slice(0, 20));
+    assert.ok(!("error" in parseSeed(reading!.seed)));
+    assert.ok(reading!.seed.startsWith("C33-"), reading!.seed);
+  }
+  assert.equal(applySeedText(DEFAULT_SETUP, "").reading, null);
+  assert.equal(applySeedText(DEFAULT_SETUP, "  --  ").reading, null);
+});
+
+test("placeholderFor keeps the previous seed while the rules stay and makes a new one when they change", () => {
+  const first = placeholderFor(DEFAULT_SETUP, null);
+  assert.ok(!("error" in parseSeed(first)));
+  assert.ok(first.startsWith(rulesCode("classic", 3, 3) + "-"), first);
+  assert.equal(placeholderFor(DEFAULT_SETUP, first), first);
+  assert.equal(placeholderFor({ ...DEFAULT_SETUP, level: 5 as const, markChoice: "O" as const, mode: "local" as const } as SetupState, first), first, "level, mark and opponent do not matter");
+  for (const changed of [{ size: 4 as const, winLength: 4 }, { variant: "ultimate" as const }, { winLength: 3, size: 5 as const }]) {
+    const next = placeholderFor({ ...DEFAULT_SETUP, ...changed }, first);
+    assert.notEqual(next, first);
+    assert.ok(next.startsWith(rulesCode(changed.variant ?? "classic", changed.size ?? 3, changed.winLength ?? 3) + "-"), next);
+    assert.ok(!("error" in parseSeed(next)));
+  }
+});
+
+test("placeholderFor ignores a previous seed that is not a valid seed, and gives different seeds when asked afresh", () => {
+  assert.ok(!("error" in parseSeed(placeholderFor(DEFAULT_SETUP, "nope"))));
+  assert.ok(new Set(Array.from({ length: 20 }, () => placeholderFor(DEFAULT_SETUP, null))).size > 15);
 });
 
 test("with nothing remembered the start screen opens on the defaults", () => {
@@ -193,4 +219,40 @@ test("the Cube options do not change which controls show or which opponents exis
   assert.equal(seedControlsVisible({ ...state, mode: "local" }), false);
   assert.equal(seedControlsVisible({ ...DEFAULT_SETUP, mode: "computer" }), true);
   assert.equal(chooseVariant(state, "classic").scoring, "faces", "the choice is remembered, only the config forces it off");
+});
+
+test("every spelling of one seed starts the identical game", () => {
+  const spellings = [
+    "C53-BXK4-M9TR", "c53-bxk4-m9tr", "C53BXK4M9TR", " C53 BXK4 M9TR ", "C53\tBXK4\tM9TR", "C53–BXK4–M9TR", "C53_BXK4_M9TR", "Ｃ５３-BXK4-M9TR",
+  ];
+  const games = spellings.map((text) => {
+    const { state, reading } = applySeedText({ ...DEFAULT_SETUP, markChoice: "random" }, text);
+    return configFromSetup(state, reading!.seed);
+  });
+  for (const game of games) assert.deepEqual(game, games[0], "same seed, rules and chosen mark");
+  assert.equal(games[0]!.seed, "C53-BXK4-M9TR");
+});
+
+test("a legacy seed in any spelling keeps its own prefix, so its game does not change", () => {
+  for (const text of ["3X3-BXK4-M9TR", "3x3bxk4m9tr", " 3x3 bxk4 m9tr "]) {
+    const { reading } = applySeedText(DEFAULT_SETUP, text);
+    assert.equal(reading?.seed, "3X3-BXK4-M9TR", text);
+  }
+});
+
+test("eight good characters, or a good eight after an unknown rules part, keep the current choices and put the current rules in front", () => {
+  const current: SetupState = { ...DEFAULT_SETUP, variant: "ultimate", size: 4, winLength: 4 };
+  for (const text of ["BXK4M9TR", "bxk4-m9tr", "XYZ-BXK4-M9TR", "C34-BXK4-M9TR", "9X9-BXK4-M9TR"]) {
+    const { state, reading } = applySeedText(current, text);
+    assert.deepEqual(state, current, text);
+    assert.deepEqual(reading, { kind: "body", seed: "U44-BXK4-M9TR" }, text);
+  }
+});
+
+test("a seed for another variant moves the opponent to one the variant offers, and keeps other choices", () => {
+  const { state } = applySeedText({ ...DEFAULT_SETUP, level: 5, markChoice: "O" }, "CUB-BXK4-M9TR");
+  assert.equal(state.variant, "cube");
+  assert.equal(state.mode, "local");
+  assert.equal(state.level, 5);
+  assert.equal(state.markChoice, "O");
 });

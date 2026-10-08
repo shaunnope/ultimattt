@@ -101,7 +101,8 @@ test("scoring blocks placement until a layer is turned; turning can break the li
   await expectTurn(page, "O");
 });
 
-test("a whole game played in 3D by mouse ends with the result the rules give", async ({ page }) => {
+test("a whole game played in 3D by mouse ends with the result the rules give", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "mouse play is a desktop input; the phone is covered by touch");
   test.setTimeout(120_000);
   await startCube(page);
   const { moves, end } = randomGame(11);

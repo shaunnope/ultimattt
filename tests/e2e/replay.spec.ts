@@ -6,7 +6,7 @@ import { startGame, choose, turnLayer, pillScore } from "./helpers.ts";
 //  - when a game ends the result dialog offers "Watch replay"; the controls then offer "Share replay"
 //  - the replay has a group "Replay controls": Play/Pause, "Step back", "Step forward", a slider named
 //    "Replay position", a "Speed" select (0.5×, 1×, 2×, 4×), a list named "Moves", and "Close replay"
-//  - the start screen has #seed-input (with #seed-error), only while the opponent is the computer; a seed sets the variant, size and win length
+//  - the start screen has #seed-input (with #seed-note, never an error), only while the opponent is the computer; a seed sets the variant, size and win length
 //  - a link ?watch=...&rules=...&game=...&moves=... (plus &seed=... for a computer game) opens the replay without touching the saved game
 
 const WIN = [0, 3, 1, 4, 2]; // X wins the top row
@@ -138,7 +138,7 @@ test("Play this seed is offered only when the game has a seed, and fills in the 
   await expect(page.locator("#replay-rules")).not.toContainText(/seed/i);
 });
 
-test("a pasted seed sets the variant, board and win length; a bad one is explained", async ({ page }) => {
+test("a pasted seed sets the variant, board and win length; any other text still starts a game", async ({ page }) => {
   await page.goto("./");
   await page.locator("#seed-input").fill("c53-bxk4-m9tr");
   await expect(page.locator("input#size-5")).toBeChecked();
@@ -152,9 +152,11 @@ test("a pasted seed sets the variant, board and win length; a bad one is explain
   await expect(page.locator("input#variant-ultimate")).toBeChecked();
 
   await page.locator("#seed-input").fill("nope");
-  await expect(page.locator("#seed-error")).toContainText(/seed looks like/i);
+  await expect(page.locator("#seed-error")).toHaveCount(0);
+  await expect(page.locator("#seed-note")).toBeVisible();
+  const promised = /This plays as (\S+)\./.exec(await page.locator("#seed-note").innerText())?.[1];
   await page.getByRole("button", { name: "Start game" }).click();
-  await expect(page.getByRole("button", { name: "Start game" })).toBeVisible();
+  await expect(page.locator("#game-seed")).toContainText(promised!);
 });
 
 test("no seed shows anywhere for a game with no computer: setup, game, replay or share", async ({ page, context }) => {

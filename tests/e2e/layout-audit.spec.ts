@@ -50,6 +50,13 @@ for (const scheme of ["light", "dark"] as const) {
       await auditAtWidths(page, "start screen, Twist rules");
     });
 
+    test("start screen with text in the seed box and the note that says which seed it plays", async ({ page }) => {
+      await page.goto("./");
+      await page.locator("#seed-input").fill("a long piece of text that is not a seed");
+      await expect(page.locator("#seed-note")).toBeVisible();
+      await auditAtWidths(page, "start screen, seed note");
+    });
+
     test("start screen offline: two-device play says what to do", async ({ page, context }) => {
       await page.goto("./");
       await expect(page.getByRole("button", { name: "Start game" })).toBeVisible(); // the app boots after the load event
