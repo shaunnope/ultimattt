@@ -71,7 +71,18 @@ test("separator-only text counts as blank: no note, and the placeholder is playe
   expect(await seedPlayed(page)).toBe(placeholder);
 });
 
-test("an empty box shows a real seed as its placeholder and plays exactly that seed", async ({ page }) => {
+test("typing text and then deleting it all hides the note, keeps the placeholder and plays it", async ({ page }) => {
+  await openStart(page);
+  const placeholder = (await input(page).getAttribute("placeholder"))!;
+  await input(page).fill("banana");
+  await expect(note(page)).toBeVisible();
+  await input(page).fill("");
+  await expect(note(page)).toBeHidden();
+  await expect(input(page)).toHaveAttribute("placeholder", placeholder);
+  expect(await seedPlayed(page)).toBe(placeholder);
+});
+
+test("an empty box shows a real seed as its placeholder and plays exactly that seed",async ({ page }) => {
   await openStart(page);
   const placeholder = await input(page).getAttribute("placeholder");
   expect(placeholder).toMatch(seedFormat("C33"));

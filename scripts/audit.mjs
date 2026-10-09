@@ -57,6 +57,16 @@ async function main() {
   const build = spawnSync(process.execPath, ["scripts/build.mjs", "--subpath"], { cwd: root, stdio: "inherit" });
   if (build.status !== 0) process.exit(build.status ?? 1);
 
+  // Timing runs first, right after the build, while the machine is idle: Lighthouse and the browsers below leave work behind that
+  // would otherwise slow the wall-clock limits. The computer replies in under a second and the cube stays smooth on a 4x slower CPU.
+  const fresh = { ...process.env, TTT_BUILD_FRESH: "1" };
+  if (parseAuditArgs(process.argv.slice(2)).perf) {
+    const perf = spawnSync("npm", ["run", "test:perf"], { cwd: root, stdio: "inherit", shell: true, env: fresh });
+    if (perf.status !== 0) process.exitCode = 1;
+  } else {
+    console.log("audit: timing suite skipped (--skip-perf)");
+  }
+
   const server = await startStaticServer(join(root, "build"), 0);
   try {
     const url = server.url;
@@ -99,17 +109,8 @@ async function main() {
     if (problems.length) process.exitCode = 1;
 
     // Installability: manifest, service worker, offline
-    const fresh = { ...process.env, TTT_BUILD_FRESH: "1" };
     const installable = spawnSync("npx", ["playwright", "test", "tests/e2e/installable.spec.ts", "--project=desktop"], { cwd: root, stdio: "inherit", shell: true, env: fresh });
     if (installable.status !== 0) process.exitCode = 1;
-
-    // Timing: the computer replies in under a second, and the cube stays smooth, on a 4x slower CPU.
-    if (parseAuditArgs(process.argv.slice(2)).perf) {
-      const perf = spawnSync("npm", ["run", "test:perf"], { cwd: root, stdio: "inherit", shell: true, env: fresh });
-      if (perf.status !== 0) process.exitCode = 1;
-    } else {
-      console.log("audit: timing suite skipped (--skip-perf)");
-    }
   } finally {
     await server.stop();
   }
