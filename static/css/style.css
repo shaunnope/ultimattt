@@ -163,6 +163,8 @@ body.modal-open { overflow: hidden; }
 /* ---- update bar ---- */
 #update-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; font-weight: 600; }
 #update-bar[hidden] { display: none; }
+#update-bar > svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#update-bar .update-text { flex: 1; }
 
 /* ---- game screen ---- */
 .game-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
@@ -286,6 +288,8 @@ body.modal-open { overflow: hidden; }
 .qr-bg { fill: var(--qr-bg); }
 .qr-fg { fill: var(--qr-fg); }
 .net-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+#net-status { display: inline-flex; align-items: center; gap: 6px; }
+#net-status svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #net-status[data-tone="error"], .net-error { color: var(--error); font-weight: 700; }
 
 /* ---- help ---- */
