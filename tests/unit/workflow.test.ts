@@ -15,23 +15,38 @@ function job(name: string): string {
   return match![1]!;
 }
 
-test("there is a test job and an audit job, each building and running its checks", () => {
-  assert.match(job("test"), /npm run test:e2e/);
+test("there is a test job, a sharded browser-test job and an audit job, each building and running its checks", () => {
+  assert.match(job("test"), /npm run test:unit/);
   assert.match(job("test"), /npm run check/);
+  assert.match(job("e2e"), /playwright test --shard=\$\{\{ matrix\.shard \}\}\/\$\{\{ strategy\.job-total \}\}/);
+  assert.match(job("e2e"), /npx playwright install/);
   assert.match(job("audit"), /npm ci/);
   assert.match(job("audit"), /npx playwright install/);
   assert.match(job("audit"), /npm run audit/);
 });
 
-test("deploy waits for both the tests and the audit", () => {
+test("deploy waits for the tests, the browser tests and the audit", () => {
   const needs = /needs:\s*(?:\[([^\]]*)\]|(\S+))/.exec(job("deploy"));
   assert.ok(needs, "deploy has no needs");
   const list = (needs![1] ?? needs![2] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  assert.deepEqual(list.sort(), ["audit", "test"]);
+  assert.deepEqual(list.sort(), ["audit", "e2e", "test"]);
 });
 
 test("the audit job does not publish anything", () => {
   assert.doesNotMatch(job("audit"), /upload-pages-artifact|deploy-pages/);
+});
+
+test("pull requests run the checks but never deploy, and a pull request cannot cancel a deploy", () => {
+  assert.match(text, /^  pull_request:/m);
+  assert.match(job("deploy"), /if:.*github\.ref == 'refs\/heads\/main'/);
+  assert.match(job("deploy"), /if:.*!= 'pull_request'/);
+  assert.match(job("deploy"), /cancel-in-progress: false/);
+  assert.doesNotMatch(text.split("\njobs:")[0]!, /pages: write/, "only deploy may write to Pages");
+});
+
+test("the audit runs the timing suite with the CI matrix; the full matrix stays a manual run", () => {
+  assert.match(job("audit"), /PERF_MATRIX: ci/);
+  assert.doesNotMatch(job("e2e"), /PERF_MATRIX/);
 });
 
 test("only one job uploads the site, and deploy is the only one that publishes it", () => {

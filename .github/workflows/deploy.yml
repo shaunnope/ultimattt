@@ -1,30 +1,32 @@
 name: Test, audit and deploy to GitHub Pages
 
-# On every push to main: build and run every check and test, run the release audit (Lighthouse accessibility,
-# axe, first-load time, installability, computer reply time and cube frame times), and only if both pass
-# publish build-subpath/ (the app under /ultimattt/) to GitHub Pages. The constitution requires the audit to pass before any deploy.
+# On every push to main and every pull request: build and run every check and test (static checks, then the browser tests as
+# parallel shards), run the release audit (Lighthouse accessibility, axe, first-load time, installability, computer reply time
+# and cube frame times), and only on main, only if all of them pass, publish build-subpath/ (the app under /ultimattt/) to
+# GitHub Pages. The constitution requires the audit to pass before any deploy.
 # One-time setup: in the repository's Settings > Pages, set Source to "GitHub Actions", and turn on "Enforce HTTPS".
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# a newer run of the same branch or pull request replaces the older one; deploy has its own group below
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # typecheck, unit and contract tests, the repository checks (which need the build); uploads the site for deploy
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -34,31 +36,75 @@ jobs:
       - run: npm run test:unit
       - run: npm run test:contract
       - run: npm run check
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: build-subpath
 
-  audit:
+  # the browser tests, split evenly by test across runners (the Playwright web server builds the site itself)
+  e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      E2E_WORKERS: 4
+      E2E_SKIP_AUDITED: 1 # the audit job runs installable.spec
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      # builds the app, then Lighthouse, axe, installability and the timing tests
+      - id: browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      # builds the app, then Lighthouse, axe, installability and the timing tests; PERF_MATRIX=ci runs the top computer level only
+      # (the full matrix is for `npm run test:perf` by hand)
       - run: npm run audit
+        env:
+          PERF_MATRIX: ci
 
   deploy:
-    needs: [test, audit]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [test, e2e, audit]
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 // @ts-expect-error plain .mjs script, no types
 import { canReuseBuild } from "../../scripts/lib/build-reuse.mjs";
 import { e2eShard, HEAVY_SPECS } from "../../scripts/lib/e2e-shard.mjs";
+import { ALL_LEVELS, replyLevels } from "../../scripts/lib/perf-matrix.mjs";
 
 // The slow stages of the release gates are made cheaper without changing what they check: a build made moments ago is reused
 // instead of repeated, and the browser tests can run as two shards.
@@ -40,4 +41,22 @@ test("e2e shards: heavy runs only the long game specs, quick runs everything els
 
 test("an unknown shard name is an error, so a typo cannot silently run nothing", () => {
   assert.throws(() => e2eShard("heavyy"), /E2E_SHARD/);
+});
+
+test("the audited spec is left out of the shards only when asked, in every shard", () => {
+  const path = "/repo/tests/e2e/installable.spec.ts";
+  for (const name of [undefined, "quick", "heavy"]) {
+    assert.ok(!e2eShard(name).testIgnore.test(path), `${name ?? "all"} runs it by default`);
+    assert.ok(e2eShard(name, true).testIgnore.test(path), `${name ?? "all"} leaves it to the audit`);
+    assert.ok(e2eShard(name, true).testIgnore.test("/repo/tests/e2e/perf.spec.ts"), "timing tests stay out");
+    assert.ok(!e2eShard(name, true).testIgnore.test("/repo/tests/e2e/cube.spec.ts") || name === "quick", "other specs still run");
+  }
+});
+
+test("the timing suite runs every computer level by hand and only the top one in CI", () => {
+  assert.deepEqual(replyLevels({}), ALL_LEVELS);
+  assert.deepEqual(replyLevels({ PERF_MATRIX: "full" }), ALL_LEVELS);
+  assert.deepEqual(replyLevels({ PERF_MATRIX: "ci" }), ["5. Master"]);
+  assert.equal(ALL_LEVELS.length, 5);
+  assert.throws(() => replyLevels({ PERF_MATRIX: "cii" }), /PERF_MATRIX/);
 });

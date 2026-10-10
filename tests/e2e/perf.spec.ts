@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { choose, startGame, turnLayer } from "./helpers.ts";
+import { replyLevels } from "../../scripts/lib/perf-matrix.mjs";
 
 // SC-004: the computer replies in under a second, at every level, on every Classic and Ultimate size up to Ultimate 5x5.
 // SC-005: the cube stays smooth while it is turned and while a layer turn is previewed and confirmed, on 5x5 too.
@@ -17,7 +18,8 @@ async function throttle(page: Page, rate = 4): Promise<void> {
   await client.send("Emulation.setCPUThrottlingRate", { rate });
 }
 
-const LEVELS = ["1. Beginner", "2. Casual", "3. Steady", "4. Sharp", "5. Master"];
+// every level by hand; the audit in CI sets PERF_MATRIX=ci and runs the top level only (see scripts/lib/perf-matrix.mjs)
+const LEVELS = replyLevels(process.env);
 
 interface Case {
   variant: "Classic" | "Ultimate";
