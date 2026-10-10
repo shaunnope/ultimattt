@@ -23,7 +23,8 @@
   margin: calc(var(--u) / -2) 0 0 calc(var(--u) / -2);
   transform:
     var(--turn, rotateX(0deg) rotateY(0deg) rotateZ(0deg)) var(--face)
-    translate3d(calc(var(--u) * var(--dx)), calc(var(--u) * var(--dy)), calc(var(--E) / 2));
+    translate3d(calc(var(--u) * var(--dx)), calc(var(--u) * var(--dy)), calc(var(--E) / 2))
+    scale(0.98);
   transition: transform var(--duration-turn) ease;
   backface-visibility: hidden;
 }
@@ -35,6 +36,29 @@
   border: max(1.5px, calc(var(--u, 70px) / 28)) solid var(--rim); border-radius: max(3px, calc(var(--u, 70px) / 8));
   background-color: var(--tint, var(--surface-strong));
 }
+/* 3D stickers draw their rim without `border`: Firefox's GPU renderer stretches a bordered, rounded box non-uniformly
+   under a slanted 3D transform (dark bands that change with the view angle). Instead the sticker's own background is
+   the opaque rim, and a ::before inset by the rim width carries the tint, hatch and rings. Only backgrounds are used,
+   which Firefox renders as plain rounded fills. */
+.cube-scene .sticker.sticker {
+  --w: max(1.5px, calc(var(--u) / 28)); --r: max(3px, calc(var(--u) / 8));
+  border: 0; border-radius: var(--r);
+  background-color: color-mix(in srgb, var(--ink) 50%, var(--tint, var(--surface-strong)));
+  background-image: none; box-shadow: none;
+}
+.cube-scene .sticker::before {
+  content: ""; position: absolute; inset: var(--w); z-index: -1; pointer-events: none;
+  border-radius: max(0px, calc(var(--r) - var(--w)));
+  background-color: var(--tint, var(--surface-strong));
+}
+.cube-scene .sticker[data-line]::before { background-image: repeating-linear-gradient(45deg, transparent 0 7px, var(--hatch) 7px 9px); }
+.cube-scene .sticker[data-locked="true"]:not([data-line])::before { background-image: repeating-linear-gradient(-45deg, transparent 0 6px, var(--hatch) 6px 8px); }
+.cube-scene .sticker[data-line="X"]::before { box-shadow: inset 0 0 0 4px var(--mark-x); }
+.cube-scene .sticker[data-line="O"]::before { box-shadow: inset 0 0 0 4px var(--mark-o); }
+.cube-scene .sticker[data-last]::before { box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 5px var(--tint, var(--surface-strong)); }
+.cube-scene .sticker[data-line][data-last]::before { box-shadow: inset 0 0 0 4px var(--mark-x), inset 0 0 0 7px var(--ink), inset 0 0 0 9px var(--tint, var(--surface-strong)); }
+.cube-scene .sticker[data-line="O"][data-last]::before { box-shadow: inset 0 0 0 4px var(--mark-o), inset 0 0 0 7px var(--ink), inset 0 0 0 9px var(--tint, var(--surface-strong)); }
+.cube-scene .sticker[data-ghost]::before { outline: 1.5px dashed var(--ink); outline-offset: -1.5px; }
 .sticker[data-face="0"] { --tint: var(--face-0); }
 .sticker[data-face="1"] { --tint: var(--face-1); }
 .sticker[data-face="2"] { --tint: var(--face-2); }
